@@ -1,0 +1,37 @@
+version: '3.3'
+services:
+
+  gc_db:
+    image: 'mariadb:10.5.9'
+    container_name: gc_db
+    volumes:
+      - './mysql:/var/lib/mysql'
+    ports:
+      - '3306:3306'
+    environment:
+      MYSQL_ROOT_USER: 'root'
+      MYSQL_DATABASE: 'gc'
+      MYSQL_ROOT_PASSWORD: 'root'
+
+  gc_web:
+    image: wordpress
+    container_name: gc_web
+    ports:
+      - '80:80'
+    links:
+      - gc_db
+    volumes:
+      - './app:/var/www/html'
+    environment:
+      WEB_DOCUMENT_ROOT: /var/www/html
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: gc_phpmyadmin
+    environment:
+      PMA_HOST: gc_db
+    ports:
+      - 8080:80
+    depends_on:
+      - gc_db
+    restart: always
