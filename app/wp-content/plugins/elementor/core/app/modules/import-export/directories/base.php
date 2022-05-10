@@ -107,6 +107,7 @@ abstract class Base {
 
 	/**
 	 * @param array $import_settings
+	 *
 	 * @return array
 	 */
 	protected function import( array $import_settings ) {

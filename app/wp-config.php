@@ -1,4 +1,6 @@
 <?php
+define( 'WP_CACHE', true ); // Added by WP Rocket
+
 
 /**
  * The base configuration for WordPress
@@ -9,7 +11,7 @@
  *
  * This file contains the following configurations:
  *
- * * Database settings
+ * * MySQL settings
  * * Secret keys
  * * Database table prefix
  * * ABSPATH
@@ -19,28 +21,26 @@
  * @package WordPress
  */
 
-// ** Database settings - You can get this info from your web host ** //
+// ** MySQL settings - You can get this info from your web host ** //
 /** The name of the database for WordPress */
 define('DB_NAME', $_ENV['WP_DB_NAME']);
 
-/** Database username */
+/** MySQL database username */
 define('DB_USER', $_ENV['WP_DB_USER']);
 
-/** Database password */
+/** MySQL database password */
 define('DB_PASSWORD', $_ENV['WP_DB_PASSWORD']);
 
-/** Database hostname */
-define('DB_HOST', $_ENV['WP_DB_HOST'] . ':3306');
+/** MySQL hostname */
+define('DB_HOST', $_ENV['WP_DB_HOST']);
 
-/** Database charset to use in creating database tables. */
+/** Database Charset to use in creating database tables. */
 define('DB_CHARSET', 'utf8mb4');
 
-/** The database collate type. Don't change this if in doubt. */
+/** The Database Collate type. Don't change this if in doubt. */
 define('DB_COLLATE', '');
 
-define('FORCE_SSL', true);
-define('FORCE_SSL_ADMIN', true);
-$_SERVER['HTTPS'] = 'on';
+define('DISALLOW_FILE_EDIT', true);
 
 define('AS3CF_SETTINGS', serialize(array(
 	'provider' => 'aws',
@@ -49,14 +49,16 @@ define('AS3CF_SETTINGS', serialize(array(
 	'bucket' => $_ENV['WP_S3_BUCKET']
 )));
 
-define('WP_ALLOW_MULTISITE', true);
-define('MULTISITE', true);
-define('SUBDOMAIN_INSTALL', false);
-define('DOMAIN_CURRENT_SITE', 'gc.adventistas.org');
-define('PATH_CURRENT_SITE', '/');
-define('SITE_ID_CURRENT_SITE', 1);
-define('BLOG_ID_CURRENT_SITE', 1);
 
+define('FORCE_SSL', true);
+define('FORCE_SSL_ADMIN', true);
+$_SERVER['HTTPS'] = 'on';
+
+@ini_set('upload_max_filesize', '128M');
+@ini_set('post_max_size', '128M');
+@ini_set('memory_limit', '256M');
+@ini_set('max_execution_time', '300');
+@ini_set('max_input_time', '300');
 
 /**#@+
  * Authentication unique keys and salts.
@@ -69,14 +71,14 @@ define('BLOG_ID_CURRENT_SITE', 1);
  *
  * @since 2.6.0
  */
-define('AUTH_KEY',         'T{U3#]c@7<@aK,`yNs%c1KzR2z*,G<pXI8b?tG;qP~_EPynw!!93P|N|[a_l)t60');
-define('SECURE_AUTH_KEY',  'Nofgsf&E)7 +WmBdRfk50)ewp2YnjtL?$w `$VACv9O)X5*{5`2!eD~|lnmqunz+');
-define('LOGGED_IN_KEY',    'e}yIYrkhH f8w/}U:+*i$?8(73I[:g`}kwF}D$xQ.dwT0C6b<(90j/;{C-kEx[^#');
-define('NONCE_KEY',        '[#lBvTgiXcV%XMRc_z?.p5_H<19LS+M4<Z#O_rhr])Koc#L9H}EQ@N1DP%h:ZSLX');
-define('AUTH_SALT',        'WUS<]?yiJ%-GN>XFL>BXK(?-=*A`+sI$r:![pwMAYFxK3&-/|U/]8FiR8dRkFh92');
-define('SECURE_AUTH_SALT', 'j]6kr^1[9tqBsCiqIcmG<-pD2W(D]7!Ko}h&$ENo)L@np,ER|?YTeO!|f@c1rj;g');
-define('LOGGED_IN_SALT',   ':~BrBZCmv%*nU15jgX>0]$xls,TFs7BFxZF8:d}K2UFuZ!D;*rdvD6q!wPZ8s5A(');
-define('NONCE_SALT',       'I1k7L,4Fn%]PL-%:d rI9b[43X8J1u_}{YC;NP&jdW3onR .#1-TGO}y0ZE uO0?');
+define('AUTH_KEY',         '^Q!rc$`Z;H$ptPUDWsJn(8[8+cikbAipZ!B(af,&%`$%6YKTWyo%Ge%<tPadtg&>');
+define('SECURE_AUTH_KEY',  '+`P.`FM*62(O>t*G(!2.jV&3)}++7:sA-E/ZfRN g&X<$xviDM);Hd0qcGY}/OGi');
+define('LOGGED_IN_KEY',    'vfS6N6z_&X;lgr0_K_3y3QG%R _nspAWlW8-NTg*mM &U7]@37<mh-#*,PpqW}Y;');
+define('NONCE_KEY',        'ju=qE?mYJfa=bi@F9UhLZcuQPS/-#dHo K_4z%3;g)8RJ(w[FhmQ<w]YA3rQDpX:');
+define('AUTH_SALT',        'RVr#4j) 3ek(O!GaZ3lY>8byFH4|#,$Wc m<|>Z+1Pg`)<I=+d/rLp+%2D([%7sr');
+define('SECURE_AUTH_SALT', '`i+mzA<TWNv=i)xO6YiCE7o{e2U&jTtQI(LG;[6`E+4I.l<96]G&f3M/]8]*R}C]');
+define('LOGGED_IN_SALT',   'tkwhIFB;8&314+2uOt)z~qU>+5~7`>Hmj_.<3m$B^=W/`yBdJ,J!O~F$D%BSAU-W');
+define('NONCE_SALT',       'bNo`@fD`N*y>X+1-e34wca/$J%}oDKW]QK0[R=96@VKr/S2<(2@oH}Ap,B{Q6px_');
 
 /**#@-*/
 

@@ -21,7 +21,6 @@ if ( is_multisite() && ! is_network_admin() ) {
 	exit;
 }
 
-// Used in the HTML title tag.
 $title       = __( 'Add Themes' );
 $parent_file = 'themes.php';
 
@@ -35,10 +34,9 @@ if ( false === $installed_themes ) {
 	$installed_themes = array();
 }
 
-foreach ( $installed_themes as $theme_slug => $theme_data ) {
-	// Ignore child themes.
-	if ( str_contains( $theme_slug, '/' ) ) {
-		unset( $installed_themes[ $theme_slug ] );
+foreach ( $installed_themes as $k => $v ) {
+	if ( false !== strpos( $k, '/' ) ) {
+		unset( $installed_themes[ $k ] );
 	}
 }
 
@@ -222,14 +220,15 @@ require_once ABSPATH . 'wp-admin/admin-header.php';
 		// and to ensure tags are translated.
 		$feature_list = get_theme_feature_list( false );
 
-		foreach ( $feature_list as $feature_group => $features ) {
+		foreach ( $feature_list as $feature_name => $features ) {
 			echo '<fieldset class="filter-group">';
-			echo '<legend>' . esc_html( $feature_group ) . '</legend>';
+			$feature_name = esc_html( $feature_name );
+			echo '<legend>' . $feature_name . '</legend>';
 			echo '<div class="filter-group-feature">';
 			foreach ( $features as $feature => $feature_name ) {
 				$feature = esc_attr( $feature );
 				echo '<input type="checkbox" id="filter-id-' . $feature . '" value="' . $feature . '" /> ';
-				echo '<label for="filter-id-' . $feature . '">' . esc_html( $feature_name ) . '</label>';
+				echo '<label for="filter-id-' . $feature . '">' . $feature_name . '</label>';
 			}
 			echo '</div>';
 			echo '</fieldset>';
@@ -374,9 +373,7 @@ if ( $tab ) {
 					<# } #>
 					<# if ( data.customize_url ) { #>
 						<# if ( ! data.active ) { #>
-							<# if ( ! data.block_theme ) { #>
-								<a class="button load-customize" href="{{ data.customize_url }}"><?php _e( 'Live Preview' ); ?></a>
-							<# } #>
+							<a class="button load-customize" href="{{ data.customize_url }}"><?php _e( 'Live Preview' ); ?></a>
 						<# } else { #>
 							<a class="button load-customize" href="{{ data.customize_url }}"><?php _e( 'Customize' ); ?></a>
 						<# } #>

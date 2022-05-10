@@ -1,4 +1,4 @@
-/*! elementor - v3.6.5 - 27-04-2022 */
+/*! elementor - v3.5.6 - 28-02-2022 */
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
@@ -19,16 +19,6 @@ module.exports = __webpack_require__(/*! core-js/library/fn/array/from */ "../no
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
 module.exports = __webpack_require__(/*! core-js/library/fn/array/is-array */ "../node_modules/core-js/library/fn/array/is-array.js");
-
-/***/ }),
-
-/***/ "../node_modules/@babel/runtime-corejs2/core-js/json/stringify.js":
-/*!************************************************************************!*\
-  !*** ../node_modules/@babel/runtime-corejs2/core-js/json/stringify.js ***!
-  \************************************************************************/
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-module.exports = __webpack_require__(/*! core-js/library/fn/json/stringify */ "../node_modules/core-js/library/fn/json/stringify.js");
 
 /***/ }),
 
@@ -2595,10 +2585,6 @@ _Object$defineProperty(exports, "__esModule", {
 
 exports["default"] = void 0;
 
-__webpack_require__(/*! core-js/modules/es6.object.to-string.js */ "../node_modules/core-js/modules/es6.object.to-string.js");
-
-__webpack_require__(/*! core-js/modules/es6.regexp.to-string.js */ "../node_modules/core-js/modules/es6.regexp.to-string.js");
-
 var _typeof2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/typeof */ "../node_modules/@babel/runtime-corejs2/helpers/typeof.js"));
 
 var _classCallCheck2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/classCallCheck */ "../node_modules/@babel/runtime-corejs2/helpers/classCallCheck.js"));
@@ -2718,10 +2704,9 @@ var ArgsObject = /*#__PURE__*/function (_InstanceType) {
     key: "requireArgumentConstructor",
     value: function requireArgumentConstructor(property, type) {
       var args = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : this.args;
-      this.requireArgument(property, args); // Note: Converting the constructor to string in order to avoid equation issues
-      // due to different memory addresses between iframes (window.Object !== window.top.Object).
+      this.requireArgument(property, args);
 
-      if (args[property].constructor.toString() !== type.prototype.constructor.toString()) {
+      if (args[property].constructor !== type) {
         throw Error("".concat(property, " invalid constructor type."));
       }
     }
@@ -3274,7 +3259,7 @@ var Scroll = /*#__PURE__*/function () {
         threshold: buildThreshholds(obj.sensitivity)
       };
 
-      function handleIntersect(entries) {
+      function handleIntersect(entries, observer) {
         var currentScrollY = entries[0].boundingClientRect.y,
             isInViewport = entries[0].isIntersecting,
             intersectionScrollDirection = currentScrollY < lastScrollY ? 'down' : 'up',
@@ -3417,393 +3402,9 @@ exports["default"] = _default;
 
 /***/ }),
 
-/***/ "../core/common/assets/js/views/modal/header.js":
-/*!******************************************************!*\
-  !*** ../core/common/assets/js/views/modal/header.js ***!
-  \******************************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-
-var _Object$defineProperty = __webpack_require__(/*! @babel/runtime-corejs2/core-js/object/define-property */ "../node_modules/@babel/runtime-corejs2/core-js/object/define-property.js");
-
-var _interopRequireDefault = __webpack_require__(/*! @babel/runtime-corejs2/helpers/interopRequireDefault */ "../node_modules/@babel/runtime-corejs2/helpers/interopRequireDefault.js");
-
-_Object$defineProperty(exports, "__esModule", {
-  value: true
-});
-
-exports["default"] = void 0;
-
-var _classCallCheck2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/classCallCheck */ "../node_modules/@babel/runtime-corejs2/helpers/classCallCheck.js"));
-
-var _createClass2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createClass */ "../node_modules/@babel/runtime-corejs2/helpers/createClass.js"));
-
-var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/inherits */ "../node_modules/@babel/runtime-corejs2/helpers/inherits.js"));
-
-var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
-
-var _default = /*#__PURE__*/function (_Marionette$LayoutVie) {
-  (0, _inherits2.default)(_default, _Marionette$LayoutVie);
-
-  var _super = (0, _createSuper2.default)(_default);
-
-  function _default() {
-    (0, _classCallCheck2.default)(this, _default);
-    return _super.apply(this, arguments);
-  }
-
-  (0, _createClass2.default)(_default, [{
-    key: "className",
-    value: function className() {
-      return 'elementor-templates-modal__header';
-    }
-  }, {
-    key: "getTemplate",
-    value: function getTemplate() {
-      return '#tmpl-elementor-templates-modal__header';
-    }
-  }, {
-    key: "regions",
-    value: function regions() {
-      return {
-        logoArea: '.elementor-templates-modal__header__logo-area',
-        tools: '#elementor-template-library-header-tools',
-        menuArea: '.elementor-templates-modal__header__menu-area'
-      };
-    }
-  }, {
-    key: "ui",
-    value: function ui() {
-      return {
-        closeModal: '.elementor-templates-modal__header__close'
-      };
-    }
-  }, {
-    key: "events",
-    value: function events() {
-      return {
-        'click @ui.closeModal': 'onCloseModalClick'
-      };
-    }
-  }, {
-    key: "templateHelpers",
-    value: function templateHelpers() {
-      return {
-        closeType: this.getOption('closeType')
-      };
-    }
-  }, {
-    key: "onCloseModalClick",
-    value: function onCloseModalClick() {
-      this._parent._parent._parent.hideModal();
-    }
-  }]);
-  return _default;
-}(Marionette.LayoutView);
-
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ "../core/common/assets/js/views/modal/layout.js":
-/*!******************************************************!*\
-  !*** ../core/common/assets/js/views/modal/layout.js ***!
-  \******************************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-
-var _Object$defineProperty = __webpack_require__(/*! @babel/runtime-corejs2/core-js/object/define-property */ "../node_modules/@babel/runtime-corejs2/core-js/object/define-property.js");
-
-var _interopRequireDefault = __webpack_require__(/*! @babel/runtime-corejs2/helpers/interopRequireDefault */ "../node_modules/@babel/runtime-corejs2/helpers/interopRequireDefault.js");
-
-_Object$defineProperty(exports, "__esModule", {
-  value: true
-});
-
-exports["default"] = void 0;
-
-var _classCallCheck2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/classCallCheck */ "../node_modules/@babel/runtime-corejs2/helpers/classCallCheck.js"));
-
-var _createClass2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createClass */ "../node_modules/@babel/runtime-corejs2/helpers/createClass.js"));
-
-var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/inherits */ "../node_modules/@babel/runtime-corejs2/helpers/inherits.js"));
-
-var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
-
-var _header = _interopRequireDefault(__webpack_require__(/*! ./header */ "../core/common/assets/js/views/modal/header.js"));
-
-var _logo = _interopRequireDefault(__webpack_require__(/*! ./logo */ "../core/common/assets/js/views/modal/logo.js"));
-
-var _loading = _interopRequireDefault(__webpack_require__(/*! ./loading */ "../core/common/assets/js/views/modal/loading.js"));
-
-var _default = /*#__PURE__*/function (_Marionette$LayoutVie) {
-  (0, _inherits2.default)(_default, _Marionette$LayoutVie);
-
-  var _super = (0, _createSuper2.default)(_default);
-
-  function _default() {
-    (0, _classCallCheck2.default)(this, _default);
-    return _super.apply(this, arguments);
-  }
-
-  (0, _createClass2.default)(_default, [{
-    key: "el",
-    value: function el() {
-      return this.getModal().getElements('widget');
-    }
-  }, {
-    key: "regions",
-    value: function regions() {
-      return {
-        modalHeader: '.dialog-header',
-        modalContent: '.dialog-lightbox-content',
-        modalLoading: '.dialog-lightbox-loading'
-      };
-    }
-  }, {
-    key: "initialize",
-    value: function initialize() {
-      this.modalHeader.show(new _header.default(this.getHeaderOptions()));
-    }
-  }, {
-    key: "getModal",
-    value: function getModal() {
-      if (!this.modal) {
-        this.initModal();
-      }
-
-      return this.modal;
-    }
-  }, {
-    key: "initModal",
-    value: function initModal() {
-      var modalOptions = {
-        className: 'elementor-templates-modal',
-        closeButton: false,
-        draggable: false,
-        hide: {
-          onOutsideClick: false,
-          onEscKeyPress: false
-        }
-      };
-      jQuery.extend(true, modalOptions, this.getModalOptions());
-      this.modal = elementorCommon.dialogsManager.createWidget('lightbox', modalOptions);
-      this.modal.getElements('message').append(this.modal.addElement('content'), this.modal.addElement('loading'));
-
-      if (modalOptions.draggable) {
-        this.draggableModal();
-      }
-    }
-  }, {
-    key: "showModal",
-    value: function showModal() {
-      this.getModal().show();
-    }
-  }, {
-    key: "hideModal",
-    value: function hideModal() {
-      this.getModal().hide();
-    }
-  }, {
-    key: "draggableModal",
-    value: function draggableModal() {
-      var $modalWidgetContent = this.getModal().getElements('widgetContent');
-      $modalWidgetContent.draggable({
-        containment: 'parent',
-        stop: function stop() {
-          $modalWidgetContent.height('');
-        }
-      });
-      $modalWidgetContent.css('position', 'absolute');
-    }
-  }, {
-    key: "getModalOptions",
-    value: function getModalOptions() {
-      return {};
-    }
-  }, {
-    key: "getLogoOptions",
-    value: function getLogoOptions() {
-      return {};
-    }
-  }, {
-    key: "getHeaderOptions",
-    value: function getHeaderOptions() {
-      return {
-        closeType: 'normal'
-      };
-    }
-  }, {
-    key: "getHeaderView",
-    value: function getHeaderView() {
-      return this.modalHeader.currentView;
-    }
-  }, {
-    key: "showLoadingView",
-    value: function showLoadingView() {
-      this.modalLoading.show(new _loading.default());
-      this.modalLoading.$el.show();
-      this.modalContent.$el.hide();
-    }
-  }, {
-    key: "hideLoadingView",
-    value: function hideLoadingView() {
-      this.modalContent.$el.show();
-      this.modalLoading.$el.hide();
-    }
-  }, {
-    key: "showLogo",
-    value: function showLogo() {
-      this.getHeaderView().logoArea.show(new _logo.default(this.getLogoOptions()));
-    }
-  }]);
-  return _default;
-}(Marionette.LayoutView);
-
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ "../core/common/assets/js/views/modal/loading.js":
-/*!*******************************************************!*\
-  !*** ../core/common/assets/js/views/modal/loading.js ***!
-  \*******************************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-
-var _Object$defineProperty = __webpack_require__(/*! @babel/runtime-corejs2/core-js/object/define-property */ "../node_modules/@babel/runtime-corejs2/core-js/object/define-property.js");
-
-var _interopRequireDefault = __webpack_require__(/*! @babel/runtime-corejs2/helpers/interopRequireDefault */ "../node_modules/@babel/runtime-corejs2/helpers/interopRequireDefault.js");
-
-_Object$defineProperty(exports, "__esModule", {
-  value: true
-});
-
-exports["default"] = void 0;
-
-var _classCallCheck2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/classCallCheck */ "../node_modules/@babel/runtime-corejs2/helpers/classCallCheck.js"));
-
-var _createClass2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createClass */ "../node_modules/@babel/runtime-corejs2/helpers/createClass.js"));
-
-var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/inherits */ "../node_modules/@babel/runtime-corejs2/helpers/inherits.js"));
-
-var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
-
-var _default = /*#__PURE__*/function (_Marionette$ItemView) {
-  (0, _inherits2.default)(_default, _Marionette$ItemView);
-
-  var _super = (0, _createSuper2.default)(_default);
-
-  function _default() {
-    (0, _classCallCheck2.default)(this, _default);
-    return _super.apply(this, arguments);
-  }
-
-  (0, _createClass2.default)(_default, [{
-    key: "id",
-    value: function id() {
-      return 'elementor-template-library-loading';
-    }
-  }, {
-    key: "getTemplate",
-    value: function getTemplate() {
-      return '#tmpl-elementor-template-library-loading';
-    }
-  }]);
-  return _default;
-}(Marionette.ItemView);
-
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ "../core/common/assets/js/views/modal/logo.js":
-/*!****************************************************!*\
-  !*** ../core/common/assets/js/views/modal/logo.js ***!
-  \****************************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-
-var _Object$defineProperty = __webpack_require__(/*! @babel/runtime-corejs2/core-js/object/define-property */ "../node_modules/@babel/runtime-corejs2/core-js/object/define-property.js");
-
-var _interopRequireDefault = __webpack_require__(/*! @babel/runtime-corejs2/helpers/interopRequireDefault */ "../node_modules/@babel/runtime-corejs2/helpers/interopRequireDefault.js");
-
-_Object$defineProperty(exports, "__esModule", {
-  value: true
-});
-
-exports["default"] = void 0;
-
-var _classCallCheck2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/classCallCheck */ "../node_modules/@babel/runtime-corejs2/helpers/classCallCheck.js"));
-
-var _createClass2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createClass */ "../node_modules/@babel/runtime-corejs2/helpers/createClass.js"));
-
-var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/inherits */ "../node_modules/@babel/runtime-corejs2/helpers/inherits.js"));
-
-var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
-
-var _default = /*#__PURE__*/function (_Marionette$ItemView) {
-  (0, _inherits2.default)(_default, _Marionette$ItemView);
-
-  var _super = (0, _createSuper2.default)(_default);
-
-  function _default() {
-    (0, _classCallCheck2.default)(this, _default);
-    return _super.apply(this, arguments);
-  }
-
-  (0, _createClass2.default)(_default, [{
-    key: "getTemplate",
-    value: function getTemplate() {
-      return '#tmpl-elementor-templates-modal__header__logo';
-    }
-  }, {
-    key: "className",
-    value: function className() {
-      return 'elementor-templates-modal__header__logo';
-    }
-  }, {
-    key: "events",
-    value: function events() {
-      return {
-        click: 'onClick'
-      };
-    }
-  }, {
-    key: "templateHelpers",
-    value: function templateHelpers() {
-      return {
-        title: this.getOption('title')
-      };
-    }
-  }, {
-    key: "onClick",
-    value: function onClick() {
-      var clickCallback = this.getOption('click');
-
-      if (clickCallback) {
-        clickCallback();
-      }
-    }
-  }]);
-  return _default;
-}(Marionette.ItemView);
-
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ "../modules/web-cli/assets/js/modules/command-base.js":
+/***/ "../core/common/assets/js/api/modules/command-base.js":
 /*!************************************************************!*\
-  !*** ../modules/web-cli/assets/js/modules/command-base.js ***!
+  !*** ../core/common/assets/js/api/modules/command-base.js ***!
   \************************************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -3853,10 +3454,6 @@ var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtim
 var _defineProperty2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/defineProperty */ "../node_modules/@babel/runtime-corejs2/helpers/defineProperty.js"));
 
 var _argsObject = _interopRequireDefault(__webpack_require__(/*! elementor-assets-js/modules/imports/args-object */ "../assets/dev/js/modules/imports/args-object.js"));
-
-var _helpers = _interopRequireDefault(__webpack_require__(/*! elementor-api/utils/helpers */ "../modules/web-cli/assets/js/utils/helpers.js"));
-
-var _forceMethodImplementation = _interopRequireDefault(__webpack_require__(/*! ../utils/force-method-implementation */ "../modules/web-cli/assets/js/utils/force-method-implementation.js"));
 
 var CommandBase = /*#__PURE__*/function (_ArgsObject) {
   (0, _inherits2.default)(CommandBase, _ArgsObject);
@@ -3981,7 +3578,7 @@ var CommandBase = /*#__PURE__*/function (_ArgsObject) {
     value: function apply() {
       var args = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
       // eslint-disable-line no-unused-vars
-      (0, _forceMethodImplementation.default)();
+      elementorModules.ForceMethodImplementation();
     }
     /**
      * Function run().
@@ -4196,8 +3793,7 @@ var CommandBase = /*#__PURE__*/function (_ArgsObject) {
     key: "onCatchApply",
     value: function onCatchApply(e) {
       this.runCatchHooks(e);
-
-      _helpers.default.consoleError(e);
+      elementorCommon.helpers.consoleError(e);
     }
   }], [{
     key: "getInstanceType",
@@ -4231,9 +3827,9 @@ exports["default"] = CommandBase;
 
 /***/ }),
 
-/***/ "../modules/web-cli/assets/js/modules/commands/close.js":
+/***/ "../core/common/assets/js/api/modules/commands/close.js":
 /*!**************************************************************!*\
-  !*** ../modules/web-cli/assets/js/modules/commands/close.js ***!
+  !*** ../core/common/assets/js/api/modules/commands/close.js ***!
   \**************************************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -4258,7 +3854,7 @@ var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-c
 
 var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
 
-var _commandBase = _interopRequireDefault(__webpack_require__(/*! elementor-api/modules/command-base */ "../modules/web-cli/assets/js/modules/command-base.js"));
+var _commandBase = _interopRequireDefault(__webpack_require__(/*! elementor-api/modules/command-base */ "../core/common/assets/js/api/modules/command-base.js"));
 
 var Close = /*#__PURE__*/function (_CommandBase) {
   (0, _inherits2.default)(Close, _CommandBase);
@@ -4285,9 +3881,9 @@ exports["default"] = _default;
 
 /***/ }),
 
-/***/ "../modules/web-cli/assets/js/modules/commands/index.js":
+/***/ "../core/common/assets/js/api/modules/commands/index.js":
 /*!**************************************************************!*\
-  !*** ../modules/web-cli/assets/js/modules/commands/index.js ***!
+  !*** ../core/common/assets/js/api/modules/commands/index.js ***!
   \**************************************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -4321,17 +3917,17 @@ _Object$defineProperty(exports, "Toggle", {
   }
 });
 
-var _close = __webpack_require__(/*! ./close */ "../modules/web-cli/assets/js/modules/commands/close.js");
+var _close = __webpack_require__(/*! ./close */ "../core/common/assets/js/api/modules/commands/close.js");
 
-var _open = __webpack_require__(/*! ./open */ "../modules/web-cli/assets/js/modules/commands/open.js");
+var _open = __webpack_require__(/*! ./open */ "../core/common/assets/js/api/modules/commands/open.js");
 
-var _toggle = __webpack_require__(/*! ./toggle */ "../modules/web-cli/assets/js/modules/commands/toggle.js");
+var _toggle = __webpack_require__(/*! ./toggle */ "../core/common/assets/js/api/modules/commands/toggle.js");
 
 /***/ }),
 
-/***/ "../modules/web-cli/assets/js/modules/commands/open.js":
+/***/ "../core/common/assets/js/api/modules/commands/open.js":
 /*!*************************************************************!*\
-  !*** ../modules/web-cli/assets/js/modules/commands/open.js ***!
+  !*** ../core/common/assets/js/api/modules/commands/open.js ***!
   \*************************************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -4356,7 +3952,7 @@ var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-c
 
 var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
 
-var _commandBase = _interopRequireDefault(__webpack_require__(/*! elementor-api/modules/command-base */ "../modules/web-cli/assets/js/modules/command-base.js"));
+var _commandBase = _interopRequireDefault(__webpack_require__(/*! elementor-api/modules/command-base */ "../core/common/assets/js/api/modules/command-base.js"));
 
 var Open = /*#__PURE__*/function (_CommandBase) {
   (0, _inherits2.default)(Open, _CommandBase);
@@ -4383,9 +3979,9 @@ exports["default"] = _default;
 
 /***/ }),
 
-/***/ "../modules/web-cli/assets/js/modules/commands/toggle.js":
+/***/ "../core/common/assets/js/api/modules/commands/toggle.js":
 /*!***************************************************************!*\
-  !*** ../modules/web-cli/assets/js/modules/commands/toggle.js ***!
+  !*** ../core/common/assets/js/api/modules/commands/toggle.js ***!
   \***************************************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -4410,7 +4006,7 @@ var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-c
 
 var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
 
-var _commandBase = _interopRequireDefault(__webpack_require__(/*! elementor-api/modules/command-base */ "../modules/web-cli/assets/js/modules/command-base.js"));
+var _commandBase = _interopRequireDefault(__webpack_require__(/*! elementor-api/modules/command-base */ "../core/common/assets/js/api/modules/command-base.js"));
 
 var Toggle = /*#__PURE__*/function (_CommandBase) {
   (0, _inherits2.default)(Toggle, _CommandBase);
@@ -4441,9 +4037,9 @@ exports["default"] = _default;
 
 /***/ }),
 
-/***/ "../modules/web-cli/assets/js/modules/component-base.js":
+/***/ "../core/common/assets/js/api/modules/component-base.js":
 /*!**************************************************************!*\
-  !*** ../modules/web-cli/assets/js/modules/component-base.js ***!
+  !*** ../core/common/assets/js/api/modules/component-base.js ***!
   \**************************************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -4486,12 +4082,8 @@ var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtim
 
 var _toolkit = __webpack_require__(/*! @reduxjs/toolkit */ "../node_modules/@reduxjs/toolkit/dist/redux-toolkit.esm.js");
 
-var _module = _interopRequireDefault(__webpack_require__(/*! elementor-assets-js/modules/imports/module.js */ "../assets/dev/js/modules/imports/module.js"));
-
-var _forceMethodImplementation = _interopRequireDefault(__webpack_require__(/*! ../utils/force-method-implementation */ "../modules/web-cli/assets/js/utils/force-method-implementation.js"));
-
-var ComponentBase = /*#__PURE__*/function (_Module) {
-  (0, _inherits2.default)(ComponentBase, _Module);
+var ComponentBase = /*#__PURE__*/function (_elementorModules$Mod) {
+  (0, _inherits2.default)(ComponentBase, _elementorModules$Mod);
 
   var _super = (0, _createSuper2.default)(ComponentBase);
 
@@ -4579,7 +4171,7 @@ var ComponentBase = /*#__PURE__*/function (_Module) {
   }, {
     key: "getNamespace",
     value: function getNamespace() {
-      (0, _forceMethodImplementation.default)();
+      elementorModules.ForceMethodImplementation();
     }
   }, {
     key: "getRootContainer",
@@ -4998,24 +4590,24 @@ var ComponentBase = /*#__PURE__*/function (_Module) {
   }, {
     key: "toggleRouteClass",
     value: function toggleRouteClass(route, state) {
-      document.body.classList.toggle(this.getBodyClass(route), state);
+      elementorCommon.elements.$body.toggleClass(this.getBodyClass(route), state);
     }
   }, {
     key: "toggleHistoryClass",
     value: function toggleHistoryClass() {
-      document.body.classList.toggle('e-routes-has-history', !!$e.routes.getHistory(this.getRootContainer()).length);
+      elementorCommon.elements.$body.toggleClass('e-routes-has-history', !!$e.routes.getHistory(this.getRootContainer()).length);
     }
   }]);
   return ComponentBase;
-}(_module.default);
+}(elementorModules.Module);
 
 exports["default"] = ComponentBase;
 
 /***/ }),
 
-/***/ "../modules/web-cli/assets/js/modules/component-modal-base.js":
+/***/ "../core/common/assets/js/api/modules/component-modal-base.js":
 /*!********************************************************************!*\
-  !*** ../modules/web-cli/assets/js/modules/component-modal-base.js ***!
+  !*** ../core/common/assets/js/api/modules/component-modal-base.js ***!
   \********************************************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -5046,11 +4638,9 @@ var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-c
 
 var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
 
-var _componentBase = _interopRequireDefault(__webpack_require__(/*! ./component-base */ "../modules/web-cli/assets/js/modules/component-base.js"));
+var _componentBase = _interopRequireDefault(__webpack_require__(/*! ./component-base */ "../core/common/assets/js/api/modules/component-base.js"));
 
-var commands = _interopRequireWildcard(__webpack_require__(/*! ./commands/ */ "../modules/web-cli/assets/js/modules/commands/index.js"));
-
-var _forceMethodImplementation = _interopRequireDefault(__webpack_require__(/*! ../utils/force-method-implementation */ "../modules/web-cli/assets/js/utils/force-method-implementation.js"));
+var commands = _interopRequireWildcard(__webpack_require__(/*! ./commands/ */ "../core/common/assets/js/api/modules/commands/index.js"));
 
 var ComponentModalBase = /*#__PURE__*/function (_ComponentBase) {
   (0, _inherits2.default)(ComponentModalBase, _ComponentBase);
@@ -5120,7 +4710,7 @@ var ComponentModalBase = /*#__PURE__*/function (_ComponentBase) {
   }, {
     key: "getModalLayout",
     value: function getModalLayout() {
-      (0, _forceMethodImplementation.default)();
+      elementorModules.ForceMethodImplementation();
     }
   }]);
   return ComponentModalBase;
@@ -5130,9 +4720,9 @@ exports["default"] = ComponentModalBase;
 
 /***/ }),
 
-/***/ "../modules/web-cli/assets/js/modules/hook-break.js":
+/***/ "../core/common/assets/js/api/modules/hook-break.js":
 /*!**********************************************************!*\
-  !*** ../modules/web-cli/assets/js/modules/hook-break.js ***!
+  !*** ../core/common/assets/js/api/modules/hook-break.js ***!
   \**********************************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
@@ -5174,91 +4764,10 @@ exports["default"] = HookBreak;
 
 /***/ }),
 
-/***/ "../modules/web-cli/assets/js/utils/force-method-implementation.js":
-/*!*************************************************************************!*\
-  !*** ../modules/web-cli/assets/js/utils/force-method-implementation.js ***!
-  \*************************************************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-"use strict";
-
-
-var _Object$defineProperty = __webpack_require__(/*! @babel/runtime-corejs2/core-js/object/define-property */ "../node_modules/@babel/runtime-corejs2/core-js/object/define-property.js");
-
-var _interopRequireDefault = __webpack_require__(/*! @babel/runtime-corejs2/helpers/interopRequireDefault */ "../node_modules/@babel/runtime-corejs2/helpers/interopRequireDefault.js");
-
-_Object$defineProperty(exports, "__esModule", {
-  value: true
-});
-
-exports["default"] = exports.ForceMethodImplementation = void 0;
-
-__webpack_require__(/*! core-js/modules/es6.regexp.split.js */ "../node_modules/core-js/modules/es6.regexp.split.js");
-
-__webpack_require__(/*! core-js/modules/es6.string.starts-with.js */ "../node_modules/core-js/modules/es6.string.starts-with.js");
-
-__webpack_require__(/*! core-js/modules/es6.string.includes.js */ "../node_modules/core-js/modules/es6.string.includes.js");
-
-__webpack_require__(/*! core-js/modules/es7.array.includes.js */ "../node_modules/core-js/modules/es7.array.includes.js");
-
-var _classCallCheck2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/classCallCheck */ "../node_modules/@babel/runtime-corejs2/helpers/classCallCheck.js"));
-
-var _assertThisInitialized2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/assertThisInitialized */ "../node_modules/@babel/runtime-corejs2/helpers/assertThisInitialized.js"));
-
-var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/inherits */ "../node_modules/@babel/runtime-corejs2/helpers/inherits.js"));
-
-var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
-
-var _wrapNativeSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/wrapNativeSuper */ "../node_modules/@babel/runtime-corejs2/helpers/wrapNativeSuper.js"));
-
-// TODO: Copied from `assets/dev/js/modules/imports/force-method-implementation.js`;
-var ForceMethodImplementation = /*#__PURE__*/function (_Error) {
-  (0, _inherits2.default)(ForceMethodImplementation, _Error);
-
-  var _super = (0, _createSuper2.default)(ForceMethodImplementation);
-
-  function ForceMethodImplementation() {
-    var _this;
-
-    var info = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-    (0, _classCallCheck2.default)(this, ForceMethodImplementation);
-    _this = _super.call(this, "".concat(info.isStatic ? 'static ' : '').concat(info.fullName, "() should be implemented, please provide '").concat(info.functionName || info.fullName, "' functionality."));
-    Error.captureStackTrace((0, _assertThisInitialized2.default)(_this), ForceMethodImplementation);
-    return _this;
-  }
-
-  return ForceMethodImplementation;
-}( /*#__PURE__*/(0, _wrapNativeSuper2.default)(Error));
-
-exports.ForceMethodImplementation = ForceMethodImplementation;
-
-var _default = function _default() {
-  var stack = Error().stack,
-      caller = stack.split('\n')[2].trim(),
-      callerName = caller.startsWith('at new') ? 'constructor' : caller.split(' ')[1],
-      info = {};
-  info.functionName = callerName;
-  info.fullName = callerName;
-
-  if (info.functionName.includes('.')) {
-    var parts = info.functionName.split('.');
-    info.className = parts[0];
-    info.functionName = parts[1];
-  } else {
-    info.isStatic = true;
-  }
-
-  throw new ForceMethodImplementation(info);
-};
-
-exports["default"] = _default;
-
-/***/ }),
-
-/***/ "../modules/web-cli/assets/js/utils/helpers.js":
-/*!*****************************************************!*\
-  !*** ../modules/web-cli/assets/js/utils/helpers.js ***!
-  \*****************************************************/
+/***/ "../core/common/assets/js/views/modal/header.js":
+/*!******************************************************!*\
+  !*** ../core/common/assets/js/views/modal/header.js ***!
+  \******************************************************/
 /***/ ((__unused_webpack_module, exports, __webpack_require__) => {
 
 "use strict";
@@ -5274,107 +4783,368 @@ _Object$defineProperty(exports, "__esModule", {
 
 exports["default"] = void 0;
 
-__webpack_require__(/*! core-js/modules/es6.regexp.replace.js */ "../node_modules/core-js/modules/es6.regexp.replace.js");
+var _classCallCheck2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/classCallCheck */ "../node_modules/@babel/runtime-corejs2/helpers/classCallCheck.js"));
 
-__webpack_require__(/*! core-js/modules/es6.object.to-string.js */ "../node_modules/core-js/modules/es6.object.to-string.js");
+var _createClass2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createClass */ "../node_modules/@babel/runtime-corejs2/helpers/createClass.js"));
 
-__webpack_require__(/*! core-js/modules/es6.regexp.to-string.js */ "../node_modules/core-js/modules/es6.regexp.to-string.js");
+var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/inherits */ "../node_modules/@babel/runtime-corejs2/helpers/inherits.js"));
 
-var _stringify = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/core-js/json/stringify */ "../node_modules/@babel/runtime-corejs2/core-js/json/stringify.js"));
+var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
+
+var _default = /*#__PURE__*/function (_Marionette$LayoutVie) {
+  (0, _inherits2.default)(_default, _Marionette$LayoutVie);
+
+  var _super = (0, _createSuper2.default)(_default);
+
+  function _default() {
+    (0, _classCallCheck2.default)(this, _default);
+    return _super.apply(this, arguments);
+  }
+
+  (0, _createClass2.default)(_default, [{
+    key: "className",
+    value: function className() {
+      return 'elementor-templates-modal__header';
+    }
+  }, {
+    key: "getTemplate",
+    value: function getTemplate() {
+      return '#tmpl-elementor-templates-modal__header';
+    }
+  }, {
+    key: "regions",
+    value: function regions() {
+      return {
+        logoArea: '.elementor-templates-modal__header__logo-area',
+        tools: '#elementor-template-library-header-tools',
+        menuArea: '.elementor-templates-modal__header__menu-area'
+      };
+    }
+  }, {
+    key: "ui",
+    value: function ui() {
+      return {
+        closeModal: '.elementor-templates-modal__header__close'
+      };
+    }
+  }, {
+    key: "events",
+    value: function events() {
+      return {
+        'click @ui.closeModal': 'onCloseModalClick'
+      };
+    }
+  }, {
+    key: "templateHelpers",
+    value: function templateHelpers() {
+      return {
+        closeType: this.getOption('closeType')
+      };
+    }
+  }, {
+    key: "onCloseModalClick",
+    value: function onCloseModalClick() {
+      this._parent._parent._parent.hideModal();
+    }
+  }]);
+  return _default;
+}(Marionette.LayoutView);
+
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ "../core/common/assets/js/views/modal/layout.js":
+/*!******************************************************!*\
+  !*** ../core/common/assets/js/views/modal/layout.js ***!
+  \******************************************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+
+var _Object$defineProperty = __webpack_require__(/*! @babel/runtime-corejs2/core-js/object/define-property */ "../node_modules/@babel/runtime-corejs2/core-js/object/define-property.js");
+
+var _interopRequireDefault = __webpack_require__(/*! @babel/runtime-corejs2/helpers/interopRequireDefault */ "../node_modules/@babel/runtime-corejs2/helpers/interopRequireDefault.js");
+
+_Object$defineProperty(exports, "__esModule", {
+  value: true
+});
+
+exports["default"] = void 0;
 
 var _classCallCheck2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/classCallCheck */ "../node_modules/@babel/runtime-corejs2/helpers/classCallCheck.js"));
 
 var _createClass2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createClass */ "../node_modules/@babel/runtime-corejs2/helpers/createClass.js"));
 
-// TODO: Copied from `core/common/assets/js/utils/helpers.js` and modified into static functions.
-var Helpers = /*#__PURE__*/function () {
-  function Helpers() {
-    (0, _classCallCheck2.default)(this, Helpers);
+var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/inherits */ "../node_modules/@babel/runtime-corejs2/helpers/inherits.js"));
+
+var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
+
+var _header = _interopRequireDefault(__webpack_require__(/*! ./header */ "../core/common/assets/js/views/modal/header.js"));
+
+var _logo = _interopRequireDefault(__webpack_require__(/*! ./logo */ "../core/common/assets/js/views/modal/logo.js"));
+
+var _loading = _interopRequireDefault(__webpack_require__(/*! ./loading */ "../core/common/assets/js/views/modal/loading.js"));
+
+var _default = /*#__PURE__*/function (_Marionette$LayoutVie) {
+  (0, _inherits2.default)(_default, _Marionette$LayoutVie);
+
+  var _super = (0, _createSuper2.default)(_default);
+
+  function _default() {
+    (0, _classCallCheck2.default)(this, _default);
+    return _super.apply(this, arguments);
   }
 
-  (0, _createClass2.default)(Helpers, null, [{
-    key: "softDeprecated",
-    value: function softDeprecated(name, version, replacement) {
-      if (elementorWebCliConfig.isDebug) {
-        this.deprecatedMessage('soft', name, version, replacement);
+  (0, _createClass2.default)(_default, [{
+    key: "el",
+    value: function el() {
+      return this.getModal().getElements('widget');
+    }
+  }, {
+    key: "regions",
+    value: function regions() {
+      return {
+        modalHeader: '.dialog-header',
+        modalContent: '.dialog-lightbox-content',
+        modalLoading: '.dialog-lightbox-loading'
+      };
+    }
+  }, {
+    key: "initialize",
+    value: function initialize() {
+      this.modalHeader.show(new _header.default(this.getHeaderOptions()));
+    }
+  }, {
+    key: "getModal",
+    value: function getModal() {
+      if (!this.modal) {
+        this.initModal();
+      }
+
+      return this.modal;
+    }
+  }, {
+    key: "initModal",
+    value: function initModal() {
+      var modalOptions = {
+        className: 'elementor-templates-modal',
+        closeButton: false,
+        draggable: false,
+        hide: {
+          onOutsideClick: false,
+          onEscKeyPress: false
+        }
+      };
+      jQuery.extend(true, modalOptions, this.getModalOptions());
+      this.modal = elementorCommon.dialogsManager.createWidget('lightbox', modalOptions);
+      this.modal.getElements('message').append(this.modal.addElement('content'), this.modal.addElement('loading'));
+
+      if (modalOptions.draggable) {
+        this.draggableModal();
       }
     }
   }, {
-    key: "hardDeprecated",
-    value: function hardDeprecated(name, version, replacement) {
-      this.deprecatedMessage('hard', name, version, replacement);
+    key: "showModal",
+    value: function showModal() {
+      this.getModal().show();
     }
   }, {
-    key: "deprecatedMessage",
-    value: function deprecatedMessage(type, name, version, replacement) {
-      var message = "`".concat(name, "` is ").concat(type, " deprecated since ").concat(version);
-
-      if (replacement) {
-        message += " - Use `".concat(replacement, "` instead");
-      }
-
-      this.consoleWarn(message);
+    key: "hideModal",
+    value: function hideModal() {
+      this.getModal().hide();
     }
   }, {
-    key: "consoleWarn",
-    value: function consoleWarn() {
-      var _console;
-
-      var style = "font-size: 12px; background-image: url(\"".concat(elementorWebCliConfig.urls.assets, "images/logo-icon.png\"); background-repeat: no-repeat; background-size: contain;");
-
-      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
-        args[_key] = arguments[_key];
-      }
-
-      args.unshift('%c  %c', style, '');
-
-      (_console = console).warn.apply(_console, args); // eslint-disable-line no-console
-
-    }
-  }, {
-    key: "consoleError",
-    value: function consoleError(message) {
-      // TODO: function is part of $e.
-      // Show an error if devTools is available.
-      if ($e.devTools) {
-        $e.devTools.log.error(message);
-      } // If not a 'Hook-Break' then show error.
-
-
-      if (!(message instanceof $e.modules.HookBreak)) {
-        // eslint-disable-next-line no-console
-        console.error(message);
-      }
-    }
-  }, {
-    key: "deprecatedMethod",
-    value: function deprecatedMethod(methodName, version, replacement) {
-      this.deprecatedMessage('hard', methodName, version, replacement); // This itself is deprecated.
-
-      this.softDeprecated('Helpers.deprecatedMethod', '2.8.0', 'Helpers.softDeprecated || Helpers.hardDeprecated');
-    }
-  }, {
-    key: "cloneObject",
-    value: function cloneObject(object) {
-      return JSON.parse((0, _stringify.default)(object));
-    }
-  }, {
-    key: "upperCaseWords",
-    value: function upperCaseWords(string) {
-      return (string + '').replace(/^(.)|\s+(.)/g, function ($1) {
-        return $1.toUpperCase();
+    key: "draggableModal",
+    value: function draggableModal() {
+      var $modalWidgetContent = this.getModal().getElements('widgetContent');
+      $modalWidgetContent.draggable({
+        containment: 'parent',
+        stop: function stop() {
+          $modalWidgetContent.height('');
+        }
       });
+      $modalWidgetContent.css('position', 'absolute');
     }
   }, {
-    key: "getUniqueId",
-    value: function getUniqueId() {
-      return Math.random().toString(16).substr(2, 7);
+    key: "getModalOptions",
+    value: function getModalOptions() {
+      return {};
+    }
+  }, {
+    key: "getLogoOptions",
+    value: function getLogoOptions() {
+      return {};
+    }
+  }, {
+    key: "getHeaderOptions",
+    value: function getHeaderOptions() {
+      return {
+        closeType: 'normal'
+      };
+    }
+  }, {
+    key: "getHeaderView",
+    value: function getHeaderView() {
+      return this.modalHeader.currentView;
+    }
+  }, {
+    key: "showLoadingView",
+    value: function showLoadingView() {
+      this.modalLoading.show(new _loading.default());
+      this.modalLoading.$el.show();
+      this.modalContent.$el.hide();
+    }
+  }, {
+    key: "hideLoadingView",
+    value: function hideLoadingView() {
+      this.modalContent.$el.show();
+      this.modalLoading.$el.hide();
+    }
+  }, {
+    key: "showLogo",
+    value: function showLogo() {
+      this.getHeaderView().logoArea.show(new _logo.default(this.getLogoOptions()));
     }
   }]);
-  return Helpers;
-}();
+  return _default;
+}(Marionette.LayoutView);
 
-exports["default"] = Helpers;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ "../core/common/assets/js/views/modal/loading.js":
+/*!*******************************************************!*\
+  !*** ../core/common/assets/js/views/modal/loading.js ***!
+  \*******************************************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+
+var _Object$defineProperty = __webpack_require__(/*! @babel/runtime-corejs2/core-js/object/define-property */ "../node_modules/@babel/runtime-corejs2/core-js/object/define-property.js");
+
+var _interopRequireDefault = __webpack_require__(/*! @babel/runtime-corejs2/helpers/interopRequireDefault */ "../node_modules/@babel/runtime-corejs2/helpers/interopRequireDefault.js");
+
+_Object$defineProperty(exports, "__esModule", {
+  value: true
+});
+
+exports["default"] = void 0;
+
+var _classCallCheck2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/classCallCheck */ "../node_modules/@babel/runtime-corejs2/helpers/classCallCheck.js"));
+
+var _createClass2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createClass */ "../node_modules/@babel/runtime-corejs2/helpers/createClass.js"));
+
+var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/inherits */ "../node_modules/@babel/runtime-corejs2/helpers/inherits.js"));
+
+var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
+
+var _default = /*#__PURE__*/function (_Marionette$ItemView) {
+  (0, _inherits2.default)(_default, _Marionette$ItemView);
+
+  var _super = (0, _createSuper2.default)(_default);
+
+  function _default() {
+    (0, _classCallCheck2.default)(this, _default);
+    return _super.apply(this, arguments);
+  }
+
+  (0, _createClass2.default)(_default, [{
+    key: "id",
+    value: function id() {
+      return 'elementor-template-library-loading';
+    }
+  }, {
+    key: "getTemplate",
+    value: function getTemplate() {
+      return '#tmpl-elementor-template-library-loading';
+    }
+  }]);
+  return _default;
+}(Marionette.ItemView);
+
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ "../core/common/assets/js/views/modal/logo.js":
+/*!****************************************************!*\
+  !*** ../core/common/assets/js/views/modal/logo.js ***!
+  \****************************************************/
+/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+
+"use strict";
+
+
+var _Object$defineProperty = __webpack_require__(/*! @babel/runtime-corejs2/core-js/object/define-property */ "../node_modules/@babel/runtime-corejs2/core-js/object/define-property.js");
+
+var _interopRequireDefault = __webpack_require__(/*! @babel/runtime-corejs2/helpers/interopRequireDefault */ "../node_modules/@babel/runtime-corejs2/helpers/interopRequireDefault.js");
+
+_Object$defineProperty(exports, "__esModule", {
+  value: true
+});
+
+exports["default"] = void 0;
+
+var _classCallCheck2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/classCallCheck */ "../node_modules/@babel/runtime-corejs2/helpers/classCallCheck.js"));
+
+var _createClass2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createClass */ "../node_modules/@babel/runtime-corejs2/helpers/createClass.js"));
+
+var _inherits2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/inherits */ "../node_modules/@babel/runtime-corejs2/helpers/inherits.js"));
+
+var _createSuper2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime-corejs2/helpers/createSuper */ "../node_modules/@babel/runtime-corejs2/helpers/createSuper.js"));
+
+var _default = /*#__PURE__*/function (_Marionette$ItemView) {
+  (0, _inherits2.default)(_default, _Marionette$ItemView);
+
+  var _super = (0, _createSuper2.default)(_default);
+
+  function _default() {
+    (0, _classCallCheck2.default)(this, _default);
+    return _super.apply(this, arguments);
+  }
+
+  (0, _createClass2.default)(_default, [{
+    key: "getTemplate",
+    value: function getTemplate() {
+      return '#tmpl-elementor-templates-modal__header__logo';
+    }
+  }, {
+    key: "className",
+    value: function className() {
+      return 'elementor-templates-modal__header__logo';
+    }
+  }, {
+    key: "events",
+    value: function events() {
+      return {
+        click: 'onClick'
+      };
+    }
+  }, {
+    key: "templateHelpers",
+    value: function templateHelpers() {
+      return {
+        title: this.getOption('title')
+      };
+    }
+  }, {
+    key: "onClick",
+    value: function onClick() {
+      var clickCallback = this.getOption('click');
+
+      if (clickCallback) {
+        clickCallback();
+      }
+    }
+  }]);
+  return _default;
+}(Marionette.ItemView);
+
+exports["default"] = _default;
 
 /***/ }),
 
@@ -5399,21 +5169,6 @@ module.exports = __webpack_require__(/*! ../../modules/_core */ "../node_modules
 
 __webpack_require__(/*! ../../modules/es6.array.is-array */ "../node_modules/core-js/library/modules/es6.array.is-array.js");
 module.exports = __webpack_require__(/*! ../../modules/_core */ "../node_modules/core-js/library/modules/_core.js").Array.isArray;
-
-
-/***/ }),
-
-/***/ "../node_modules/core-js/library/fn/json/stringify.js":
-/*!************************************************************!*\
-  !*** ../node_modules/core-js/library/fn/json/stringify.js ***!
-  \************************************************************/
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
-
-var core = __webpack_require__(/*! ../../modules/_core */ "../node_modules/core-js/library/modules/_core.js");
-var $JSON = core.JSON || (core.JSON = { stringify: JSON.stringify });
-module.exports = function stringify(it) { // eslint-disable-line no-unused-vars
-  return $JSON.stringify.apply($JSON, arguments);
-};
 
 
 /***/ }),
@@ -11132,21 +10887,6 @@ __webpack_require__(/*! ./_export */ "../node_modules/core-js/modules/_export.js
 
 /***/ }),
 
-/***/ "../node_modules/core-js/modules/es6.regexp.flags.js":
-/*!***********************************************************!*\
-  !*** ../node_modules/core-js/modules/es6.regexp.flags.js ***!
-  \***********************************************************/
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-// 21.2.5.3 get RegExp.prototype.flags()
-if (__webpack_require__(/*! ./_descriptors */ "../node_modules/core-js/modules/_descriptors.js") && /./g.flags != 'g') __webpack_require__(/*! ./_object-dp */ "../node_modules/core-js/modules/_object-dp.js").f(RegExp.prototype, 'flags', {
-  configurable: true,
-  get: __webpack_require__(/*! ./_flags */ "../node_modules/core-js/modules/_flags.js")
-});
-
-
-/***/ }),
-
 /***/ "../node_modules/core-js/modules/es6.regexp.replace.js":
 /*!*************************************************************!*\
   !*** ../node_modules/core-js/modules/es6.regexp.replace.js ***!
@@ -11417,42 +11157,6 @@ __webpack_require__(/*! ./_fix-re-wks */ "../node_modules/core-js/modules/_fix-r
     }
   ];
 });
-
-
-/***/ }),
-
-/***/ "../node_modules/core-js/modules/es6.regexp.to-string.js":
-/*!***************************************************************!*\
-  !*** ../node_modules/core-js/modules/es6.regexp.to-string.js ***!
-  \***************************************************************/
-/***/ ((__unused_webpack_module, __unused_webpack_exports, __webpack_require__) => {
-
-"use strict";
-
-__webpack_require__(/*! ./es6.regexp.flags */ "../node_modules/core-js/modules/es6.regexp.flags.js");
-var anObject = __webpack_require__(/*! ./_an-object */ "../node_modules/core-js/modules/_an-object.js");
-var $flags = __webpack_require__(/*! ./_flags */ "../node_modules/core-js/modules/_flags.js");
-var DESCRIPTORS = __webpack_require__(/*! ./_descriptors */ "../node_modules/core-js/modules/_descriptors.js");
-var TO_STRING = 'toString';
-var $toString = /./[TO_STRING];
-
-var define = function (fn) {
-  __webpack_require__(/*! ./_redefine */ "../node_modules/core-js/modules/_redefine.js")(RegExp.prototype, TO_STRING, fn, true);
-};
-
-// 21.2.5.14 RegExp.prototype.toString()
-if (__webpack_require__(/*! ./_fails */ "../node_modules/core-js/modules/_fails.js")(function () { return $toString.call({ source: 'a', flags: 'b' }) != '/a/b'; })) {
-  define(function toString() {
-    var R = anObject(this);
-    return '/'.concat(R.source, '/',
-      'flags' in R ? R.flags : !DESCRIPTORS && R instanceof RegExp ? $flags.call(R) : undefined);
-  });
-// FF44- RegExp#toString has a wrong name
-} else if ($toString.name != TO_STRING) {
-  define(function toString() {
-    return $toString.call(this);
-  });
-}
 
 
 /***/ }),
@@ -13646,11 +13350,11 @@ var _modules = _interopRequireDefault(__webpack_require__(/*! elementor-assets-j
 
 var _layout = _interopRequireDefault(__webpack_require__(/*! ./views/modal/layout */ "../core/common/assets/js/views/modal/layout.js"));
 
-var _componentBase = _interopRequireDefault(__webpack_require__(/*! elementor-api/modules/component-base */ "../modules/web-cli/assets/js/modules/component-base.js"));
+var _componentBase = _interopRequireDefault(__webpack_require__(/*! ./api/modules/component-base */ "../core/common/assets/js/api/modules/component-base.js"));
 
-var _componentModalBase = _interopRequireDefault(__webpack_require__(/*! elementor-api/modules/component-modal-base */ "../modules/web-cli/assets/js/modules/component-modal-base.js"));
+var _componentModalBase = _interopRequireDefault(__webpack_require__(/*! elementor-api/modules/component-modal-base */ "../core/common/assets/js/api/modules/component-modal-base.js"));
 
-var _hookBreak = _interopRequireDefault(__webpack_require__(/*! elementor-api/modules/hook-break */ "../modules/web-cli/assets/js/modules/hook-break.js"));
+var _hookBreak = _interopRequireDefault(__webpack_require__(/*! ./api/modules/hook-break */ "../core/common/assets/js/api/modules/hook-break.js"));
 
 _modules.default.common = {
   get Component() {

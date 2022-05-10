@@ -121,11 +121,6 @@ abstract class Item_Handler {
 
 		// Cancelled, let caller know that request was not handled.
 		if ( false !== $cancel ) {
-			// If something unexpected happened, let the caller know.
-			if ( is_wp_error( $cancel ) ) {
-				return $this->return_result( $cancel, $as3cf_item, $options );
-			}
-
 			return $this->return_result( false, $as3cf_item, $options );
 		}
 
@@ -182,24 +177,18 @@ abstract class Item_Handler {
 	abstract protected function post_handle( Item $as3cf_item, Manifest $manifest, array $options );
 
 	/**
-	 * Helper to record errors and return them or optional supplied value.
+	 * Helper to record errors and return meta data on handler error.
 	 *
-	 * @param string|WP_Error $error_msg An error message or already constructed WP_Error.
-	 * @param mixed|null      $return    Optional return value instead of WP_Error.
+	 * @param string     $error_msg
+	 * @param array|null $return
 	 *
-	 * @return mixed|WP_Error
+	 * @return array|WP_Error
 	 */
 	protected function return_handler_error( $error_msg, $return = null ) {
-		if ( is_wp_error( $error_msg ) ) {
-			foreach ( $error_msg->get_error_messages() as $msg ) {
-				AS3CF_Error::Log( $msg );
-			}
-		} else {
-			AS3CF_Error::log( $error_msg );
-		}
+		AS3CF_Error::log( $error_msg );
 
 		if ( is_null( $return ) ) {
-			return is_wp_error( $error_msg ) ? $error_msg : new WP_Error( 'exception', $error_msg );
+			return new WP_Error( 'exception', $error_msg );
 		}
 
 		return $return;

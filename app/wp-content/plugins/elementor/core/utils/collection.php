@@ -397,50 +397,45 @@ class Collection implements \ArrayAccess, \Countable, \IteratorAggregate {
 	}
 
 	/**
-	 * @param mixed $offset
+	 * @param mixed $key
 	 *
 	 * @return bool
 	 */
-	#[\ReturnTypeWillChange]
-	public function offsetExists( $offset ) {
-		return isset( $this->items[ $offset ] );
+	public function offsetExists( $key ) {
+		return isset( $this->items[ $key ] );
 	}
 
 	/**
-	 * @param mixed $offset
+	 * @param mixed $key
 	 *
 	 * @return mixed
 	 */
-	#[\ReturnTypeWillChange]
-	public function offsetGet( $offset ) {
-		return $this->items[ $offset ];
+	public function offsetGet( $key ) {
+		return $this->items[ $key ];
 	}
 
 	/**
-	 * @param mixed $offset
+	 * @param mixed $key
 	 * @param mixed $value
 	 */
-	#[\ReturnTypeWillChange]
-	public function offsetSet( $offset, $value ) {
-		if ( is_null( $offset ) ) {
+	public function offsetSet( $key, $value ) {
+		if ( is_null( $key ) ) {
 			$this->items[] = $value;
 		} else {
-			$this->items[ $offset ] = $value;
+			$this->items[ $key ] = $value;
 		}
 	}
 
 	/**
-	 * @param mixed $offset
+	 * @param mixed $key
 	 */
-	#[\ReturnTypeWillChange]
-	public function offsetUnset( $offset ) {
-		unset( $this->items[ $offset ] );
+	public function offsetUnset( $key ) {
+		unset( $this->items[ $key ] );
 	}
 
 	/**
 	 * @return \ArrayIterator|\Traversable
 	 */
-	#[\ReturnTypeWillChange]
 	public function getIterator() {
 		return new \ArrayIterator( $this->items );
 	}
@@ -448,7 +443,6 @@ class Collection implements \ArrayAccess, \Countable, \IteratorAggregate {
 	/**
 	 * @return int|void
 	 */
-	#[\ReturnTypeWillChange]
 	public function count() {
 		return count( $this->items );
 	}

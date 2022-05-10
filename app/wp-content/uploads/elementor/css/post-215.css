@@ -1,0 +1,20 @@
+.elementor-215 .elementor-element.elementor-element-3008f8e{margin-top:0px;margin-bottom:0px;padding:0px 0px 0px 0px;}.elementor-215 .elementor-element.elementor-element-056e0cd.elementor-column > .elementor-widget-wrap{justify-content:center;}.elementor-215 .elementor-element.elementor-element-9a28f5e.elementor-column > .elementor-widget-wrap{justify-content:center;}.elementor-215 .elementor-element.elementor-element-9800886{text-align:center;}.elementor-215 .elementor-element.elementor-element-9800886 .elementor-heading-title{color:#7A8A8D;font-family:"Noto Sans", Sans-serif;font-size:16px;font-weight:bold;line-height:24px;}.elementor-215 .elementor-element.elementor-element-9800886 > .elementor-widget-container{margin:0px 0px 024px 0px;}.elementor-215 .elementor-element.elementor-element-036f383{--e-image-carousel-slides-to-show:4;}.elementor-215 .elementor-element.elementor-element-036f383 .swiper-pagination-bullet{width:8px;height:8px;}.elementor-215 .elementor-element.elementor-element-586173b.elementor-column > .elementor-widget-wrap{justify-content:center;}@media(max-width:1024px){.elementor-215 .elementor-element.elementor-element-9800886 .elementor-heading-title{font-size:16px;line-height:24px;}.elementor-215 .elementor-element.elementor-element-036f383{--e-image-carousel-slides-to-show:4;}}@media(min-width:768px){.elementor-215 .elementor-element.elementor-element-056e0cd{width:20%;}.elementor-215 .elementor-element.elementor-element-9a28f5e{width:59.332%;}.elementor-215 .elementor-element.elementor-element-586173b{width:20%;}}@media(max-width:1024px) and (min-width:768px){.elementor-215 .elementor-element.elementor-element-056e0cd{width:8%;}.elementor-215 .elementor-element.elementor-element-9a28f5e{width:84%;}.elementor-215 .elementor-element.elementor-element-586173b{width:8%;}}@media(max-width:767px){.elementor-215 .elementor-element.elementor-element-9a28f5e{width:100%;}.elementor-215 .elementor-element.elementor-element-9a28f5e > .elementor-widget-wrap > .elementor-widget:not(.elementor-widget__width-auto):not(.elementor-widget__width-initial):not(:last-child):not(.elementor-absolute){margin-bottom:0px;}.elementor-215 .elementor-element.elementor-element-036f383{--e-image-carousel-slides-to-show:3;}}/* Start custom CSS for image-carousel, class: .elementor-element-036f383 */.elementor-215 .elementor-element.elementor-element-036f383 span.swiper-pagination-bullet {
+    width: 8px;
+    height: 8px;
+    background: white!important;
+    border: 1px solid #27BAA6!important;
+    opacity: 1;
+}
+
+.elementor-215 .elementor-element.elementor-element-036f383 span.swiper-pagination-bullet.swiper-pagination-bullet-active {
+    width: 8px;
+    height: 8px;
+    background: var( --e-global-color-0ad48f9 )!important;
+    border: none!important;
+}
+
+@media (min-width: 1024px) {
+    .swiper-pagination.swiper-pagination-clickable.swiper-pagination-bullets {
+        display: none;
+    }
+}/* End custom CSS */

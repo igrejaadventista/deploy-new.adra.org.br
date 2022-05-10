@@ -230,43 +230,39 @@ abstract class Theme_Document extends Library_Document {
 		/** @var Module $theme_builder */
 		$theme_builder = Plugin::instance()->modules_manager->get_modules( 'theme-builder' );
 
-		$conditions = isset( $data['import_settings']['conditions'] ) ? $data['import_settings']['conditions'] : [];
+		$condition = $data['import_settings']['conditions'][0];
 
-		if ( ! empty( $conditions ) ) {
-			$condition = $conditions[0];
+		$condition = rtrim( implode( '/', $condition ), '/' );
 
-			$condition = rtrim( implode( '/', $condition ), '/' );
+		$conflicts = $theme_builder->get_conditions_manager()->get_conditions_conflicts_by_location( $condition, $this->get_location() );
 
-			$conflicts = $theme_builder->get_conditions_manager()->get_conditions_conflicts_by_location( $condition, $this->get_location() );
+		if ( $conflicts ) {
+			/** @var Import_Export_Module $import_export_module */
+			$import_export_module = Plugin::elementor()->app->get_component( 'import-export' );
 
-			if ( $conflicts ) {
-				/** @var Import_Export_Module $import_export_module */
-				$import_export_module = Plugin::elementor()->app->get_component( 'import-export' );
+			$override_conditions = $import_export_module->import->get_settings( 'overrideConditions' );
 
-				$override_conditions = $import_export_module->import->get_settings( 'overrideConditions' );
+			if ( ! $override_conditions || ! in_array( $data['id'], $override_conditions, true ) ) {
+				return;
+			}
 
-				if ( ! $override_conditions || ! in_array( $data['id'], $override_conditions, true ) ) {
-					return;
-				}
+			foreach ( $conflicts as $template ) {
+				/** @var Theme_Document $template_document */
+				$template_document = Plugin::elementor()->documents->get( $template['template_id'] );
 
-				foreach ( $conflicts as $template ) {
-					/** @var Theme_Document $template_document */
-					$template_document = Plugin::elementor()->documents->get( $template['template_id'] );
+				$template_conditions = $theme_builder->get_conditions_manager()->get_document_conditions( $template_document );
 
-					$template_conditions = $theme_builder->get_conditions_manager()->get_document_conditions( $template_document );
-
-					foreach ( $template_conditions as $index => $template_condition ) {
-						if ( ! $template_condition['sub_id'] && ! $template_condition['sub_name'] ) {
-							unset( $template_conditions[ $index ] );
-						}
+				foreach ( $template_conditions as $index => $template_condition ) {
+					if ( ! $template_conditions['sub_id'] && ! $template_conditions['sub_name'] ) {
+						unset( $template_conditions[ $index ] );
 					}
-
-					$theme_builder->get_conditions_manager()->save_conditions( $template_document->get_main_id(), $template_conditions );
 				}
+
+				$theme_builder->get_conditions_manager()->save_conditions( $template_document->get_main_id(), $template_conditions );
 			}
 		}
 
-		$theme_builder->get_conditions_manager()->save_conditions( $this->get_main_id(), $conditions );
+		$theme_builder->get_conditions_manager()->save_conditions( $this->get_main_id(), $data['import_settings']['conditions'] );
 	}
 
 	protected function register_controls() {

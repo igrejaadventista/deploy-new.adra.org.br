@@ -1,7 +1,6 @@
 <?php
 namespace ElementorPro\Modules\Payments\Widgets;
 
-use Elementor\Widget_Base;
 use Elementor\Controls_Manager;
 use Elementor\Plugin;
 use Elementor\Utils;
@@ -202,7 +201,7 @@ class Paypal_Button extends Payment_Button {
 
 			$this->add_render_attribute( 'button', 'type', 'submit' );
 			$this->add_render_attribute( 'button', 'class', 'elementor-paypal-legacy' );
-			parent::render_button( null, 'button' );
+			parent::render_button( 'button' );
 
 			foreach ( $this->get_errors() as $type => $message ) {
 				?>
@@ -217,7 +216,7 @@ class Paypal_Button extends Payment_Button {
 	}
 
 	// Render the payment button.
-	protected function render_button( Widget_Base $instance = null, $tag = 'a' ) {
+	protected function render_button( $tag = 'a' ) {
 		switch ( $this->get_api_method() ) {
 			case 'legacy':
 				$this->render_legacy_form();

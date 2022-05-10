@@ -1,4 +1,4 @@
-/*! elementor - v3.6.5 - 27-04-2022 */
+/*! elementor - v3.5.6 - 28-02-2022 */
 (self["webpackChunkelementor"] = self["webpackChunkelementor"] || []).push([["frontend-modules"],{
 
 /***/ "../node_modules/@babel/runtime/helpers/interopRequireDefault.js":
@@ -646,10 +646,9 @@ class ArgsObject extends _instanceType.default {
 
 
   requireArgumentConstructor(property, type, args = this.args) {
-    this.requireArgument(property, args); // Note: Converting the constructor to string in order to avoid equation issues
-    // due to different memory addresses between iframes (window.Object !== window.top.Object).
+    this.requireArgument(property, args);
 
-    if (args[property].constructor.toString() !== type.prototype.constructor.toString()) {
+    if (args[property].constructor !== type) {
       throw Error(`${property} invalid constructor type.`);
     }
   }
@@ -1098,7 +1097,7 @@ class Scroll {
       threshold: buildThreshholds(obj.sensitivity)
     };
 
-    function handleIntersect(entries) {
+    function handleIntersect(entries, observer) {
       const currentScrollY = entries[0].boundingClientRect.y,
             isInViewport = entries[0].isIntersecting,
             intersectionScrollDirection = currentScrollY < lastScrollY ? 'down' : 'up',

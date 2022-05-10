@@ -178,12 +178,12 @@ class Widget_Icon_Box extends Widget_Base {
 			]
 		);
 
-		$this->add_responsive_control(
+		$this->add_control(
 			'position',
 			[
 				'label' => esc_html__( 'Icon Position', 'elementor' ),
 				'type' => Controls_Manager::CHOOSE,
-				'mobile_default' => 'top',
+				'default' => 'top',
 				'options' => [
 					'left' => [
 						'title' => esc_html__( 'Left', 'elementor' ),
@@ -198,7 +198,8 @@ class Widget_Icon_Box extends Widget_Base {
 						'icon' => 'eicon-h-align-right',
 					],
 				],
-				'prefix_class' => 'elementor%s-position-',
+				'prefix_class' => 'elementor-position-',
+				'toggle' => false,
 				'conditions' => [
 					'relation' => 'or',
 					'terms' => [
@@ -358,7 +359,10 @@ class Widget_Icon_Box extends Widget_Base {
 					],
 				],
 				'selectors' => [
-					'{{WRAPPER}}' => '--icon-box-icon-margin: {{SIZE}}{{UNIT}}',
+					'{{WRAPPER}}.elementor-position-right .elementor-icon-box-icon' => 'margin-left: {{SIZE}}{{UNIT}};',
+					'{{WRAPPER}}.elementor-position-left .elementor-icon-box-icon' => 'margin-right: {{SIZE}}{{UNIT}};',
+					'{{WRAPPER}}.elementor-position-top .elementor-icon-box-icon' => 'margin-bottom: {{SIZE}}{{UNIT}};',
+					'(mobile){{WRAPPER}} .elementor-icon-box-icon' => 'margin-bottom: {{SIZE}}{{UNIT}};',
 				],
 			]
 		);
@@ -380,7 +384,7 @@ class Widget_Icon_Box extends Widget_Base {
 			]
 		);
 
-		$this->add_responsive_control(
+		$this->add_control(
 			'icon_padding',
 			[
 				'label' => esc_html__( 'Padding', 'elementor' ),
@@ -400,46 +404,22 @@ class Widget_Icon_Box extends Widget_Base {
 			]
 		);
 
-		$active_breakpoints = Plugin::$instance->breakpoints->get_active_breakpoints();
-
-		$rotate_device_args = [];
-
-		$rotate_device_settings = [
-			'default' => [
-				'unit' => 'deg',
-				'size' => '',
-			],
-		];
-
-		foreach ( $active_breakpoints as $breakpoint_name => $breakpoint ) {
-			$rotate_device_args[ $breakpoint_name ] = $rotate_device_settings;
-		}
-
-		$this->add_responsive_control(
+		$this->add_control(
 			'rotate',
 			[
 				'label' => esc_html__( 'Rotate', 'elementor' ),
 				'type' => Controls_Manager::SLIDER,
-				'size_units' => [ 'deg' ],
-				'range' => [
-					'deg' => [
-						'min' => 0,
-						'max' => 360,
-						'step' => 1,
-					],
-				],
 				'default' => [
+					'size' => 0,
 					'unit' => 'deg',
-					'size' => '',
 				],
-				'device_args' => $rotate_device_args,
 				'selectors' => [
 					'{{WRAPPER}} .elementor-icon i' => 'transform: rotate({{SIZE}}{{UNIT}});',
 				],
 			]
 		);
 
-		$this->add_responsive_control(
+		$this->add_control(
 			'border_width',
 			[
 				'label' => esc_html__( 'Border Width', 'elementor' ),
@@ -453,7 +433,7 @@ class Widget_Icon_Box extends Widget_Base {
 			]
 		);
 
-		$this->add_responsive_control(
+		$this->add_control(
 			'border_radius',
 			[
 				'label' => esc_html__( 'Border Radius', 'elementor' ),

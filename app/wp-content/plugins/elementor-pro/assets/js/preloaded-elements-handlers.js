@@ -1,4 +1,4 @@
-/*! elementor-pro - v3.6.5 - 12-04-2022 */
+/*! elementor-pro - v3.6.3 - 28-02-2022 */
 "use strict";
 (self["webpackChunkelementor_pro"] = self["webpackChunkelementor_pro"] || []).push([["preloaded-elements-handlers"],{
 
@@ -115,20 +115,19 @@ exports.close = close;
 /*!********************************************************!*\
   !*** ../assets/dev/js/frontend/utils/icons/manager.js ***!
   \********************************************************/
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
+/***/ ((__unused_webpack_module, exports) => {
 
 
-
-var _interopRequireDefault = __webpack_require__(/*! @babel/runtime/helpers/interopRequireDefault */ "../node_modules/@babel/runtime/helpers/interopRequireDefault.js");
 
 Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
 exports["default"] = void 0;
 
-var _defineProperty2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime/helpers/defineProperty */ "../node_modules/@babel/runtime/helpers/defineProperty.js"));
-
 class IconsManager {
+  static symbolsContainer;
+  static iconsUsageList = [];
+
   constructor(elementsPrefix) {
     this.prefix = `${elementsPrefix}-`;
 
@@ -175,8 +174,6 @@ class IconsManager {
 }
 
 exports["default"] = IconsManager;
-(0, _defineProperty2.default)(IconsManager, "symbolsContainer", void 0);
-(0, _defineProperty2.default)(IconsManager, "iconsUsageList", []);
 
 /***/ }),
 

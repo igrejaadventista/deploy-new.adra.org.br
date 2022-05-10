@@ -34,8 +34,6 @@ abstract class Widget_Base extends Element_Base {
 	 */
 	protected $_has_template_content = true;
 
-	private $is_first_section = true;
-
 	/**
 	 * Registered Runtime Widgets.
 	 *
@@ -256,10 +254,12 @@ abstract class Widget_Base extends Element_Base {
 	public function start_controls_section( $section_id, array $args = [] ) {
 		parent::start_controls_section( $section_id, $args );
 
-		if ( $this->is_first_section ) {
+		static $is_first_section = true;
+
+		if ( $is_first_section ) {
 			$this->register_skin_control();
 
-			$this->is_first_section = false;
+			$is_first_section = false;
 		}
 	}
 

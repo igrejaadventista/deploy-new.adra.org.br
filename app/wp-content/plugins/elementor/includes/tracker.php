@@ -1,7 +1,6 @@
 <?php
 namespace Elementor;
 
-use Elementor\Core\Common\Modules\EventTracker\DB as Events_DB_Manager;
 use Elementor\Core\Experiments\Experiments_Reporter;
 use Elementor\Modules\System_Info\Module as System_Info_Module;
 
@@ -140,10 +139,6 @@ class Tracker {
 
 		$params = self::get_tracking_data( empty( $last_send ) );
 
-		// Tracking data is used for System Info reports, and events should not be included in System Info reports,
-		// so it is added here
-		$params['analytics_events'] = self::get_events();
-
 		add_filter( 'https_ssl_verify', '__return_false' );
 
 		wp_safe_remote_post(
@@ -157,9 +152,6 @@ class Tracker {
 				],
 			]
 		);
-
-		// After sending the event tracking data, we reset the events table.
-		Events_DB_Manager::reset_table();
 	}
 
 	/**
@@ -239,11 +231,6 @@ class Tracker {
 	 */
 	private static function get_system_reports_data() {
 		$reports = Plugin::$instance->system_info->load_reports( System_Info_Module::get_allowed_reports() );
-
-		// The log report should not be sent with the usage data - it is not used and causes bloat.
-		if ( isset( $reports['log'] ) ) {
-			unset( $reports['log'] );
-		}
 
 		$system_reports = [];
 		foreach ( $reports as $report_key => $report_details ) {
@@ -493,24 +480,7 @@ class Tracker {
 		}
 
 		return $usage;
-	}
 
-	public static function get_events() {
-		global $wpdb;
-		$table_name = $wpdb->prefix . Events_DB_Manager::TABLE_NAME;
-
-		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$results = $wpdb->get_results( "SELECT event_data FROM {$table_name}" );
-
-		$events_data = [];
-
-		foreach ( $results as $event ) {
-			// Results are stored in the database as a JSON string. Since all tracking data is encoded right before
-			// being sent, it is now decoded.
-			$events_data[] = json_decode( $event->event_data, true );
-		}
-
-		return $events_data;
 	}
 
 	/**
