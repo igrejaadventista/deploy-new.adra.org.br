@@ -7,3 +7,7 @@ db_data/ibdata1
 db_data/ibtmp1
 db_data/multi-master.info
 db_data/mysql_upgrade_info
+
+app/.DS_Store
+
+.DS_Store
