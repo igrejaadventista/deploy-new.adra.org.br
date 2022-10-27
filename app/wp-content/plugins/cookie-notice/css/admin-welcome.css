@@ -297,6 +297,18 @@
     margin-right: 5px;
 }
 
+.cn-welcome-wrap .cn-pricing-type .cn-badge {
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    background: #20c19e;
+    padding: 2.5px 7.5px;
+}
+
+.cn-welcome-wrap .cn-pricing-type div:first-child {
+    border-right: 1px solid #ccc;
+}
+
 .cn-welcome-wrap.cn-welcome-step-2 .cn-content {
     background-size: cover;
 }
@@ -442,8 +454,43 @@
     color: #20C19E;
 }
 
+.cn-welcome-wrap .cn-pricing-type {
+    margin-top: 1em;
+    font-size: 1.2em;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: baseline;
+    text-align: left;
+}
+
+.cn-welcome-wrap .cn-pricing-type > div {
+    flex: 1;
+    padding: 0 1em;
+}
+
+.cn-welcome-wrap .cn-pricing-type > div:nth-child(1) {
+    text-align: right;
+}
+
+.cn-welcome-wrap .cn-pricing-type label {
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    position: relative;
+    display: inline-block;
+}
+
+.cn-welcome-wrap .cn-pricing-type label .cn-pricing-toggle {
+    margin-left: 1.5em;
+}
+
+.cn-welcome-wrap #cn-pricing-plans {
+    margin-top: 1em;
+}
+
 .cn-welcome-wrap .cn-pricing-select {
     margin-top: 1.5em;
+    margin-bottom: 1.5em;
 }
 
 .cn-welcome-wrap .cn-pricing-table {
@@ -500,31 +547,31 @@
     padding: 2em 1.5em;
 }
 
-.cn-welcome-wrap .cn-pricing-table input#cn_pricing_plan_free + .cn-pricing-info .cn-plan-price {
+.cn-welcome-wrap .cn-pricing-table input#cn-pricing-plan-free + .cn-pricing-info .cn-plan-price {
     color: #515151;
     font-size: 1.25em;
     line-height: 1.5em;
 }
 
-.cn-welcome-wrap .cn-pricing-table input#cn_pricing_plan_yearly + .cn-pricing-info h4 {
-    color: #FF9E0D;
+.cn-welcome-wrap .cn-pricing-table input#cn-pricing-plan-pro + .cn-pricing-info {
+    background-color: rgba(32,193,158,0.05);
 }
 
-.cn-welcome-wrap .cn-pricing-table input#cn_pricing_plan_yearly + .cn-pricing-info .cn-pricing-body p:last-child b,
-.cn-welcome-wrap .cn-pricing-table input#cn_pricing_plan_yearly + .cn-pricing-info .cn-pricing-body p:last-child .cn-icon,
-.cn-welcome-wrap .cn-pricing-table input#cn_pricing_plan_yearly + .cn-pricing-info .cn-pricing-body p:last-child .cn-icon:after {
+.cn-welcome-wrap .cn-pricing-table input#cn-pricing-plan-pro + .cn-pricing-info .cn-pricing-body p:last-child b,
+.cn-welcome-wrap .cn-pricing-table input#cn-pricing-plan-pro + .cn-pricing-info .cn-pricing-body p:last-child .cn-icon,
+.cn-welcome-wrap .cn-pricing-table input#cn-pricing-plan-pro + .cn-pricing-info .cn-pricing-body p:last-child .cn-icon:after {
     color: #FF9E0D;
     border-color: #FF9E0D;
 }
 
-.cn-welcome-wrap .cn-pricing-table input#cn_pricing_plan_yearly + .cn-pricing-info .cn-plan-promo {
+.cn-welcome-wrap .cn-pricing-table input#cn-pricing-plan-pro + .cn-pricing-info .cn-plan-promo {
     color: #fff;
-    background: #20C19E;
+    background: #FF9E0D;
     position: absolute;
     left: 50%;
     top: 0;
     font-weight: bold;
-    font-size: 1.1em;
+    font-size: 14px;
     line-height: 1.1em;
     text-transform: uppercase;
     display: inline-block;
@@ -551,7 +598,7 @@
     margin: 1em 0;
 }
 
-.cn-welcome-wrap .cn-plan-pricing {
+.cn-welcome-wrap .cn-pricing-table .cn-plan-pricing {
     display: block;
     font-size: 1.5em;
     color: #515151;
@@ -567,6 +614,24 @@
 
 .cn-welcome-wrap .cn-pricing-table .cn-plan-price sup {
     font-weight: normal;
+}
+
+.cn-welcome-wrap .cn-select-wrapper select {
+    background: #fff;
+    border: 1px solid #ccc;
+    color: #191e23;
+    border-radius: 25px;
+    padding: 5px 10px;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px 12px;
+}
+
+.cn-welcome-wrap .cn-select-wrapper select:hover,
+.cn-welcome-wrap .cn-select-wrapper select:focus {
+    color: inherit;
+    box-shadow: none;
 }
 
 .cn-welcome-wrap .cn-billing-wrapper {
@@ -913,6 +978,14 @@
     transition: border-color 0.2s;
 }
 
+.cn-welcome-wrap form select#cn-subscription-select option {
+    color: #35353f;
+}
+
+.cn-welcome-wrap form select#cn-subscription-select option:disabled {
+    background: #666;
+}
+
 .cn-welcome-wrap form input[type="checkbox"],
 .cn-welcome-wrap form input[type="radio"] {
     transition: none;
@@ -975,30 +1048,30 @@
     margin-right: 0;
 }
 
-.cn-welcome-wrap form .cn-checkbox-wrapper input,
-.cn-welcome-wrap form .cn-radio-wrapper input {
+.cn-welcome-wrap .cn-checkbox-wrapper input,
+.cn-welcome-wrap .cn-radio-wrapper input {
     position: absolute;
     margin: 2px 0;
 }
 
-.cn-welcome-wrap form .cn-checkbox-wrapper input:focus,
-.cn-welcome-wrap form .cn-radio-wrapper input:focus {
+.cn-welcome-wrap .cn-checkbox-wrapper input:focus,
+.cn-welcome-wrap .cn-radio-wrapper input:focus {
     border-color: #86868F;
 }
 
-.cn-welcome-wrap form .cn-checkbox-wrapper input:checked,
-.cn-welcome-wrap form .cn-radio-wrapper input:checked {
+.cn-welcome-wrap .cn-checkbox-wrapper input:checked,
+.cn-welcome-wrap .cn-radio-wrapper input:checked {
     background: none;
     border-color: #20C19E;
 }
 
-.cn-welcome-wrap form .cn-checkbox-wrapper input:checked,
-.cn-welcome-wrap form .cn-radio-wrapper input:checked {
+.cn-welcome-wrap .cn-checkbox-wrapper input:checked,
+.cn-welcome-wrap .cn-radio-wrapper input:checked {
     background: none;
     border-color: #20C19E;
 }
 
-.cn-welcome-wrap form .cn-checkbox-wrapper input:checked::before {
+.cn-welcome-wrap .cn-checkbox-wrapper input:checked::before {
     font-family: dashicons;
     line-height: 1;
     font-weight: 400;
@@ -1039,7 +1112,7 @@
     content: '';
 }
 
-.cn-welcome-wrap form .cn-radio-wrapper label input:checked::before {
+.cn-welcome-wrap .cn-radio-wrapper label input:checked::before {
     text-align: center;
     display: block;
     position: absolute;
@@ -1053,13 +1126,13 @@
     background: #20C19E;
 }
 
-.cn-welcome-wrap form .cn-checkbox-wrapper label > span,
-.cn-welcome-wrap form .cn-radio-wrapper label > span {
+.cn-welcome-wrap .cn-checkbox-wrapper label > span,
+.cn-welcome-wrap .cn-radio-wrapper label > span {
     margin-left: 2em;
     display: block;
 }
 
-.cn-welcome-wrap form .cn-field-checkbox > label.cn-asterix::after {
+.cn-welcome-wrap .cn-field-checkbox > label.cn-asterix::after {
     content: '*';
     right: 0;
     top: 0;
@@ -1068,8 +1141,8 @@
     display: inline-block;
 }
 
-.cn-welcome-wrap form .cn-checkbox-wrapper label > span.cn-asterix::after,
-.cn-welcome-wrap form .cn-radio-wrapper label > span.cn-asterix::after {
+.cn-welcome-wrap .cn-checkbox-wrapper label > span.cn-asterix::after,
+.cn-welcome-wrap .cn-radio-wrapper label > span.cn-asterix::after {
     content: '*';
     right: 0;
     top: 0;
@@ -1174,20 +1247,10 @@
     background-color: rgba(32,193,158,0);
 }
 
-/*
-.cn-welcome-wrap form .cn-plan-wrapper label input {
-        top: 50%;
-        margin: -8px 0 0;
-        width: 20px;
-        height: 20px;
+.cn-welcome-wrap form .cn-plan-wrapper .cn-disabled {
+    pointer-events: none;
+    opacity: 0.3;
 }
-
-.cn-welcome-wrap form .cn-plan-wrapper label input:checked::before {
-        width: 20px;
-        height: 20px;
-        line-height: 20px;
-} 
-*/
 
 .cn-welcome-wrap form .cn-plan-wrapper input:checked + span .cn-plan-overlay {
     border-color: #20C19E;
@@ -1217,6 +1280,7 @@
     display: inline-block;
     font-size: 1.1em;
     float: right;
+    color: #ccc;
 }
 
 .cn-welcome-wrap form .cn-price-off {

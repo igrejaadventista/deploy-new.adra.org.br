@@ -2,18 +2,34 @@
 # This file is distributed under the same license as the Plugins - Post Type Switcher - Development (trunk) package.
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2017-01-29 13:06:33+0000\n"
+"PO-Revision-Date: 2022-06-22 11:47:07+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: GlotPress/3.0.0-alpha.2\n"
+"X-Generator: GlotPress/4.0.0-alpha.1\n"
 "Language: pt_BR\n"
 "Project-Id-Version: Plugins - Post Type Switcher - Development (trunk)\n"
+
+#. Description of the plugin
+msgid "A simple way to change a post's type in WordPress"
+msgstr "Uma forma simples de mudar tipos de posts no WordPress"
+
+#: post-type-switcher.php:424
+msgid "Sorry, you cannot do this."
+msgstr "Você não pode fazer isso."
+
+#: post-type-switcher.php:413
+msgid "Missing data."
+msgstr "Dados ausentes."
 
 #: post-type-switcher.php:370
 msgid "&mdash; No Change &mdash;"
 msgstr "&mdash; Sem alterações &mdash;"
+
+#. Plugin URI of the plugin
+msgid "https://wordpress.org/plugins/post-type-switcher"
+msgstr "https://wordpress.org/plugins/post-type-switcher"
 
 #. Plugin Name of the plugin
 msgid "Post Type Switcher"
@@ -21,7 +37,7 @@ msgstr "Post Type Switcher"
 
 #: post-type-switcher.php:225 post-type-switcher.php:252
 msgid "Post Type"
-msgstr "Post Type"
+msgstr "Tipo de post"
 
 #: post-type-switcher.php:183
 msgid "Type"
@@ -33,12 +49,12 @@ msgstr "Cancelar"
 
 #: post-type-switcher.php:162
 msgid "OK"
-msgstr "Está bem"
-
-#: post-type-switcher.php:142
-msgid "Post Type:"
-msgstr "tipo de envio"
+msgstr "OK"
 
 #: post-type-switcher.php:147
 msgid "Edit"
 msgstr "Editar"
+
+#: post-type-switcher.php:142
+msgid "Post Type:"
+msgstr "Tipo de post:"

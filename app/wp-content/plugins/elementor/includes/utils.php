@@ -1,6 +1,8 @@
 <?php
 namespace Elementor;
 
+use Elementor\Core\Utils\Collection;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly.
 }
@@ -743,16 +745,49 @@ class Utils {
 
 	public static function print_wp_kses_extended( $string, array $tags ) {
 		$allowed_html = wp_kses_allowed_html( 'post' );
-		// Since PHP 5.6 cannot use isset() on the result of an expression.
-		$extended_allowed_html_tags = self::EXTENDED_ALLOWED_HTML_TAGS;
 
 		foreach ( $tags as $tag ) {
-			if ( isset( $extended_allowed_html_tags[ $tag ] ) ) {
+			if ( isset( self::EXTENDED_ALLOWED_HTML_TAGS[ $tag ] ) ) {
 				$extended_tags = apply_filters( "elementor/extended_allowed_html_tags/{$tag}", self::EXTENDED_ALLOWED_HTML_TAGS[ $tag ] );
 				$allowed_html = array_replace_recursive( $allowed_html, $extended_tags );
 			}
 		}
 
 		echo wp_kses( $string, $allowed_html );
+	}
+
+	public static function is_elementor_path( $path ) {
+		$path = wp_normalize_path( $path );
+
+		/**
+		 * Elementor related paths.
+		 *
+		 * Filters Elementor related paths.
+		 *
+		 * @param string[] $available_paths
+		 */
+		$available_paths = apply_filters( 'elementor/utils/elementor_related_paths', [ ELEMENTOR_PATH ] );
+
+		return (bool) ( new Collection( $available_paths ) )
+			->map( function ( $p ) {
+				// `untrailingslashit` in order to include other plugins prefixed with elementor.
+				return untrailingslashit( wp_normalize_path( $p ) );
+			} )
+			->find(function ( $p ) use ( $path ) {
+				return false !== strpos( $path, $p );
+			} );
+	}
+
+	/**
+	 * @param $file
+	 * @param mixed ...$args
+	 * @return false|string
+	 */
+	public static function file_get_contents( $file, ...$args ) {
+		if ( ! is_file( $file ) || ! is_readable( $file ) ) {
+			return false;
+		}
+
+		return file_get_contents( $file, ...$args );
 	}
 }

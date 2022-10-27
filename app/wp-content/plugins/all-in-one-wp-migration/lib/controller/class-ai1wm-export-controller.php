@@ -34,6 +34,7 @@ class Ai1wm_Export_Controller {
 	}
 
 	public static function export( $params = array() ) {
+		global $ai1wm_params;
 		ai1wm_setup_environment();
 
 		// Set params
@@ -59,6 +60,8 @@ class Ai1wm_Export_Controller {
 			exit;
 		}
 
+		$ai1wm_params = $params;
+
 		// Loop over filters
 		if ( ( $filters = ai1wm_get_filters( 'ai1wm_export' ) ) ) {
 			while ( $hooks = current( $filters ) ) {
@@ -74,7 +77,7 @@ class Ai1wm_Export_Controller {
 								WP_CLI::error( sprintf( __( 'Unable to export. Error code: %s. %s', AI1WM_PLUGIN_NAME ), $e->getCode(), $e->getMessage() ) );
 							} else {
 								status_header( $e->getCode() );
-								echo json_encode( array( 'errors' => array( array( 'code' => $e->getCode(), 'message' => $e->getMessage() ) ) ) );
+								ai1wm_json_response( array( 'errors' => array( array( 'code' => $e->getCode(), 'message' => $e->getMessage() ) ) ) );
 							}
 							Ai1wm_Directory::delete( ai1wm_storage_path( $params ) );
 							exit;
@@ -105,7 +108,7 @@ class Ai1wm_Export_Controller {
 						}
 
 						if ( isset( $params['ai1wm_manual_export'] ) ) {
-							echo json_encode( $params );
+							ai1wm_json_response( $params );
 							exit;
 						}
 
@@ -266,7 +269,7 @@ class Ai1wm_Export_Controller {
 			$iterator = new Ai1wm_Recursive_Directory_Iterator( AI1WM_STORAGE_PATH );
 
 			// Exclude index.php
-			$iterator = new Ai1wm_Recursive_Exclude_Filter( $iterator, array( 'index.php' ) );
+			$iterator = new Ai1wm_Recursive_Exclude_Filter( $iterator, array( 'index.php', 'index.html' ) );
 
 			// Loop over folders and files
 			foreach ( $iterator as $item ) {

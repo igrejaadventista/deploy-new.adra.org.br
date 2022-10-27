@@ -37,7 +37,7 @@ class Options extends OptionsAbstract {
 						)
 					),
 					'https://www.mailgun.com',
-					'https://wpmailsmtp.com/docs/how-to-set-up-the-mailgun-mailer-in-wp-mail-smtp/'
+					esc_url( wp_mail_smtp()->get_utm_url( 'https://wpmailsmtp.com/docs/how-to-set-up-the-mailgun-mailer-in-wp-mail-smtp/', 'Mailgun documentation' ) )
 				),
 			)
 		);
@@ -71,7 +71,7 @@ class Options extends OptionsAbstract {
 					<?php
 					printf(
 						/* translators: %s - API key link. */
-						esc_html__( 'Follow this link to get an API Key from Mailgun: %s.', 'wp-mail-smtp' ),
+						esc_html__( 'Follow this link to get a Private API Key from Mailgun: %s.', 'wp-mail-smtp' ),
 						'<a href="https://app.mailgun.com/app/account/security/api_keys" target="_blank" rel="noopener noreferrer">' .
 						esc_html__( 'Get a Private API Key', 'wp-mail-smtp' ) .
 						'</a>'

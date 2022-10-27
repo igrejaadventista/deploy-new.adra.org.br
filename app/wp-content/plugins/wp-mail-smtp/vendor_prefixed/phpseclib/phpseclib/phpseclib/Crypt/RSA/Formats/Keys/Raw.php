@@ -15,8 +15,6 @@
  *
  * 1, n, modulo, modulus
  *
- * @category  Crypt
- * @package   RSA
  * @author    Jim Wigginton <terrafrost@php.net>
  * @copyright 2015 Jim Wigginton
  * @license   http://www.opensource.org/licenses/mit-license.html  MIT License
@@ -28,16 +26,13 @@ use WPMailSMTP\Vendor\phpseclib3\Math\BigInteger;
 /**
  * Raw RSA Key Handler
  *
- * @package RSA
  * @author  Jim Wigginton <terrafrost@php.net>
- * @access  public
  */
 abstract class Raw
 {
     /**
      * Break a public or private key down into its constituent components
      *
-     * @access public
      * @param string $key
      * @param string $password optional
      * @return array
@@ -66,14 +61,12 @@ abstract class Raw
         }
         if (isset($key['primes'])) {
             $components['primes'] = $key['primes'];
-        } else {
-            if (isset($key['p']) && isset($key['q'])) {
-                $indices = [['p', 'q'], ['prime1', 'prime2']];
-                foreach ($indices as $index) {
-                    list($i0, $i1) = $index;
-                    if (isset($key[$i0]) && isset($key[$i1])) {
-                        $components['primes'] = [1 => $key[$i0], $key[$i1]];
-                    }
+        } elseif (isset($key['p']) && isset($key['q'])) {
+            $indices = [['p', 'q'], ['prime1', 'prime2']];
+            foreach ($indices as $index) {
+                list($i0, $i1) = $index;
+                if (isset($key[$i0]) && isset($key[$i1])) {
+                    $components['primes'] = [1 => $key[$i0], $key[$i1]];
                 }
             }
         }
@@ -123,7 +116,6 @@ abstract class Raw
     /**
      * Convert a private key to the appropriate format.
      *
-     * @access public
      * @param \phpseclib3\Math\BigInteger $n
      * @param \phpseclib3\Math\BigInteger $e
      * @param \phpseclib3\Math\BigInteger $d
@@ -150,7 +142,6 @@ abstract class Raw
     /**
      * Convert a public key to the appropriate format
      *
-     * @access public
      * @param \phpseclib3\Math\BigInteger $n
      * @param \phpseclib3\Math\BigInteger $e
      * @return array

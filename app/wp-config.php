@@ -1,6 +1,4 @@
 <?php
-define('WP_CACHE', true); // Added by WP Rocket
-
 
 /**
  * The base configuration for WordPress

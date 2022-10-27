@@ -58,6 +58,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 		content: "\e619";
 	}
 
+	.ai1wm-icon-bullhorn:before {
+		content: "\e91a";
+	}
+
 	.ai1wm-label {
 		border: 1px solid #5cb85c;
 		background-color: transparent;
@@ -93,6 +97,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 		line-height: 1.6;
 		text-align: center;
 		z-index: 26;
+	}
+
+	.ai1wm-menu-count.ai1wm-menu-hide {
+		display: none;
 	}
 
 	<?php if ( version_compare( $version, '3.8', '<' ) ) : ?>

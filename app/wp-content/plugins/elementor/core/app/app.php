@@ -1,6 +1,10 @@
 <?php
 namespace Elementor\Core\App;
 
+use Elementor\Core\Admin\Menu\Admin_Menu_Manager;
+use Elementor\Core\App\AdminMenuItems\Theme_Builder_Menu_Item;
+use Elementor\Icons_Manager;
+use Elementor\Modules\WebCli\Module as WebCLIModule;
 use Elementor\Core\Base\App as BaseApp;
 use Elementor\Core\Settings\Manager as SettingsManager;
 use Elementor\Plugin;
@@ -33,14 +37,8 @@ class App extends BaseApp {
 		return admin_url( 'admin.php?page=' . self::PAGE_ID . '&ver=' . ELEMENTOR_VERSION );
 	}
 
-	public function register_admin_menu() {
-		add_submenu_page(
-			Source_Local::ADMIN_MENU_SLUG,
-			esc_html__( 'Theme Builder', 'elementor' ),
-			esc_html__( 'Theme Builder', 'elementor' ),
-			'manage_options',
-			self::PAGE_ID
-		);
+	private function register_admin_menu( Admin_Menu_Manager $admin_menu ) {
+		$admin_menu->register( static::PAGE_ID, new Theme_Builder_Menu_Item() );
 	}
 
 	public function fix_submenu( $menu ) {
@@ -96,6 +94,7 @@ class App extends BaseApp {
 			'hasPro' => Utils::has_pro(),
 			'admin_url' => admin_url(),
 			'login_url' => wp_login_url(),
+			'base_url' => $this->get_base_url(),
 		];
 	}
 
@@ -137,6 +136,11 @@ class App extends BaseApp {
 
 	private function enqueue_assets() {
 		Plugin::$instance->init_common();
+
+		/** @var WebCLIModule $web_cli */
+		$web_cli = Plugin::$instance->modules_manager->get_modules( 'web-cli' );
+		$web_cli->register_scripts();
+
 		Plugin::$instance->common->register_scripts();
 
 		wp_register_style(
@@ -150,7 +154,7 @@ class App extends BaseApp {
 			'elementor-icons',
 			$this->get_css_assets_url( 'elementor-icons', 'assets/lib/eicons/css/' ),
 			[],
-			'5.14.0'
+			Icons_Manager::ELEMENTOR_ICONS_VERSION
 		);
 
 		wp_register_style(
@@ -214,7 +218,9 @@ class App extends BaseApp {
 			true
 		);
 
-		$this->enqueue_dark_theme_detection_script();
+		if ( ! $this->get_settings( 'disable_dark_theme' ) ) {
+			$this->enqueue_dark_theme_detection_script();
+		}
 
 		wp_set_script_translations( 'elementor-app-packages', 'elementor' );
 		wp_set_script_translations( 'elementor-app', 'elementor' );
@@ -246,7 +252,11 @@ class App extends BaseApp {
 			$this->add_component( 'kit-library', new Modules\KitLibrary\Module() );
 		}
 
-		add_action( 'admin_menu', [ $this, 'register_admin_menu' ], 21 /* after Elementor page */ );
+		$this->add_component( 'onboarding', new Modules\Onboarding\Module() );
+
+		add_action( 'elementor/admin/menu/register', function ( Admin_Menu_Manager $admin_menu ) {
+			$this->register_admin_menu( $admin_menu );
+		}, Source_Local::ADMIN_MENU_PRIORITY + 10 );
 
 		// Happens after WP plugin page validation.
 		add_filter( 'add_menu_classes', [ $this, 'fix_submenu' ] );

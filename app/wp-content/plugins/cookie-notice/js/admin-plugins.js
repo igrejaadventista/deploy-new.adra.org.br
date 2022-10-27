@@ -56,7 +56,10 @@
 
 		// change radio
 		$( document ).on( 'change', 'input[name="cn_deactivation_option"]', function( e ) {
-			if ( $( this ).val() === '6' )
+			var last = $( 'input[name="cn_deactivation_option"]' ).last().get( 0 );
+
+			// last element?
+			if ( $( this ).get( 0 ) === last )
 				$( '.cn-deactivation-textarea textarea' ).prop( 'disabled', false );
 			else
 				$( '.cn-deactivation-textarea textarea' ).prop( 'disabled', true );

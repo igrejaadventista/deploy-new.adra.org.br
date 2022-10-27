@@ -28,7 +28,7 @@ class Options {
 	 * @var array Map of all the default options of the plugin.
 	 */
 	private static $map = [
-		'mail'        => [
+		'mail'                 => [
 			'from_name',
 			'from_email',
 			'mailer',
@@ -36,7 +36,7 @@ class Options {
 			'from_name_force',
 			'from_email_force',
 		],
-		'smtp'        => [
+		'smtp'                 => [
 			'host',
 			'port',
 			'encryption',
@@ -45,53 +45,56 @@ class Options {
 			'user',
 			'pass',
 		],
-		'gmail'       => [
+		'gmail'                => [
 			'client_id',
 			'client_secret',
 		],
-		'outlook'     => [
+		'outlook'              => [
 			'client_id',
 			'client_secret',
 		],
-		'zoho'        => [
+		'zoho'                 => [
 			'domain',
 			'client_id',
 			'client_secret',
 		],
-		'amazonses'   => [
+		'amazonses'            => [
 			'client_id',
 			'client_secret',
 			'region',
 		],
-		'mailgun'     => [
+		'mailgun'              => [
 			'api_key',
 			'domain',
 			'region',
 		],
-		'sendgrid'    => [
+		'sendgrid'             => [
 			'api_key',
 			'domain',
 		],
-		'sparkpost'   => [
+		'sparkpost'            => [
 			'api_key',
 			'region',
 		],
-		'postmark'    => [
+		'postmark'             => [
 			'server_api_token',
 			'message_stream',
 		],
-		'smtpcom'     => [
+		'smtpcom'              => [
 			'api_key',
 			'channel',
 		],
-		'sendinblue'  => [
+		'sendinblue'           => [
 			'api_key',
 			'domain',
 		],
-		'pepipostapi' => [
+		'sendlayer'            => [
 			'api_key',
 		],
-		'pepipost'    => [
+		'pepipostapi'          => [
+			'api_key',
+		],
+		'pepipost'             => [
 			'host',
 			'port',
 			'encryption',
@@ -99,8 +102,24 @@ class Options {
 			'user',
 			'pass',
 		],
-		'license'     => [
+		'license'              => [
 			'key',
+		],
+		'alert_email'          => [
+			'enabled',
+			'connections',
+		],
+		'alert_slack_webhook'  => [
+			'enabled',
+			'connections',
+		],
+		'alert_twilio_sms'     => [
+			'enabled',
+			'connections',
+		],
+		'alert_custom_webhook' => [
+			'enabled',
+			'connections',
 		],
 	];
 
@@ -112,6 +131,7 @@ class Options {
 	 * @var string[]
 	 */
 	public static $mailers = [
+		'sendlayer',
 		'smtpcom',
 		'sendinblue',
 		'amazonses',
@@ -414,6 +434,7 @@ class Options {
 	 * @since 1.6.0 Added Sendinblue.
 	 * @since 1.7.0 Added Do Not Send.
 	 * @since 1.8.0 Added Pepipost API.
+	 * @since 3.6.0 Added Debug Events Retention Period.
 	 *
 	 * @param string $group
 	 * @param string $key
@@ -489,6 +510,16 @@ class Options {
 					case 'pass':
 						/** @noinspection PhpUndefinedConstantInspection */
 						$return = $this->is_const_defined( $group, $key ) ? WPMS_SMTP_PASS : $value;
+						break;
+				}
+
+				break;
+
+			case 'sendlayer':
+				switch ( $key ) {
+					case 'api_key':
+						/** No inspection comment @noinspection PhpUndefinedConstantInspection */
+						$return = $this->is_const_defined( $group, $key ) ? WPMS_SENDLAYER_API_KEY : $value;
 						break;
 				}
 
@@ -654,6 +685,51 @@ class Options {
 						break;
 				}
 
+			case 'alert_email':
+				switch ( $key ) {
+					case 'connections':
+						$return = $this->is_const_defined( $group, $key ) ? [ [ 'send_to' => WPMS_ALERT_EMAIL_SEND_TO ] ] : $value;
+						break;
+				}
+
+				break;
+
+			case 'alert_slack_webhook':
+				switch ( $key ) {
+					case 'connections':
+						$return = $this->is_const_defined( $group, $key ) ? [ [ 'webhook_url' => WPMS_ALERT_SLACK_WEBHOOK_URL ] ] : $value;
+						break;
+				}
+
+				break;
+
+			case 'alert_twilio_sms':
+				switch ( $key ) {
+					case 'connections':
+						if ( $this->is_const_defined( $group, $key ) ) {
+							$return = [
+								[
+									'account_sid'       => WPMS_ALERT_TWILIO_SMS_ACCOUNT_SID,
+									'auth_token'        => WPMS_ALERT_TWILIO_SMS_AUTH_TOKEN,
+									'from_phone_number' => WPMS_ALERT_TWILIO_SMS_FROM_PHONE_NUMBER,
+									'to_phone_number'   => WPMS_ALERT_TWILIO_SMS_TO_PHONE_NUMBER,
+								],
+							];
+						} else {
+							$return = $value;
+						}
+						break;
+				}
+
+				break;
+
+			case 'alert_custom_webhook':
+				switch ( $key ) {
+					case 'connections':
+						$return = $this->is_const_defined( $group, $key ) ? [ [ 'webhook_url' => WPMS_ALERT_CUSTOM_WEBHOOK_URL ] ] : $value;
+						break;
+				}
+
 				break;
 
 			case 'license':
@@ -677,6 +753,16 @@ class Options {
 						$return = $this->is_const_defined( $group, $key ) ?
 							$this->parse_boolean( WPMS_SUMMARY_REPORT_EMAIL_DISABLED ) :
 							$value;
+						break;
+				}
+
+				break;
+
+			case 'debug_events':
+				switch ( $key ) {
+					case 'retention_period':
+						/** @noinspection PhpUndefinedConstantInspection */
+						$return = $this->is_const_defined( $group, $key ) ? intval( WPMS_DEBUG_EVENTS_RETENTION_PERIOD ) : $value;
 						break;
 				}
 
@@ -779,6 +865,15 @@ class Options {
 						break;
 					case 'pass':
 						$return = defined( 'WPMS_SMTP_PASS' ) && WPMS_SMTP_PASS;
+						break;
+				}
+
+				break;
+
+			case 'sendlayer':
+				switch ( $key ) {
+					case 'api_key':
+						$return = defined( 'WPMS_SENDLAYER_API_KEY' ) && WPMS_SENDLAYER_API_KEY;
 						break;
 				}
 
@@ -922,6 +1017,45 @@ class Options {
 
 				break;
 
+			case 'alert_email':
+				switch ( $key ) {
+					case 'connections':
+						$return = defined( 'WPMS_ALERT_EMAIL_SEND_TO' ) && WPMS_ALERT_EMAIL_SEND_TO;
+						break;
+				}
+
+				break;
+
+			case 'alert_slack_webhook':
+				switch ( $key ) {
+					case 'connections':
+						$return = defined( 'WPMS_ALERT_SLACK_WEBHOOK_URL' ) && WPMS_ALERT_SLACK_WEBHOOK_URL;
+						break;
+				}
+
+				break;
+
+			case 'alert_twilio_sms':
+				switch ( $key ) {
+					case 'connections':
+						$return = defined( 'WPMS_ALERT_TWILIO_SMS_ACCOUNT_SID' ) && WPMS_ALERT_TWILIO_SMS_ACCOUNT_SID &&
+											defined( 'WPMS_ALERT_TWILIO_SMS_AUTH_TOKEN' ) && WPMS_ALERT_TWILIO_SMS_AUTH_TOKEN &&
+											defined( 'WPMS_ALERT_TWILIO_SMS_FROM_PHONE_NUMBER' ) && WPMS_ALERT_TWILIO_SMS_FROM_PHONE_NUMBER &&
+											defined( 'WPMS_ALERT_TWILIO_SMS_TO_PHONE_NUMBER' ) && WPMS_ALERT_TWILIO_SMS_TO_PHONE_NUMBER;
+						break;
+				}
+
+				break;
+
+			case 'alert_custom_webhook':
+				switch ( $key ) {
+					case 'connections':
+						$return = defined( 'WPMS_ALERT_CUSTOM_WEBHOOK_URL' ) && WPMS_ALERT_CUSTOM_WEBHOOK_URL;
+						break;
+				}
+
+				break;
+
 			case 'license':
 				switch ( $key ) {
 					case 'key':
@@ -939,6 +1073,15 @@ class Options {
 						break;
 					case SummaryReportEmail::SETTINGS_SLUG:
 						$return = defined( 'WPMS_SUMMARY_REPORT_EMAIL_DISABLED' );
+						break;
+				}
+
+				break;
+
+			case 'debug_events';
+				switch ( $key ) {
+					case 'retention_period':
+						$return = defined( 'WPMS_DEBUG_EVENTS_RETENTION_PERIOD' );
 						break;
 				}
 
@@ -1050,6 +1193,9 @@ class Options {
 							case 'email_debug':
 								$options[ $group ][ $option_name ] = (bool) $option_value;
 								break;
+							case 'retention_period':
+								$options[ $group ][ $option_name ] = (int) $option_value;
+								break;
 						}
 				}
 			}
@@ -1107,7 +1253,7 @@ class Options {
 						}
 						break;
 
-					case 'api_key': // mailgun/sendgrid/sendinblue/pepipostapi/smtpcom/sparkpost.
+					case 'api_key': // mailgun/sendgrid/sendinblue/pepipostapi/smtpcom/sparkpost/sendlayer.
 					case 'domain': // mailgun/zoho/sendgrid/sendinblue.
 					case 'client_id': // gmail/outlook/amazonses/zoho.
 					case 'client_secret': // gmail/outlook/amazonses/zoho.

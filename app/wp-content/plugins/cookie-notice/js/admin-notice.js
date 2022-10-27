@@ -2,14 +2,22 @@
 
 	// ready event
 	$( function() {
-		// Save dismiss state // .is-dismissible
+		// save dismiss state // .is-dismissible
 		$( '.cn-notice' ).on( 'click', '.notice-dismiss, .cn-notice-dismiss', function( e ) {
+			var notice_action = 'dismiss';
+			var param = '';
+
 			if ( $( e.currentTarget ).hasClass( 'cn-approve' ) )
-				var notice_action = 'approve';
+				notice_action = 'approve';
 			else if ( $( e.currentTarget ).hasClass( 'cn-delay' ) )
-				var notice_action = 'delay';
-			else
-				var notice_action = 'dismiss';
+				notice_action = 'delay';
+			else if ( $( e.delegateTarget ).hasClass( 'cn-threshold' ) ) {
+				notice_action = 'threshold';
+
+				var delay = $( e.delegateTarget ).find( '.cn-notice-text' ).data( 'delay' );
+
+				param = parseInt( delay );
+			}
 
 			$.ajax( {
 				url: cnArgsNotice.ajaxURL,
@@ -18,7 +26,9 @@
 				data: {
 					action: 'cn_dismiss_notice',
 					notice_action: notice_action,
-					nonce: cnArgsNotice.nonce
+					nonce: cnArgsNotice.nonce,
+					param: param,
+					cn_network: cnArgsNotice.network
 				}
 			} );
 

@@ -3,176 +3,165 @@
 	// ready event
 	$( function() {
 		var cnHiddenElements = {};
-		
+
 		// listen for the load
 		document.addEventListener( 'load.hu', function( e ) {
 			// set widget text strings
 			hu.setTexts( cnFrontWelcome.textStrings );
 		} );
-		
+
 		// listen for the reload
 		document.addEventListener( 'reload.hu', function( e ) {
 			var container = $( '#hu' );
-			var customOptions = { config: { 
-					dontSellLink: true, 
-					privacyPolicyLink: true,
-					privacyPaper: true,
-					privacyContact: true
+			var customOptions = { config: {
+				dontSellLink: true,
+				privacyPolicyLink: true,
+				privacyPaper: true,
+				privacyContact: true
 			} };
 
 			// set widget options
 			hu.setOptions( customOptions );
 		} );
-		
+
 		// listen for the display
 		document.addEventListener( 'display.hu', function( e ) {
-			var val = [],
-				container = $( '#hu' );
-				
-			var customOptions = { config: { 
+			var val = [];
+			var container = $( '#hu' );
+			var customOptions = { config: {
 				// make it empty
 			} };
 
-			$( parent.document ).find( 'input[name="cn_laws"]:checked' ).each( function() {		
+			$( parent.document ).find( 'input[name="cn_laws"]:checked' ).each( function() {
 				val.push( $( this ).val() );
 			} );
-			
-			// hide paper and contact
-			if ( $( parent.document ).find( 'input[name="cn_privacy_paper"]' ).prop( 'checked' ) === true ) {
-				$( container ).find( '#hu-cookies-paper' ).show();
 
-			} else {
+			// hide paper and contact
+			if ( $( parent.document ).find( 'input[name="cn_privacy_paper"]' ).prop( 'checked' ) === true )
+				$( container ).find( '#hu-cookies-paper' ).show();
+			else
 				$( container ).find( '#hu-cookies-paper' ).hide();
-			}
-			
-			if ( $( parent.document ).find( 'input[name="cn_privacy_contact"]' ).prop( 'checked' ) === true ) {
+
+			if ( $( parent.document ).find( 'input[name="cn_privacy_contact"]' ).prop( 'checked' ) === true )
 				$( container ).find( '#hu-cookies-contact' ).show();
-			} else {
+			else
 				$( container ).find( '#hu-cookies-contact' ).hide();
-			}
-							
+
 			if ( $.inArray( 'ccpa', val ) !== -1 ) {
-				var  htmlElement = $( $( container ).find( '#hu-cookies-notice-dontsell-btn' ) );
-				
+				var htmlElement = $( $( container ).find( '#hu-cookies-notice-dontsell-btn' ) );
+
 				if ( htmlElement.length === 0 ) {
 					$( '#hu-policy-links' ).append( cnHiddenElements.ccpa );
-				
+
 					delete cnHiddenElements.ccpa;
 				}
 
 				$.extend( customOptions.config, { dontSellLink: true } );
 			} else {
 				var htmlElement = $( $( container ).find( '#hu-cookies-notice-dontsell-btn' ) );
-				
+
 				// add to hidden elements
 				if ( htmlElement ) {
 					cnHiddenElements['ccpa'] = htmlElement;
-				
+
 					// remove el
 					$( htmlElement ).remove();
 				}
 
 				$.extend( customOptions.config, { dontSellLink: false } );
 			}
-			
+
 			if ( $.inArray( 'gdpr', val ) !== -1 ) {
-				var  htmlElement = $( $( container ).find( '#hu-cookies-notice-privacy-btn' ) );
-				
+				var htmlElement = $( $( container ).find( '#hu-cookies-notice-privacy-btn' ) );
+
 				if ( htmlElement.length === 0 ) {
 					$( '#hu-policy-links' ).prepend( cnHiddenElements.gdpr );
-					
+
 					delete cnHiddenElements.gdpr;
 				}
 
 				$.extend( customOptions.config, { privacyPolicyLink: true } );
 			} else {
-				var  htmlElement = $( $( container ).find( '#hu-cookies-notice-privacy-btn' ) );
-				
+				var htmlElement = $( $( container ).find( '#hu-cookies-notice-privacy-btn' ) );
+
 				// add to hidden elements
 				if ( htmlElement ) {
 					cnHiddenElements['gdpr'] = htmlElement;
-				
+
 					// remove el
 					$( htmlElement ).remove();
 				}
 
 				$.extend( customOptions.config, { privacyPolicyLink: false } );
 			}
-			
-			// console.log( customOptions );
-			
+
 			// set widget options
 			hu.setOptions( customOptions );
 		} );
-			
+
 		// listen for the parent
 		window.addEventListener( 'message', function( event ) {
-			var iframe = $( parent.document ).find( '#cn_iframe_id' ),
-				form = $( parent.document ).find( '#cn-form-configure' );
-			
-			// console.log( iframe );
-			
+			var iframe = $( parent.document ).find( '#cn_iframe_id' );
+			var form = $( parent.document ).find( '#cn-form-configure' );
+
 			// add spinner
 			$( iframe ).closest( '.has-loader' ).addClass( 'cn-loading' ).append( '<span class="cn-spinner"></span>' );
+
 			// lock options
 			$( form ).addClass( 'cn-form-disabled' );
-			
+
 			// emit loader
-			window.setTimeout( function() { 
+			window.setTimeout( function() {
 				if ( typeof event.data == 'object' ) {
-					var container = $( '#hu' ),
-						option = event.data.call,
-						customOptions = {},
-						customTexts = {};
-						
-					// console.log( option );
+					var container = $( '#hu' );
+					var option = event.data.call;
+					var customOptions = {};
+					var customTexts = {};
 
 					switch ( option ) {
-						
 						case 'position':
 							$( container ).removeClass( 'hu-position-bottom hu-position-top hu-position-left hu-position-right hu-position-center' );
 							$( container ).addClass( 'hu-position-' + event.data.value );
-							
+
 							customOptions = { design: { position: event.data.value } }
 							break;
-							
+
 						case 'naming':
-							var level1 = $( '.hu-cookies-notice-consent-choices-1' ),
-								level2 = $( '.hu-cookies-notice-consent-choices-2' ),
-								level3 = $( '.hu-cookies-notice-consent-choices-3' );
-								
-							var text1 = cnFrontWelcome.levelNames[event.data.value][1],
-								text2 = cnFrontWelcome.levelNames[event.data.value][2],
-								text3 = cnFrontWelcome.levelNames[event.data.value][3];
-								
+							var level1 = $( '.hu-cookies-notice-consent-choices-1' );
+							var level2 = $( '.hu-cookies-notice-consent-choices-2' );
+							var level3 = $( '.hu-cookies-notice-consent-choices-3' );
+							var text1 = cnFrontWelcome.levelNames[event.data.value][1];
+							var text2 = cnFrontWelcome.levelNames[event.data.value][2];
+							var text3 = cnFrontWelcome.levelNames[event.data.value][3];
+
 							// apply text to dom elements
 							$( level1 ).find( '.hu-toggle-label' ).text( text1 );
 							$( level2 ).find( '.hu-toggle-label' ).text( text2 );
 							$( level3 ).find( '.hu-toggle-label' ).text( text3 );
-							
+
 							// apply text to text strings
-							customTexts = { 
+							customTexts = {
 								levelNameText_1: text1,
 								levelNameText_2: text2,
 								levelNameText_3: text3
 							}
 							break;
-							
+
 						case 'laws':
 							customOptions.config = {}
-							
+
 							if ( $.inArray( 'ccpa', event.data.value ) !== -1 ) {
-								var  htmlElement = $( container ).find( '#hu-cookies-notice-dontsell-btn' );
+								var htmlElement = $( container ).find( '#hu-cookies-notice-dontsell-btn' );
 
 								if ( htmlElement.length === 0 ) {
 									$( '#hu-policy-links' ).append( cnHiddenElements.ccpa );
-									
+
 									delete cnHiddenElements.ccpa;
 								}
 
 								$.extend( customOptions.config, { dontSellLink: true } );
 							} else {
-								var  htmlElement = $( container ).find( '#hu-cookies-notice-dontsell-btn' );
+								var htmlElement = $( container ).find( '#hu-cookies-notice-dontsell-btn' );
 
 								// add to hidden elements
 								if ( htmlElement && ! cnHiddenElements.hasOwnProperty( 'ccpa' ) ) {
@@ -184,19 +173,19 @@
 
 								$.extend( customOptions.config, { dontSellLink: false } );
 							}
-							
+
 							if ( $.inArray( 'gdpr', event.data.value ) !== -1 ) {
-								var  htmlElement = $( container ).find( '#hu-cookies-notice-privacy-btn' );
+								var htmlElement = $( container ).find( '#hu-cookies-notice-privacy-btn' );
 
 								if ( htmlElement.length === 0 ) {
 									$( '#hu-policy-links' ).prepend( cnHiddenElements.gdpr );
-									
+
 									delete cnHiddenElements.gdpr;
 								}
 
 								$.extend( customOptions.config, { privacyPolicyLink: true } );
 							} else {
-								var  htmlElement = $( container ).find( '#hu-cookies-notice-privacy-btn' );
+								var htmlElement = $( container ).find( '#hu-cookies-notice-privacy-btn' );
 
 								// add to hidden elements
 								if ( htmlElement && ! cnHiddenElements.hasOwnProperty( 'gdpr' ) ) {
@@ -208,90 +197,94 @@
 
 								$.extend( customOptions.config, { privacyPolicyLink: false } );
 							}
-							
-							// console.log( customOptions );
+
 							break;
-							
+
 						case 'privacy_paper':
 							var value = event.data.value === true;
 							var htmlElement = $( container ).find( '#hu-cookies-paper' );
-							
+
 							if ( value )
 								$( htmlElement ).show();
 							else
 								$( htmlElement ).hide();
-							
+
 							$.extend( customOptions.config, { privacyPaper: value } );
 							break;
-							
+
 						case 'privacy_contact':
 							var value = event.data.value === true;
 							var htmlElement = $( container ).find( '#hu-cookies-contact');
-							
+
 							if ( value )
 								$( htmlElement ).show();
 							else
 								$( htmlElement ).hide();
-							
+
 							$.extend( customOptions.config, { privacyContact: value } );
 							break;
-							
+
 						case 'color_primary':
 							var iframeContents = $( iframe ).contents()[0];
+
 							iframeContents.documentElement.style.setProperty( '--hu-primaryColor', event.data.value );
 							customOptions = { design: { primaryColor: event.data.value } }
 							break;
-							
+
 						case 'color_background':
 							var iframeContents = $( iframe ).contents()[0];
+
 							iframeContents.documentElement.style.setProperty( '--hu-bannerColor', event.data.value );
 							customOptions = { design: { bannerColor: event.data.value } }
 							break;
-							
+
 						case 'color_border':
 							var iframeContents = $( iframe ).contents()[0];
+
 							iframeContents.documentElement.style.setProperty( '--hu-borderColor', event.data.value );
 							customOptions = { design: { borderColor: event.data.value } }
 							break;
-							
+
 						case 'color_text':
 							var iframeContents = $( iframe ).contents()[0];
+
 							iframeContents.documentElement.style.setProperty( '--hu-textColor', event.data.value );
 							customOptions = { design: { textColor: event.data.value } }
 							break;
-							
+
 						case 'color_heading':
 							var iframeContents = $( iframe ).contents()[0];
+
 							iframeContents.documentElement.style.setProperty( '--hu-headingColor', event.data.value );
 							customOptions = { design: { headingColor: event.data.value } }
 							break;
-							
+
 						case 'color_button_text':
 							var iframeContents = $( iframe ).contents()[0];
+
 							iframeContents.documentElement.style.setProperty( '--hu-btnTextColor', event.data.value );
 							customOptions = { design: { btnTextColor: event.data.value } }
 							break;
 					}
-					
+
 					// set widget options
 					hu.setOptions( customOptions );
+
 					// set widget texts
 					hu.setTexts( customTexts );
-					
-					// console.log( hu.options );
 				}
+
 				// remove spinner
 				$( iframe ).closest( '.has-loader' ).find( '.cn-spinner' ).remove();
 				$( iframe ).closest( '.has-loader' ).removeClass( 'cn-loading' );
+
 				// unlock options
 				$( form ).removeClass( 'cn-form-disabled' );
 			}, 500	);
-			
 		}, false );
 
 		// is it iframe?
 		if ( document !== parent.document && typeof cnFrontWelcome !== 'undefined' && cnFrontWelcome.previewMode ) {
-			// $( parent.document ).find( '#cn_test' ).val( $( document ).find( '.site-title' ).text() );
 			var iframe = $( parent.document ).find( '#cn_iframe_id' );
 
 			// inject links into initial document
@@ -428,7 +421,7 @@
 		if ( 'javascript:' === element.protocol )
 			return true;
 
-		// only web URLs can be previewed
+		// only web urls can be previewed
 		if ( element.protocol !== 'https:' && element.protocol !== 'http:' )
 			return false;
 

@@ -144,7 +144,7 @@ class Processor {
 			return false;
 		}
 
-		if ( in_array( $mailer, [ 'outlook', 'zoho' ], true ) ) {
+		if ( in_array( $mailer, [ 'zoho' ], true ) ) {
 			$sender     = $options->get( $mailer, 'user_details' );
 			$from_email = ! empty( $sender['email'] ) ? $sender['email'] : '';
 			$forced     = true;
@@ -190,6 +190,20 @@ class Processor {
 	}
 
 	/**
+	 * Validate the email address.
+	 *
+	 * @since 3.6.0
+	 *
+	 * @param string $email The email address.
+	 *
+	 * @return boolean True if email address is valid, false on failure.
+	 */
+	public static function is_email_callback( $email ) {
+
+		return (bool) is_email( $email );
+	}
+
+	/**
 	 * Modify the email address that is used for sending emails.
 	 *
 	 * @since 1.0.0
@@ -213,7 +227,7 @@ class Processor {
 		}
 
 		// Return FROM EMAIL if forced in settings.
-		if ( $forced & ! empty( $from_email ) ) {
+		if ( $forced && ! empty( $from_email ) ) {
 			return $from_email;
 		}
 
