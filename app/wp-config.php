@@ -47,6 +47,7 @@ define('AS3CF_SETTINGS', serialize(array(
 	'bucket' => $_ENV['WP_S3_BUCKET']
 )));
 
+define('WP_MEMORY_LIMIT', '512M');
 
 define('FORCE_SSL', true);
 define('FORCE_SSL_ADMIN', true);
