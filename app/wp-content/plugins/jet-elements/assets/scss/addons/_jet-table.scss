@@ -118,7 +118,10 @@
 	-ms-overflow-style: -ms-autohiding-scrollbar;
 
 	.jet-table {
+		display: block;
 		width: auto;
 		max-width: none;
+		white-space: nowrap;
+		-webkit-overflow-scrolling: touch !important;
 	}
 }

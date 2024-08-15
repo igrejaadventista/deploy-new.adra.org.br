@@ -17,13 +17,27 @@ class Query {
 	 * Setup properties
 	 */
 	public function __construct() {
+		
 		add_action( 'wp', array( $this, 'setup_props' ), 99 );
 
-		// Setup props on ajax
-		add_action( 'wp_ajax_jet_engine_ajax',        array( $this, 'setup_props' ), 0 );
-		add_action( 'wp_ajax_nopriv_jet_engine_ajax', array( $this, 'setup_props' ), 0 );
+		// Setup props on jet-engine ajax
+		$action = 'jet_engine_ajax';
+
+		if ( ! empty( $_REQUEST['jet_engine_action'] ) ) {
+			$action = sanitize_text_field( $_REQUEST['jet_engine_action'] );
+		}
+
+		add_action( 'wp_ajax_' . $action,        array( $this, 'setup_props' ), 0 );
+		add_action( 'wp_ajax_nopriv_' . $action, array( $this, 'setup_props' ), 0 );
+
+		// Setup props on filters ajax.
+		add_action( 'jet-smart-filters/render/ajax/before', array( $this, 'setup_props' ), 20 );
+
+		// Allow to trigger props setup from 3rd party by calling hook 'jet-engine/profile-builder/query/maybe-setup-props'
+		add_action( 'jet-engine/profile-builder/query/maybe-setup-props', array( $this, 'setup_props' ), 20 );
 
 		add_filter( 'jet-engine/listings/data/default-object', array( $this, 'setup_default_object' ) );
+
 	}
 
 	/**
@@ -66,6 +80,17 @@ class Query {
 			}
 		}
 
+		if ( ( $this->subpagenow && empty( $this->subpage ) )
+			|| ( $this->is_single_user_page && ! $this->get_queried_user() )
+		) {
+			global $wp_query;
+			$wp_query->set_404();
+			status_header( 404 );
+			nocache_headers();
+			get_template_part( 404 );
+			exit;
+		}
+
 		if ( $this->pagenow ) {
 			do_action( 'jet-engine/profile-builder/query/setup-props', $this );
 		}
@@ -103,6 +128,11 @@ class Query {
 		} else {
 			foreach ( $pages as $page ) {
 				if ( ! empty( $page['slug'] ) && $this->subpagenow === $page['slug'] ) {
+
+					if ( ! empty( $page['template'] ) && ! is_array( $page['template'] ) ) {
+						$page['template'] = [ $page['template'] ];
+					}
+
 					$this->subpage = $page;
 				}
 			}
@@ -118,8 +148,12 @@ class Query {
 
 		$pages = array_values( $pages );
 
-		// If first page is accessible for any role - use it as defaut
+		// If first page is accessible for any role - use it as default
 		if ( ! empty( $pages[0] ) && empty( $pages[0]['roles'] ) ) {
+
+			if ( ! empty( $pages[0]['template'] ) && ! is_array( $pages[0]['template'] ) ) {
+				$pages[0]['template'] = [ $pages[0]['template'] ];
+			}
 
 			$this->subpage    = $pages[0];
 			$this->subpagenow = $this->subpage['slug'];
@@ -225,7 +259,7 @@ class Query {
 	 * Returns slug of currently queried user.
 	 *
 	 * Will return:
-	 * - for user loops will return URL of apropriate user in loop
+	 * - for user loops will return URL of appropriate user in loop
 	 * - queried user slug for single user page
 	 * - current user slug for other cases
 	 *
@@ -239,8 +273,10 @@ class Query {
 
 		if ( ! $user ) {
 
-			if ( 'users' === $listing ) {
-				$user = jet_engine()->listings->data->get_current_object();
+			$current_object = jet_engine()->listings->data->get_current_object();
+
+			if ( in_array( $listing, array( 'users', 'query' ) ) && 'WP_User' === get_class( $current_object ) ) {
+				$user = $current_object;
 			} elseif ( $this->is_single_user_page() ) {
 				$user = $this->get_queried_user();
 			} else {
@@ -278,6 +314,21 @@ class Query {
 	 * @return [type] [description]
 	 */
 	public function get_queried_user_id() {
+
+		$user = apply_filters( 'jet-engine/profile-builder/query/pre-get-queried-user', null );
+
+		if ( ! $user ) {
+			$listing        = jet_engine()->listings->data->get_listing_source();
+			$current_object = jet_engine()->listings->data->get_current_object();
+
+			if ( 'users' === $listing || ( 'query' === $listing && 'WP_User' === get_class( $current_object ) ) ) {
+				$user = $current_object;
+			}
+		}
+
+		if ( $user && ( $user instanceof \WP_User ) ) {
+			return absint( $user->ID );
+		}
 
 		if ( null !== $this->queried_user_id ) {
 			return $this->queried_user_id;

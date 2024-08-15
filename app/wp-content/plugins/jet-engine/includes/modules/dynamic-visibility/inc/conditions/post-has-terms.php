@@ -58,7 +58,7 @@ class Post_Has_Terms extends Base {
 		return array(
 			'terms_taxonomy' => array(
 				'label'   => __( 'Taxonomy', 'jet-engine' ),
-				'type'    => \Elementor\Controls_Manager::SELECT,
+				'type'    => 'select',
 				'options' => jet_engine()->listings->get_taxonomies_for_options(),
 				'default' => '',
 			),

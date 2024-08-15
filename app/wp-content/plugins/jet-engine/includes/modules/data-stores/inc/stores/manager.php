@@ -25,11 +25,13 @@ class Manager {
 		require jet_engine()->modules->modules_path( 'data-stores/inc/stores/session.php' );
 		require jet_engine()->modules->modules_path( 'data-stores/inc/stores/user-meta.php' );
 		require jet_engine()->modules->modules_path( 'data-stores/inc/stores/local-storage.php' );
+		require jet_engine()->modules->modules_path( 'data-stores/inc/stores/user-ip.php' );
 
 		$this->register_store_type( new Cookies_Store() );
 		$this->register_store_type( new Session_Store() );
 		$this->register_store_type( new User_Meta_Store() );
 		$this->register_store_type( new Local_Storage() );
+		$this->register_store_type( new User_Ip_Store() );
 
 		do_action( 'jet-engine/data-stores/register-store-types', $this );
 
@@ -53,6 +55,10 @@ class Manager {
 			require_once jet_engine()->modules->modules_path( 'data-stores/inc/stores/on-view.php' );
 
 			new On_View( $this );
+
+			require_once jet_engine()->modules->modules_path( 'data-stores/inc/stores/user-ip-schedules.php' );
+
+			new User_Ip_Schedules( $this );
 
 		}
 

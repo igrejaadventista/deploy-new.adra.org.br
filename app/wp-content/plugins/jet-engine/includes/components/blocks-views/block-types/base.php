@@ -15,22 +15,34 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Base' ) ) {
 	 */
 	abstract class Jet_Engine_Blocks_Views_Type_Base {
 
+		use \Jet_Engine\Modules\Performance\Traits\Prevent_Wrap;
+
 		protected $namespace = 'jet-engine/';
 
 		public $block_manager    = null;
 		public $controls_manager = null;
 		public $block_data       = null;
+		public $_root            = [];
 
 		public function __construct() {
 
 			$attributes = $this->get_attributes();
 
 			if ( $this->has_style_manager() ) {
+
 				$this->set_style_manager_instance();
 				$this->add_style_manager_options();
 				do_action( 'jet-engine/blocks-views/' . $this->get_name() . '/add-extra-style-options', $this );
 
 				//add_action( 'enqueue_block_editor_assets', array( $this, 'add_style_manager_options' ), -1 );
+				
+				if ( $this->prevent_wrap() ) {
+					add_filter(
+						'jet_style_manager/gutenberg/prevent_block_wrap/' . $this->get_block_name(),
+						'__return_true'
+					);
+				}
+
 			}
 
 			/**
@@ -52,7 +64,7 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Base' ) ) {
 				$render_callback = $this->get_file_data( 'render_callback' );
 
 				if ( $render_callback ) {
-					$args['render_callback'] = array( $this, 'render_callback' );
+					$args['render_callback'] = array( $this, '_render_callback' );
 				}
 
 			} else {
@@ -60,7 +72,7 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Base' ) ) {
 				$block = $this->get_block_name();
 
 				$args['attributes']      = $attributes;
-				$args['render_callback'] = array( $this, 'render_callback' );
+				$args['render_callback'] = array( $this, '_render_callback' );
 
 			}
 
@@ -181,7 +193,7 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Base' ) ) {
 		}
 
 		public function css_selector( $el = '' ) {
-			return sprintf( '{{WRAPPER}}.jet-listing-%1$s%2$s', $this->get_name(), $el );
+			return sprintf( '{{WRAPPER}} %1$s', $el );
 		}
 
 		/**
@@ -204,6 +216,26 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Base' ) ) {
 			return jet_engine()->listings->get_render_instance( $this->get_name(), $attributes );
 		}
 
+		public function reset_root() {
+			$this->_root = [
+				'class' => [],
+			];
+		}
+
+		public function get_root_attr_string() {
+			
+			$result = [];
+
+			foreach ( $this->_root as $attr => $value ) {
+				if ( is_array( $value ) ) {
+					$value = implode( ' ', array_unique( array_filter( $value ) ) );
+				}
+				$result[] = sprintf( '%1$s="%2$s"', $attr, esc_attr( $value ) );
+			}
+
+			return implode( $result );
+		}
+
 		public function render_callback( $attributes = array() ) {
 
 			$item       = $this->get_name();
@@ -211,7 +243,12 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Base' ) ) {
 			$listing_id = isset( $_REQUEST['post_id'] ) ? absint( $_REQUEST['post_id'] ) : false;
 			$object_id  = isset( $_REQUEST['object'] ) ? absint( $_REQUEST['object'] ) : jet_engine()->listings->data->get_current_object();
 			$attributes = $this->prepare_attributes( $attributes );
-			$render     = $this->get_render_instance( $attributes );
+
+			if ( $this->is_edit_mode() ) {
+				do_action( 'jet-engine/blocks-views/render-block-preview', $this, $attributes );
+			}
+
+			$render = $this->get_render_instance( $attributes );
 
 			if ( ! $render ) {
 				return __( 'Item renderer class not found', 'jet-engine' );
@@ -221,10 +258,37 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Base' ) ) {
 				$listing_id = jet_engine()->blocks_views->render->get_current_listing_id();
 			}
 
-			$render->setup_listing( $listing, $object_id, true, $listing_id );
+			if ( $listing_id ) {
+				$render->setup_listing( $listing, $object_id, true, $listing_id );
+			}
 
-			return $render->get_content();
+			$content = $render->get_content();
+			$el_id = ! empty( $attributes['_element_id'] ) ? $attributes['_element_id'] : '';
 
+			if ( $el_id ) {
+				$this->_root['id'] = esc_attr( $el_id );
+			}
+
+			$this->_root['data-is-block'] = $this->get_block_name();
+
+			if ( ! empty( $attributes['className'] ) ) {
+				$this->_root['class'][] = esc_attr( $attributes['className'] );
+			}
+
+			$content = sprintf(
+				'<div %1$s>%2$s</div>',
+				$this->get_root_attr_string(),
+				$content
+			);
+
+			return $content;
+
+		}
+
+		public function _render_callback( $attributes ) {
+			$result = $this->render_callback( $attributes );
+			$this->reset_root();
+			return $result;
 		}
 
 	}

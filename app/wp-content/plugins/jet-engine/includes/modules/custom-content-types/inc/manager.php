@@ -112,6 +112,7 @@ class Manager extends \Jet_Engine_Base_WP_Intance {
 			return;
 		}
 
+		require Module::instance()->module_path( 'single-item-factory.php' );
 		require Module::instance()->module_path( 'factory.php' );
 		require Module::instance()->module_path( 'type-pages.php' );
 
@@ -126,6 +127,19 @@ class Manager extends \Jet_Engine_Base_WP_Intance {
 			$type_id  = $type['id'];
 			$instance = new Factory( $args, $fields, $type_id );
 
+			\Jet_Engine_Meta_Boxes_Option_Sources::instance()->find_meta_fields_with_save_custom( 
+				'cct',
+				$args['slug'],
+				$fields,
+				$type_id,
+				$this->data
+			);
+
+			jet_engine()->add_instance( 'custom-content-type', array(
+				'id'   => $type_id,
+				'args' => $type['args'],
+			) );
+
 			$this->_registered_instances[ $args['slug'] ] = $instance;
 
 			if ( $instance->get_arg( 'has_single' ) && $instance->get_arg( 'related_post_type' ) ) {
@@ -134,6 +148,45 @@ class Manager extends \Jet_Engine_Base_WP_Intance {
 
 		}
 
+		do_action( 'jet-engine/custom-content-types/after-register-instances', $this );
+
+		/**
+		 * Attach handler to save new custom values added into checkbox and radio feilds
+		 * to add custom values to field settings (if allowed)
+		 */
+		add_action( 
+			'jet-engine/meta-boxes/hook-save-custom/cct', 
+			array( $this, 'attach_handler_to_save_custom' ), 
+			10, 2 
+		);
+
+	}
+
+	/**
+	 * Handle custom options saving for check and radio fields where it is enabled
+	 * @param  [type] $fields_data     [description]
+	 * @param  [type] $options_manager [description]
+	 * @return [type]                  [description]
+	 */
+	public function attach_handler_to_save_custom( $fields_data, $options_manager ) {
+		foreach ( $fields_data as $cct => $fields ) {
+			$hook_name = 'jet-engine/custom-content-types/updated-item/' . $cct;
+			add_action( $hook_name, function( $item ) use ( $options_manager, $cct ) {
+				$options_manager->save_custom_values( $item, $this->data, 'cct', $cct );
+			} );
+		}
+	}
+
+	/**
+	 * Returns all post ypes with related CCTs
+	 * @return [type] [description]
+	 */
+	public function get_post_types_map() {
+		return $this->_post_types_map;
+	}
+
+	public function register_instance( $slug, $instance ) {
+		$this->_registered_instances[ $slug ] = $instance;
 	}
 
 	public function get_content_type_for_post_type( $post_type = null ) {
@@ -212,7 +265,7 @@ class Manager extends \Jet_Engine_Base_WP_Intance {
 
 		if ( $type_id ) {
 			foreach ( $this->_registered_instances as $instance ) {
-				if ( $instance->type_id === $type_id ) {
+				if ( absint( $instance->type_id ) === absint( $type_id ) ) {
 					return $instance;
 				}
 			}

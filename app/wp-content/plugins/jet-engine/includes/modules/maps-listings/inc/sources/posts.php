@@ -20,8 +20,18 @@ class Posts extends Base {
 		return get_post_meta( $obj->ID, $field, true );
 	}
 
+	public function delete_field_value( $obj, $field ) {
+		delete_post_meta( $obj->ID, $field );
+	}
+
 	public function update_field_value( $obj, $field, $value ) {
-		update_post_meta( $obj->ID, $field, $value );
+		
+		$hash = md5( $field );
+
+		update_post_meta( $obj->ID, $hash . '_hash', $value['key'] );
+		update_post_meta( $obj->ID, $hash . '_lat', $value['coord']['lat'] );
+		update_post_meta( $obj->ID, $hash . '_lng', $value['coord']['lng'] );
+
 	}
 
 	public function get_failure_key( $obj ) {
@@ -35,7 +45,7 @@ class Posts extends Base {
 			$fields = explode( '+', $field );
 
 			if ( 1 === count( $fields ) ) {
-				add_action( 'cx_post_meta/before_save_meta/' . $field, array( $this, 'preload' ), 10, 2 );
+				add_action( 'cx_post_meta/before_save_meta/' . $field, array( $this, 'preload' ), 10, 3 );
 			} else {
 				$this->field_groups[] = $fields;
 			}

@@ -2,6 +2,7 @@
 
 namespace DeliciousBrains\WP_Offload_Media\Aws3\Aws;
 
+use DeliciousBrains\WP_Offload_Media\Aws3\GuzzleHttp\Promise\PromiseInterface;
 use DeliciousBrains\WP_Offload_Media\Aws3\GuzzleHttp\Promise\PromisorInterface;
 use DeliciousBrains\WP_Offload_Media\Aws3\GuzzleHttp\Promise\EachPromise;
 /**
@@ -64,9 +65,9 @@ class CommandPool implements PromisorInterface
         $this->each = new EachPromise($mapFn($commands), $config);
     }
     /**
-     * @return \GuzzleHttp\Promise\PromiseInterface
+     * @return PromiseInterface
      */
-    public function promise()
+    public function promise() : PromiseInterface
     {
         return $this->each->promise();
     }

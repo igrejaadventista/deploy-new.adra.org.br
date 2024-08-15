@@ -30,7 +30,7 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Image' ) ) {
 		 * @return array
 		 */
 		public function get_attributes() {
-			return array(
+			return apply_filters( 'jet-engine/blocks-views/block-types/attributes/dynamic-image', array(
 				'dynamic_image_source' => array(
 					'type' => 'string',
 					'default' => 'post_thumbnail',
@@ -51,6 +51,14 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Image' ) ) {
 					'type' => 'number',
 					'default' => 50,
 				),
+				'custom_image_alt' => array(
+					'type' => 'string',
+					'default' => '',
+				),
+				'lazy_load_image' => array(
+					'type' => 'boolean',
+					'default' => wp_lazy_loading_enabled( 'img', 'wp_get_attachment_image' ),
+				),
 				'linked_image' => array(
 					'type' => 'boolean',
 					'default' => true,
@@ -58,6 +66,10 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Image' ) ) {
 				'image_link_source' => array(
 					'type' => 'string',
 					'default' => '_permalink',
+				),
+				'image_link_source_custom' => array(
+					'type' => 'string',
+					'default' => '',
 				),
 				'image_link_option' => array(
 					'type' => 'string',
@@ -90,7 +102,11 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Image' ) ) {
 					'type' => 'string',
 					'default' => '',
 				),
-			);
+				'object_context' => array(
+					'type' => 'string',
+					'default' => 'default_object',
+				),
+			) );
 		}
 
 		/**
@@ -130,6 +146,141 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Image' ) ) {
 					),
 					'css_selector' => array(
 						$this->css_selector() => 'justify-content: {{VALUE}};',
+					),
+				)
+			);
+
+			$this->controls_manager->add_responsive_control(
+				array(
+					'id'    => 'image_width',
+					'label' => esc_html__( 'Width', 'jet-engine' ),
+					'type'  => 'range',
+					'units' => array(
+						array(
+							'value'     => 'px',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 1,
+								'max'  => 1000,
+							),
+						),
+						array(
+							'value'     => '%',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 1,
+								'max'  => 100,
+							),
+						),
+						array(
+							'value'     => 'vw',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 1,
+								'max'  => 100,
+							),
+						),
+					),
+					'separator'    => 'before',
+					'css_selector' => array(
+						$this->css_selector( ' a' )   => 'width: {{VALUE}}{{UNIT}};',
+						$this->css_selector( ' img' ) => 'width: {{VALUE}}{{UNIT}};',
+					),
+				)
+			);
+
+			$this->controls_manager->add_responsive_control(
+				array(
+					'id'    => 'image_max_width',
+					'label' => esc_html__( 'Max Width', 'jet-engine' ),
+					'type'  => 'range',
+					'units' => array(
+						array(
+							'value'     => 'px',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 1,
+								'max'  => 1000,
+							),
+						),
+						array(
+							'value'     => '%',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 1,
+								'max'  => 100,
+							),
+						),
+						array(
+							'value'     => 'vw',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 1,
+								'max'  => 100,
+							),
+						),
+					),
+					'css_selector' => array(
+						$this->css_selector( ' a' )   => 'max-width: {{VALUE}}{{UNIT}};',
+						$this->css_selector( ' img' ) => 'max-width: {{VALUE}}{{UNIT}};',
+					),
+				)
+			);
+
+			$this->controls_manager->add_responsive_control(
+				array(
+					'id'    => 'image_height',
+					'label' => esc_html__( 'Height', 'jet-engine' ),
+					'type'  => 'range',
+					'units' => array(
+						array(
+							'value'     => 'px',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 1,
+								'max'  => 1000,
+							),
+						),
+						array(
+							'value'     => 'vh',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 1,
+								'max'  => 100,
+							),
+						),
+					),
+					'css_selector' => array(
+						$this->css_selector( ' img' ) => 'height: {{VALUE}}{{UNIT}};',
+					),
+				)
+			);
+
+			$this->controls_manager->add_responsive_control(
+				array(
+					'id'      => 'image_object_fit',
+					'label'   => esc_html__( 'Object Fit', 'jet-engine' ),
+					'type'    => 'select',
+					'options' => array(
+						array(
+							'label' => esc_html__( 'Default', 'jet-engine' ),
+							'value' => '',
+						),
+						array(
+							'label' => esc_html__( 'Fill', 'jet-engine' ),
+							'value' => 'fill',
+						),
+						array(
+							'label' => esc_html__( 'Cover', 'jet-engine' ),
+							'value' => 'cover',
+						),
+						array(
+							'label' => esc_html__( 'Contain', 'jet-engine' ),
+							'value' => 'contain',
+						),
+					),
+					'css_selector' => array(
+						$this->css_selector( ' img' ) => 'object-fit: {{VALUE}};',
 					),
 				)
 			);

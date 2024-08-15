@@ -53,21 +53,6 @@ if ( ! class_exists( 'CX_Control_Dimensions' ) ) {
 		);
 
 		/**
-		 * Get required attribute.
-		 *
-		 * @since 1.0.0
-		 * @return string
-		 */
-		public function get_required() {
-
-			if ( $this->settings['required'] ) {
-				return 'required="required"';
-			}
-
-			return '';
-		}
-
-		/**
 		 * Render html UI_Dimension.
 		 *
 		 * @since 1.0.0
@@ -89,7 +74,7 @@ if ( ! class_exists( 'CX_Control_Dimensions' ) ) {
 			$html .= '<div class="cx-ui-container ' . esc_attr( $class ) . '">';
 
 				if ( '' !== $this->settings['label'] ) {
-					$html .= '<label class="cx-label" for="' . esc_attr( $this->settings['id'] ) . '">' . esc_html( $this->settings['label'] ) . '</label> ';
+					$html .= '<label class="cx-label" for="' . esc_attr( $this->settings['id'] ) . '">' . wp_kses_post( $this->settings['label'] ) . '</label> ';
 				}
 
 				$html .= $this->get_fields();

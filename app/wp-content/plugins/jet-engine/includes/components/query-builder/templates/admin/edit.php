@@ -18,22 +18,267 @@
 		<div class="cx-vui-panel">
 			<cx-vui-input
 				:label="'<?php _e( 'Name', 'jet-engine' ); ?>'"
-				:description="'<?php _e( 'Name of Custom Content Type will be shown in the admin menu`', 'jet-engine' ); ?>'"
+				:description="'<?php _e( 'Name of Query will be shown in the admin menu.', 'jet-engine' ); ?>'"
 				:wrapper-css="[ 'equalwidth' ]"
 				:size="'fullwidth'"
 				:error="errors.name"
 				v-model="generalSettings.name"
 				@on-focus="handleFocus( 'name' )"
 			></cx-vui-input>
+			<cx-vui-textarea
+				:label="'<?php _e( 'Description', 'jet-engine' ); ?>'"
+				:description="'<?php _e( 'Description of Query.', 'jet-engine' ); ?>'"
+				:wrapper-css="[ 'equalwidth' ]"
+				:size="'fullwidth'"
+				v-model="generalSettings.description"
+			></cx-vui-textarea>
 			<cx-vui-select
 				:label="'<?php _e( 'Query Type', 'jet-engine' ); ?>'"
-				:description="'<?php _e( 'Select type of queried data', 'jet-engine' ); ?>'"
+				:description="'<?php _e( 'Select type of queried data.', 'jet-engine' ); ?>'"
 				:wrapper-css="[ 'equalwidth' ]"
 				:options-list="queryTypes"
 				:size="'fullwidth'"
 				v-model="generalSettings.query_type"
 				@on-change="ensureQueryType"
 			></cx-vui-select>
+			<cx-vui-input
+				:label="'<?php _e( 'Query ID', 'jet-engine' ); ?>'"
+				:description="'<?php _e( 'Optional. Set custom Query ID to connect this query with JetSmartFilters. To work correctly this Query ID should be the same as Query ID set in the filter settings and ID of appropriate widget where this query is used.', 'jet-engine' ); ?>'"
+				:wrapper-css="[ 'equalwidth' ]"
+				:size="'fullwidth'"
+				v-model="generalSettings.query_id"
+			></cx-vui-input>
+			<cx-vui-component-wrapper
+				v-if="generalSettings.query_id"
+				label="<?php _e( 'Warning!', 'jet-engine' ); ?>"
+				description="<?php _e( 'Please make sure you set up the same ID for any filters used with this query.', 'jet-engine' ); ?>"
+			></cx-vui-component-wrapper>
+			<cx-vui-switcher
+				:label="'<?php _e( 'Cache Query', 'jet-engine' ); ?>'"
+				:description="'<?php _e( 'Whether to cache query results.', 'jet-engine' ); ?>'"
+				:wrapper-css="[ 'equalwidth' ]"
+				:size="'fullwidth'"
+				v-model="generalSettings.cache_query"
+			></cx-vui-switcher>
+			<cx-vui-switcher
+				:label="'<?php _e( 'Register Rest API Endpoint', 'jet-engine' ); ?>'"
+				:description="'<?php _e( 'Register WordPress Rest API endpoint to make query results publicly accessible and allow to get current query data remotely.', 'jet-engine' ); ?>'"
+				:wrapper-css="[ 'equalwidth' ]"
+				:size="'fullwidth'"
+				v-model="generalSettings.api_endpoint"
+				@on-change="ensureAPIEndpointDefaults"
+			></cx-vui-switcher>
+			<cx-vui-input
+				label="<?php _e( 'Endpoint Namespace', 'jet-engine' ); ?>"
+				description="<?php _e( 'Namespace of Rest API endpoint. Namespace is the first URL segment after core prefix `wp-json`.', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				size="fullwidth"
+				:error="! generalSettings.api_namespace"
+				:conditions="[
+					{
+						'input':   generalSettings.api_endpoint,
+						'compare': 'equal',
+						'value':   true,
+					}
+				]"
+				v-model="generalSettings.api_namespace"
+			>
+				<div class="jet-engine-query-builder-api-error" v-if="! generalSettings.api_namespace"><?php
+					_e( 'This field is required. Endpoint will not be registered.', 'jet-engine' );
+				?></div>
+			</cx-vui-input>
+			<cx-vui-input
+				label="<?php _e( 'Endpoint Path', 'jet-engine' ); ?>"
+				description="<?php _e( 'Path of Rest API endpoint. The base part of URL for endpoint you are adding, this part goes after namespace.', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:error="! generalSettings.api_path"
+				size="fullwidth"
+				:conditions="[
+					{
+						'input':   generalSettings.api_endpoint,
+						'compare': 'equal',
+						'value':   true,
+					}
+				]"
+				v-model="generalSettings.api_path"
+			>
+				<div class="jet-engine-query-builder-api-error" v-if="! generalSettings.api_path"><?php
+					_e( 'This field is required. Endpoint will not be registered.', 'jet-engine' );
+				?></div>
+			</cx-vui-input>
+			<cx-vui-component-wrapper
+				v-if="generalSettings.api_endpoint"
+				:wrapper-css="[ 'api-url' ]"
+			>
+				<div class="cx-vui-component__label"><?php _e( 'Rest API Endpoint URL', 'jet-engine' ); ?></div>
+				<div class="jet-engine-query-builder-api-url">
+					<pre><code>{{ endpointURL() }}</code></pre>
+					<div
+						role="button"
+						class="jet-engine-query-builder-api-url__copy"
+						v-if="hasClipboard"
+						@click="copyToClipboard( endpointURL() )"
+					>
+						<svg v-if="!isCopied" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24px" height="24px"><path d="M0 0h24v24H0z" fill="none"></path><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path></svg>
+						<svg v-if="isCopied" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill-rule="evenodd" clip-rule="evenodd"><path d="M21 6.285l-11.16 12.733-6.84-6.018 1.319-1.49 5.341 4.686 9.865-11.196 1.475 1.285z"/></svg>
+					</div>
+				</div>
+			</cx-vui-component-wrapper>
+			<cx-vui-select
+				label="<?php _e( 'Restrict Access', 'jet-engine' ); ?>"
+				description="<?php _e( 'Define who can access this endpoint.', 'jet-engine' ); ?><br><a href='https://developer.wordpress.org/rest-api/using-the-rest-api/authentication/' target='_blank'><?php _e( 'Read more about WordPress Rest API authentication', 'jet-engine' ); ?></a>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:options-list="[
+					{
+						value: 'public',
+						label: 'Is public. No restrictions'
+					},
+					{
+						value: 'cap',
+						label: 'Users with selected capabilities'
+					},
+					{
+						value: 'role',
+						label: 'Users with selected roles'
+					}
+				]"
+				size="fullwidth"
+				v-model="generalSettings.api_access"
+				:conditions="[
+					{
+						'input':   generalSettings.api_endpoint,
+						'compare': 'equal',
+						'value':   true,
+					}
+				]"
+			></cx-vui-select>
+			<cx-vui-input
+				label="<?php _e( 'Access Capability', 'jet-engine' ); ?>"
+				description="<?php _e( 'User must have given capability to access to this endpoint. Separate multiple capabilities with commas.', 'jet-engine' ); ?><br><a href='https://wordpress.org/documentation/article/roles-and-capabilities/' target='_blank'><?php _e( 'Read more about WordPress capabilities', 'jet-engine' ); ?></a>"
+				:wrapper-css="[ 'equalwidth' ]"
+				size="fullwidth"
+				:conditions="[
+					{
+						'input':   generalSettings.api_endpoint,
+						'compare': 'equal',
+						'value':   true,
+					},
+					{
+						'input':   generalSettings.api_access,
+						'compare': 'equal',
+						'value':   'cap',
+					}
+				]"
+				v-model="generalSettings.api_access_cap"
+			></cx-vui-input>
+			<cx-vui-f-select
+				label="<?php _e( 'Access for Roles', 'jet-engine' ); ?>"
+				description="<?php _e( 'User must have any of given roles to access to this endpoint. Leave empty to allow access to any registered user.', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				size="fullwidth"
+				:options-list="rolesList"
+				:multiple="true"
+				:conditions="[
+					{
+						'input':   generalSettings.api_endpoint,
+						'compare': 'equal',
+						'value':   true,
+					},
+					{
+						'input':   generalSettings.api_access,
+						'compare': 'equal',
+						'value':   'role',
+					}
+				]"
+				v-model="generalSettings.api_access_role"
+			></cx-vui-f-select>
+			<cx-vui-component-wrapper
+				v-if="generalSettings.api_endpoint"
+				label="<?php _e( 'Query Arguments', 'jet-engine' ); ?>"
+				description="<?php _e( 'Supported query arguments.', 'jet-engine' ); ?><br><?php _e( 'Add here arguments to register them as allowed arguments for given Rest API endpoint.', 'jet-engine' ); ?><br><?php _e( '<b>Note!</b> Please remember, after registering, you need to map these arguments to actual query parameters. To do this you need to use  <b>Query Variable</b> dynamic argument or <code>%query_var|argument_name%</code> in Query parameter where you want to apply Rest API argument.', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+			>
+				<div class="jet-engine-query-builder-api-args">
+					<div
+						class="jet-engine-query-builder-api-args__row headings-row"
+					>
+						<div class="jet-engine-query-builder-api-args__row-title">
+							<?php _e( 'Query Argument Name', 'jet-engine' ); ?>
+						</div>
+						<div class="jet-engine-query-builder-api-args__row-title">
+							<?php _e( 'Default Value', 'jet-engine' ); ?>
+						</div>
+					</div>
+					<div
+						class="jet-engine-query-builder-api-args__row"
+						v-for="( argRow, index ) in generalSettings.api_schema"
+					>
+						<input
+							type="text"
+							:value="argRow.arg"
+							@input="( event ) => { updateQueryArgs( index, 'arg', event.target.value ) }"
+							class="cx-vui-input"
+							placeholder="<?php _e( 'Query Argument', 'jet-engine' ); ?>"
+						/>
+						<input
+							type="text"
+							:value="argRow.value"
+							@input="( event ) => { updateQueryArgs( index, 'value', event.target.value ) }"
+							class="cx-vui-input"
+							placeholder="<?php _e( 'Default Value', 'jet-engine' ); ?>"
+						/>
+						<cx-vui-button
+							button-style="link-error"
+							size="link"
+							@click="queryArgToDelete = index"
+						>
+							<svg slot="label" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.28564 14.1921V3.42857H13.7142V14.1921C13.7142 14.6686 13.5208 15.089 13.1339 15.4534C12.747 15.8178 12.3005 16 11.7946 16H4.20529C3.69934 16 3.25291 15.8178 2.866 15.4534C2.4791 15.089 2.28564 14.6686 2.28564 14.1921Z"/><path d="M14.8571 1.14286V2.28571H1.14282V1.14286H4.57139L5.56085 0H10.4391L11.4285 1.14286H14.8571Z"/></svg>
+							<div
+								v-if="queryArgToDelete === index"
+								class="cx-vui-tooltip"
+								slot="label"
+							>
+								<?php _e( 'Are you sure?', 'jet-engine' ); ?>
+								<br>
+								<span
+									class="cx-vui-repeater-item__confrim-del"
+									@click.stop="deleteQueryArgument( index )"
+								><?php _e( 'Yes', 'jet-engine' ); ?></span>/<span
+									class="cx-vui-repeater-item__cancel-del"
+									@click.stop="resetQueryArgDelete()"
+								><?php _e( 'No', 'jet-engine' ); ?></span>
+							</div>
+						</cx-vui-button>
+					</div>
+					<div class="jet-engine-query-builder-api-args__actions">
+						<cx-vui-button
+							:button-style="'link-accent'"
+							:size="'link'"
+							@click="addQueryArgRow"
+						>
+							<span slot="label"><?php _e( '+ Add new', 'jet-engine' ); ?></span>
+						</cx-vui-button>
+					</div>
+				</div>
+			</cx-vui-component-wrapper>
+			<cx-vui-component-wrapper
+				v-if="generalSettings.api_endpoint && hasQueryArgs()"
+				:wrapper-css="[ 'api-url' ]"
+			>
+				<div class="cx-vui-component__label"><?php _e( 'Example of Rest API Endpoint URL with Query Arguments', 'jet-engine' ); ?></div>
+				<div class="jet-engine-query-builder-api-url">
+					<pre><code>{{ endpointURL( true ) }}</code></pre>
+					<div
+						role="button"
+						class="jet-engine-query-builder-api-url__copy"
+						v-if="hasClipboard"
+						@click="copyToClipboard( endpointURL( true ) )"
+					>
+						<svg v-if="!isCopied" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24px" height="24px"><path d="M0 0h24v24H0z" fill="none"></path><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path></svg>
+						<svg v-if="isCopied" width="24" height="24" xmlns="http://www.w3.org/2000/svg" fill-rule="evenodd" clip-rule="evenodd"><path d="M21 6.285l-11.16 12.733-6.84-6.018 1.319-1.49 5.341 4.686 9.865-11.196 1.475 1.285z"/></svg>
+					</div>
+				</div>
+			</cx-vui-component-wrapper>
 		</div>
 		<component
 			v-if="generalSettings.query_type && typesComponents[ generalSettings.query_type ]"
@@ -126,6 +371,16 @@
 						size="fullwidth"
 						name="query_preview_query_string"
 						v-model="generalSettings.preview_query_string"
+						@input="updatePreview"
+					></cx-vui-input>
+					<cx-vui-input
+						label="<?php _e( 'Preview query count', 'jet-engine' ); ?>"
+						description="<?php _e( 'Number of items to show', 'jet-engine' ); ?>"
+						:wrapper-css="[ 'preview-control' ]"
+						type="number"
+						size="fullwidth"
+						name="query_preview_query_count"
+						v-model="generalSettings.preview_query_count"
 						@input="updatePreview"
 					></cx-vui-input>
 				</div>

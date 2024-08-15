@@ -31,13 +31,19 @@ class Manager {
 		require_once $path . 'equal.php';
 		require_once $path . 'not-equal.php';
 		require_once $path . 'greater-than.php';
+		require_once $path . 'greater-or-equal.php';
 		require_once $path . 'less-than.php';
+		require_once $path . 'less-or-equal.php';
 		require_once $path . 'in-list.php';
 		require_once $path . 'not-in-list.php';
 		require_once $path . 'exists.php';
 		require_once $path . 'not-exists.php';
 		require_once $path . 'contains.php';
 		require_once $path . 'not-contains.php';
+		require_once $path . 'between.php';
+		require_once $path . 'not-between.php';
+		require_once $path . 'regexp.php';
+		require_once $path . 'not-regexp.php';
 		require_once $path . 'is-mobile.php';
 		require_once $path . 'post-id.php';
 		require_once $path . 'post-id-not.php';
@@ -56,6 +62,17 @@ class Manager {
 		require_once $path . 'value-checked.php';
 		require_once $path . 'value-not-checked.php';
 		require_once $path . 'post-has-terms.php';
+		require_once $path . 'post-has-not-terms.php';
+		require_once $path . 'is-parent.php';
+		require_once $path . 'is-not-parent.php';
+		require_once $path . 'is-child-of.php';
+		require_once $path . 'is-not-child-of.php';
+		require_once $path . 'time-period.php';
+		require_once $path . 'week-days.php';
+
+		require_once $path . 'listing-even.php';
+		require_once $path . 'listing-odd.php';
+		require_once $path . 'listing-is-num.php';
 
 		do_action( 'jet-engine/modules/dynamic-visibility/conditions/register', $this );
 
@@ -95,7 +112,7 @@ class Manager {
 	 */
 	public function get_grouped_conditions_for_options() {
 
-		$result = array(
+		$result = apply_filters( 'jet-engine/modules/dynamic-visibility/conditions/groups', array(
 			'general'    => array(
 				'label'   => __( 'General', 'jet-engine' ),
 				'options' => array(),
@@ -112,7 +129,15 @@ class Manager {
 				'label'   => __( 'Posts', 'jet-engine' ),
 				'options' => array(),
 			),
-		);
+			'date_time'  => array(
+				'label'   => __( 'Date & Time', 'jet-engine' ),
+				'options' => array(),
+			),
+			'listing'  => array(
+				'label'   => __( 'Listing', 'jet-engine' ),
+				'options' => array(),
+			),
+		) );
 
 		foreach ( $this->_conditions as $id => $instance ) {
 
@@ -175,7 +200,10 @@ class Manager {
 
 	}
 
-	public function add_condition_specific_controls( $repeater ) {
+	public function add_condition_specific_controls() {
+
+		$result = array();
+
 		foreach ( $this->_conditions as $id => $instance ) {
 
 			$custom_controls = $instance->get_custom_controls();
@@ -186,15 +214,22 @@ class Manager {
 
 			foreach ( $custom_controls as $key => $control ) {
 
+				if ( isset( $result[ $key ] ) ) {
+					$result[ $key ]['condition']['jedv_condition'][] = $id;
+					continue;
+				}
+
 				$control['condition'] = array(
 					'jedv_condition' => array( $id ),
 				);
 
-				$repeater->add_control( $key, $control );
+				$result[ $key ] = $control;
 
 			}
 
 		}
+
+		return $result;
 	}
 
 	/**

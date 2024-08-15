@@ -32,12 +32,26 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 		return 'https://crocoblock.com/knowledge-base/articles/jetengine-maps-listing-overview/?utm_source=jetengine&utm_medium=maps-listing&utm_campaign=need-help';
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
+		
 		$this->register_general_settings();
+		
+		// If legacy disabled, register map settings after general
+		if ( ! jet_engine()->listings->legacy->is_disabled() ) {
+			$this->register_marker_and_popup_settings();
+		}
+
 		$this->register_query_settings();
 		$this->register_terms_query_settings();
 
-		do_action( 'jet-engine/map-listing/custom-query-settings', $this );
+		// If legacy disabled, register map settings after custom query to better UX
+		if ( jet_engine()->listings->legacy->is_disabled() ) {
+			$this->register_marker_and_popup_settings();
+		}
+
+		if ( ! jet_engine()->listings->legacy->is_disabled() ) {
+			do_action( 'jet-engine/map-listing/custom-query-settings', $this );
+		}
 
 		$this->register_visibility_settings();
 		$this->register_style_settings();
@@ -153,27 +167,20 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 		);
 
 		$this->add_control(
-			'max_zoom',
-			array(
-				'label' => __( 'Max Zoom', 'jet-engine' ),
-				'type'  => Controls_Manager::NUMBER,
-				'min'   => 1,
-				'max'   => 20,
-				'step'  => 1,
-				'condition' => array(
-					'auto_center' => 'yes',
-				),
-			)
-		);
-
-		$this->add_control(
 			'custom_center',
 			array(
 				'label'       => __( 'Map Center', 'jet-engine' ),
+				'label_block' => true,
 				'type'        => Controls_Manager::TEXTAREA,
 				'default'     => '',
-				'label_block' => true,
-				'condition'    => array(
+				'dynamic'     => array(
+					'active'     => true,
+					'categories' => array(
+						\Jet_Engine_Dynamic_Tags_Module::TEXT_CATEGORY,
+						\Jet_Engine_Dynamic_Tags_Module::JET_MACROS_CATEGORY,
+					),
+				),
+				'condition'   => array(
 					'auto_center' => '',
 				),
 			)
@@ -195,82 +202,67 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 		);
 
 		$this->add_control(
-			'custom_style',
+			'max_zoom',
 			array(
-				'label'       => __( 'Custom Map Style', 'jet-engine' ),
-				'type'        => Controls_Manager::TEXTAREA,
-				'default'     => '',
-				'description' => __( 'Find a free map styles at <a href="https://snazzymaps.com/explore" target="_blank" rel="nofollow">Snazzy Maps</a>', 'jet-engine' ),
-				'label_block' => true,
+				'label' => __( 'Max Zoom', 'jet-engine' ),
+				'type'  => Controls_Manager::NUMBER,
+				'min'   => 1,
+				'max'   => 20,
+				'step'  => 1,
 			)
 		);
 
 		$this->add_control(
-			'zoom_control',
+			'min_zoom',
 			array(
+				'label' => __( 'Min Zoom', 'jet-engine' ),
+				'type'  => Controls_Manager::NUMBER,
+				'min'   => 1,
+				'max'   => 10,
+				'step'  => 1,
+			)
+		);
+
+		$this->add_control(
+			'legacy_notice',
+			array(
+				'type' => Controls_Manager::RAW_HTML,
+				'raw'  => jet_engine()->listings->legacy->get_notice(),
+			)
+		);
+
+		$this->add_provider_controls( 'section_general' );
+
+		$this->add_control(
+			'centering_on_open',
+			array(
+				'label'       => esc_html__( 'Map Centering', 'jet-engine' ),
+				'description' => esc_html__( 'This setting enables automatic map centering when clicking on a marker', 'jet-engine' ),
+				'type'        => Controls_Manager::SWITCHER,
+				'default'     => '',
 				'separator'   => 'before',
-				'label'       => __( 'Zoom & Pan Control', 'jet-engine' ),
-				'type'        => Controls_Manager::SELECT,
-				'description' => __( 'Controls how the API handles gestures on the map. More details <a href="https://developers.google.com/maps/documentation/javascript/interaction#gestureHandling" target="_blank">here</a>', 'jet-engine' ),
-				'default'     => 'auto',
-				'options'     => array(
-					'auto'        => __( 'Auto', 'jet-engine' ),
-					'greedy'      => __( 'Greedy', 'jet-engine' ),
-					'cooperative' => __( 'Cooperative', 'jet-engine' ),
-					'none'        => __( 'None', 'jet-engine' ),
+			)
+		);
+
+		$this->add_control(
+			'zoom_on_open',
+			array(
+				'label'     => esc_html__( 'Zoom Map', 'jet-engine' ),
+				'type'      => Controls_Manager::NUMBER,
+				'min'       => 1,
+				'max'       => 20,
+				'step'      => 1,
+				'condition' => array(
+					'centering_on_open' => 'yes',
 				),
 			)
 		);
 
-		$this->add_control(
-			'zoom_controls',
-			array(
-				'label'        => __( 'Zoom Controls', 'jet-engine' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'label_on'     => __( 'Show', 'jet-engine' ),
-				'label_off'    => __( 'Hide', 'jet-engine' ),
-				'return_value' => 'true',
-				'default'      => 'true',
-			)
-		);
-
-		$this->add_control(
-			'fullscreen_control',
-			array(
-				'label'        => __( 'Fullscreen Control', 'jet-engine' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'label_on'     => __( 'Show', 'jet-engine' ),
-				'label_off'    => __( 'Hide', 'jet-engine' ),
-				'return_value' => 'true',
-				'default'      => 'true',
-			)
-		);
-
-		$this->add_control(
-			'street_view_controls',
-			array(
-				'label'        => __( 'Street View Controls', 'jet-engine' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'label_on'     => __( 'Show', 'jet-engine' ),
-				'label_off'    => __( 'Hide', 'jet-engine' ),
-				'return_value' => 'true',
-				'default'      => 'true',
-			)
-		);
-
-		$this->add_control(
-			'map_type_controls',
-			array(
-				'label'        => __( 'Map Type Controls (Map/Satellite)', 'jet-engine' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'label_on'     => __( 'Show', 'jet-engine' ),
-				'label_off'    => __( 'Hide', 'jet-engine' ),
-				'return_value' => 'true',
-				'default'      => 'true',
-			)
-		);
-
 		$this->end_controls_section();
+
+	}
+
+	public function register_marker_and_popup_settings() {
 
 		$this->start_controls_section(
 			'section_marker_settings',
@@ -284,7 +276,7 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 			array(
 				'label'   => __( 'Marker Type', 'jet-engine' ),
 				'type'    => Controls_Manager::SELECT,
-				'default' => 'image',
+				'default' => 'icon',
 				'options' => Module::instance()->get_marker_types(),
 			)
 		);
@@ -303,9 +295,13 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 		$this->add_control(
 			'marker_icon',
 			array(
-				'label'            => __( 'Icon', 'jet-engine' ),
-				'type'             => Controls_Manager::ICONS,
-				'label_block'      => true,
+				'label'       => __( 'Icon', 'jet-engine' ),
+				'type'        => Controls_Manager::ICONS,
+				'label_block' => true,
+				'default' => array(
+					'value'   => 'fas fa-map-marker-alt',
+					'library' => 'fa-solid',
+				),
 				'condition' => array(
 					'marker_type' => 'icon',
 				),
@@ -332,7 +328,7 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 				'type'        => Controls_Manager::TEXT,
 				'default'     => '',
 				'label_block' => true,
-				'description' => __( 'Note: this filed will override Meta Field value', 'jet-engine' ),
+				'description' => __( 'Note: this field will override Meta Field value', 'jet-engine' ),
 				'condition'   => array(
 					'marker_type' => 'dynamic_image',
 				),
@@ -373,7 +369,7 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 				'type'        => Controls_Manager::TEXT,
 				'default'     => '',
 				'label_block' => true,
-				'description' => __( 'Note: this filed will override Meta Field value', 'jet-engine' ),
+				'description' => __( 'Note: this field will override Meta Field value', 'jet-engine' ),
 				'condition'   => array(
 					'marker_type'       => 'text',
 					'marker_label_type' => 'meta_field',
@@ -395,7 +391,7 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 			)
 		);
 
-		do_action( 'jet-engine/maps-listing/widget/custom-marker-label-controls', $this );
+		do_action( 'jet-engine/maps-listing/widget/custom-marker-label-controls', $this, 'elementor' );
 
 		$callbacks = jet_engine()->listings->get_allowed_callbacks();
 		$callbacks = array( 0 => __( 'Select...', 'jet-engine' ) ) + $callbacks;
@@ -498,10 +494,10 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 		$markers_repeater->add_control(
 			'marker_icon',
 			array(
-				'label'            => __( 'Icon', 'jet-engine' ),
-				'type'             => Controls_Manager::ICONS,
-				'label_block'      => true,
-				'condition' => array(
+				'label'       => __( 'Icon', 'jet-engine' ),
+				'type'        => Controls_Manager::ICONS,
+				'label_block' => true,
+				'condition'   => array(
 					'marker_type' => 'icon',
 				),
 			)
@@ -516,7 +512,7 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 				'separator'   => 'before',
 				'default'     => 'meta_field',
 				'options'     => array(
-					'meta_field' => __( 'Post meta field is equal to value', 'jet-engine' ),
+					'meta_field' => __( 'Meta field is equal to value', 'jet-engine' ),
 					'post_term'  => __( 'Post has term', 'jet-engine' ),
 				),
 			)
@@ -542,7 +538,7 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 				'type'        => Controls_Manager::TEXT,
 				'default'     => '',
 				'label_block' => true,
-				'description' => __( 'Note: this filed will override Meta Field value', 'jet-engine' ),
+				'description' => __( 'Note: this field will override Meta Field value', 'jet-engine' ),
 				'condition'   => array(
 					'apply_type' => 'meta_field',
 				),
@@ -612,6 +608,33 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 			)
 		);
 
+		$this->add_control(
+			'cluster_max_zoom',
+			array(
+				'label'       => esc_html__( 'Cluster Max Zoom', 'jet-engine' ),
+				'description' => esc_html__( 'Maximum zoom level that a marker can be part of a cluster', 'jet-engine' ),
+				'type'        => Controls_Manager::NUMBER,
+				'min'         => 1,
+				'max'         => 20,
+				'condition'   => array(
+					'marker_clustering' => 'true',
+				),
+			)
+		);
+
+		$this->add_control(
+			'cluster_radius',
+			array(
+				'label'       => esc_html__( 'Cluster Radius', 'jet-engine' ),
+				'description' => esc_html__( 'Radius of each cluster when clustering markers in px', 'jet-engine' ),
+				'type'        => Controls_Manager::NUMBER,
+				'min'         => 10,
+				'condition'   => array(
+					'marker_clustering' => 'true',
+				),
+			)
+		);
+
 		$this->end_controls_section();
 
 		$this->start_controls_section(
@@ -648,18 +671,6 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 		);
 
 		$this->add_control(
-			'popup_pin',
-			array(
-				'label'        => esc_html__( 'Add popup pin', 'jet-engine' ),
-				'type'         => Controls_Manager::SWITCHER,
-				'label_on'     => esc_html__( 'Yes', 'jet-engine' ),
-				'label_off'    => esc_html__( 'No', 'jet-engine' ),
-				'return_value' => 'yes',
-				'default'      => '',
-			)
-		);
-
-		$this->add_control(
 			'popup_preloader',
 			array(
 				'label'        => esc_html__( 'Add popup preloader', 'jet-engine' ),
@@ -669,6 +680,21 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 				'return_value' => 'yes',
 				'default'      => '',
 				'description'  => esc_html__( 'Add box with loading animation while popup data is fetching from the server', 'jet-engine' ),
+			)
+		);
+
+		$this->add_provider_controls( 'section_popup_settings' );
+
+		$this->add_control(
+			'popup_open_on',
+			array(
+				'label'   => esc_html__( 'Open On', 'jet-engine' ),
+				'type'    => Controls_Manager::SELECT,
+				'default' => 'click',
+				'options' => array(
+					'click' => esc_html__( 'Click', 'jet-engine' ),
+					'hover' => esc_html__( 'Hover', 'jet-engine' ),
+				),
 			)
 		);
 
@@ -1048,6 +1074,21 @@ class Maps_Listings_Widget extends \Elementor\Jet_Listing_Grid_Widget {
 
 	protected function render() {
 		$this->render_posts();
+	}
+
+	public function add_provider_controls( $section = null ) {
+		
+		$provider = Module::instance()->providers->get_active_map_provider();
+		$settings = $provider->provider_settings();
+
+		if ( empty( $settings ) || empty( $settings[ $section ] ) ) {
+			return;
+		}
+
+		foreach ( $settings[ $section ] as $key => $control ) {
+			$this->add_control( $key, $control );
+		}
+
 	}
 
 }

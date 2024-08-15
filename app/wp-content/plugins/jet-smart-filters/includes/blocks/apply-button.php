@@ -9,22 +9,20 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Block_Apply_Button' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Block_Apply_Button class
 	 */
 	class Jet_Smart_Filters_Block_Apply_Button extends Jet_Smart_Filters_Block_Base {
-
 		/**
 		 * Returns block name
-		 *
-		 * @return string
 		 */
 		public function get_name() {
+
 			return 'apply-button';
 		}
 
-		public function set_css_scheme(){
+		public function set_css_scheme() {
+
 			$this->css_scheme = apply_filters(
 				'jet-smart-filters/widgets/apply-button/css-scheme',
 				[
@@ -35,7 +33,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Apply_Button' ) ) {
 			);
 		}
 
-		public function add_style_manager_options(){
+		public function add_style_manager_options() {
 
 			$this->controls_manager->start_section(
 				'style_controls',
@@ -108,7 +106,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Apply_Button' ) ) {
 					'{{WRAPPER}} ' . $this->css_scheme[ 'apply-filters-button' ] . ':hover' => 'color: {{VALUE}}',
 				),
 			]);
-
 
 			$this->controls_manager->add_control([
 				'id'       => 'filter_apply_button_hover_background_color',
@@ -203,8 +200,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Apply_Button' ) ) {
 
 		/**
 		 * Return callback
-		 *
-		 * @return html
 		 */
 		public function render_callback( $settings = array() ) {
 
@@ -214,15 +209,18 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Apply_Button' ) ) {
 				return $this->is_editor() ? __( 'Please select a provider', 'jet-smart-filters' ) : false;
 			}
 
-			$base_class   = 'jet-smart-filters-' . $this->get_name();
-			$data_atts    = '';
-			$redirect     = ! empty( $settings['apply_redirect'] ) ? $settings['apply_redirect'] : false;
-			$redirectPath = ! empty( $settings['redirect_path'] ) ? $settings['redirect_path'] : false;
-			$atts         = array(
-				'data-content-provider' => $settings['content_provider'],
-				'data-apply-type'       => $settings['apply_type'],
-				'data-query-id'         => 'default',
-				'data-redirect'         => $redirect
+			$base_class           = 'jet-smart-filters-' . $this->get_name();
+			$data_atts            = '';
+			$redirect             = ! empty( $settings['apply_redirect'] ) ? $settings['apply_redirect'] : false;
+			$redirectPath         = ! empty( $settings['redirect_path'] ) ? $settings['redirect_path'] : false;
+			$query_id             = ! empty( $settings['query_id'] ) ? $settings['query_id'] : 'default';
+			$additional_providers = jet_smart_filters()->utils->get_additional_providers( $settings );
+			$atts                 = array(
+				'data-content-provider'     => $settings['content_provider'],
+				'data-apply-type'           => $settings['apply_type'],
+				'data-query-id'             => $query_id,
+				'data-additional-providers' => $additional_providers,
+				'data-redirect'             => $redirect
 			);
 
 			if ( $redirect && $redirectPath ) {
@@ -237,16 +235,13 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Apply_Button' ) ) {
 
 			ob_start();
 
-			echo '<div class="' . $base_class . ' jet-filter">';
+			echo '<div class="' . $base_class . ' jet-filter" data-is-block="jet-smart-filters/' . $this->get_name() . '">';
 			include jet_smart_filters()->get_template( 'common/apply-filters.php' );
 			echo '</div>';
 
 			$filter_layout = ob_get_clean();
 
 			return $filter_layout;
-
 		}
-
 	}
-
 }

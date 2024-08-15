@@ -7,6 +7,7 @@
  */
 
 use RankMath\Helper;
+use RankMath\KB;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -29,11 +30,40 @@ $cmb->add_field(
 
 $cmb->add_field(
 	[
+		'id'      => 'website_name',
+		'type'    => 'text',
+		'name'    => esc_html__( 'Website Name', 'rank-math' ),
+		'desc'    => esc_html__( 'Enter the name of your site to appear in search results.', 'rank-math' ),
+		'default' => get_bloginfo( 'name' ),
+	]
+);
+
+$cmb->add_field(
+	[
+		'id'   => 'website_alternate_name',
+		'type' => 'text',
+		'name' => esc_html__( 'Website Alternate Name', 'rank-math' ),
+		'desc' => esc_html__( 'An alternate version of your site name (for example, an acronym or shorter name).', 'rank-math' ),
+	]
+);
+
+$cmb->add_field(
+	[
 		'id'      => 'knowledgegraph_name',
 		'type'    => 'text',
-		'name'    => esc_html__( 'Name', 'rank-math' ),
-		'desc'    => esc_html__( 'Your name or company name', 'rank-math' ),
+		'name'    => esc_html__( 'Person/Organization Name', 'rank-math' ),
+		'desc'    => esc_html__( 'Your name or company name intended to feature in Google\'s Knowledge Panel.', 'rank-math' ),
 		'default' => get_bloginfo( 'name' ),
+	]
+);
+
+$cmb->add_field(
+	[
+		'id'   => 'organization_description',
+		'type' => 'textarea_small',
+		'name' => esc_html__( 'Description', 'rank-math' ),
+		'desc' => esc_html__( 'Provide a detailed description of your organization.', 'rank-math' ),
+		'dep'  => $rank_math_company,
 	]
 );
 
@@ -42,7 +72,7 @@ $cmb->add_field(
 		'id'      => 'knowledgegraph_logo',
 		'type'    => 'file',
 		'name'    => esc_html__( 'Logo', 'rank-math' ),
-		'desc'    => __( '<strong>Min Size: 160Χ90px, Max Size: 1920X1080px</strong>.<br /> A squared image is preferred by the search engines.', 'rank-math' ),
+		'desc'    => __( '<strong>Min Size: 112Χ112px</strong>.<br /> A squared image is preferred by the search engines.', 'rank-math' ),
 		'options' => [ 'url' => false ],
 	]
 );
@@ -52,7 +82,7 @@ $cmb->add_field(
 		'id'      => 'url',
 		'type'    => 'text_url',
 		'name'    => esc_html__( 'URL', 'rank-math' ),
-		'desc'    => esc_html__( 'URL of the item.', 'rank-math' ),
+		'desc'    => esc_html__( 'URL of your website or your company’s website.', 'rank-math' ),
 		'default' => home_url(),
 	]
 );
@@ -62,7 +92,7 @@ $cmb->add_field(
 		'id'   => 'email',
 		'type' => 'text',
 		'name' => esc_html__( 'Email', 'rank-math' ),
-		'desc' => esc_html__( 'Search engines display your email address.', 'rank-math' ),
+		'desc' => esc_html__( 'Enter the contact email address that could be displayed on search engines.', 'rank-math' ),
 	]
 );
 
@@ -212,6 +242,39 @@ $cmb->add_field(
 	]
 );
 
+$rank_math_additional_info = $cmb->add_field(
+	[
+		'id'      => 'additional_info',
+		'type'    => 'group',
+		'name'    => esc_html__( 'Additional Info', 'rank-math' ),
+		'desc'    => esc_html__( 'Provide relevant details of your company to include in the Organization Schema.', 'rank-math' ),
+		'options' => [
+			'add_button'    => esc_html__( 'Add', 'rank-math' ),
+			'remove_button' => esc_html__( 'Remove', 'rank-math' ),
+		],
+		'dep'     => $rank_math_company,
+		'classes' => 'cmb-group-text-only',
+	]
+);
+
+$cmb->add_group_field(
+	$rank_math_additional_info,
+	[
+		'id'      => 'type',
+		'type'    => 'select',
+		'options' => Helper::choices_additional_organization_info(),
+		'default' => '',
+	]
+);
+
+$cmb->add_group_field(
+	$rank_math_additional_info,
+	[
+		'id'   => 'value',
+		'type' => 'text',
+	]
+);
+
 $rank_math_about_page    = Helper::get_settings( 'titles.local_seo_about_page' );
 $rank_math_about_options = [ '' => __( 'Select Page', 'rank-math' ) ];
 
@@ -268,6 +331,6 @@ $cmb->add_field(
 		'desc'  => esc_html__( 'Latitude and longitude values separated by comma.', 'rank-math' ),
 		'dep'   => $rank_math_company,
 		/* Translators: placeholder is a link to the Pro version */
-		'after' => '<strong style="margin-top:20px; display:block; text-align:right;">' . sprintf( __( 'Multiple Locations are available in the %s.', 'rank-math' ), '<a href="https://rankmath.com/pricing/?utm_source=Plugin&utm_medium=Multiple%20Location%20Notice&utm_campaign=WP" target="_blank">PRO Version</a>' ) . '</strong>',
+		'after' => '<strong style="margin-top:20px; display:block; text-align:right;">' . sprintf( __( 'Multiple Locations are available in the %s.', 'rank-math' ), '<a href="' . KB::get( 'pro', 'Multiple Location Notice' ) . '" target="_blank">PRO Version</a>' ) . '</strong>',
 	]
 );

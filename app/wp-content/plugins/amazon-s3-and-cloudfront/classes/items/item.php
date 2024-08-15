@@ -17,10 +17,12 @@ abstract class Item {
 	);
 	const CAN_USE_OBJECT_VERSIONING = true;
 
-	protected static $source_type_name = 'Item';
-	protected static $source_type      = '';
-	protected static $source_table     = '';
-	protected static $source_fk        = '';
+	protected static $source_type_name  = 'Item';
+	protected static $source_type       = '';
+	protected static $source_table      = '';
+	protected static $source_fk         = '';
+	protected static $summary_type_name = '';
+	protected static $summary_type      = '';
 
 	protected static $can_use_yearmonth = true;
 
@@ -28,6 +30,9 @@ abstract class Item {
 	protected static $items_cache_by_source_id   = array();
 	protected static $items_cache_by_path        = array();
 	protected static $items_cache_by_source_path = array();
+
+	protected static $item_counts      = array();
+	protected static $item_count_skips = array();
 
 	/**
 	 * @var array Keys with array of fields that can be used for cache lookups.
@@ -340,6 +345,9 @@ abstract class Item {
 		static::$items_cache_by_source_id   = array();
 		static::$items_cache_by_path        = array();
 		static::$items_cache_by_source_path = array();
+
+		static::$item_counts      = array();
+		static::$item_count_skips = array();
 	}
 
 	/**
@@ -486,7 +494,7 @@ abstract class Item {
 	 *
 	 * @return string
 	 */
-	protected static function items_table() {
+	public static function items_table(): string {
 		global $wpdb;
 
 		/* @var Amazon_S3_And_CloudFront $as3cf */
@@ -740,7 +748,7 @@ abstract class Item {
 		$extra_info = array();
 
 		if ( ! empty( $object->extra_info ) ) {
-			$extra_info = unserialize( $object->extra_info );
+			$extra_info = AS3CF_Utils::maybe_unserialize( $object->extra_info );
 			static::maybe_update_extra_info( $extra_info, $object->source_id, $object->is_private );
 		}
 
@@ -864,6 +872,33 @@ abstract class Item {
 	 */
 	public static function source_type_name() {
 		return static::$source_type_name;
+	}
+
+	/**
+	 * Getter for item's summary type.
+	 *
+	 * @return string
+	 */
+	public static function summary_type(): string {
+		return static::$summary_type;
+	}
+
+	/**
+	 * Getter for item's summary type name.
+	 *
+	 * @return string
+	 */
+	public static function summary_type_name(): string {
+		return static::$summary_type_name;
+	}
+
+	/**
+	 * Is the item able to be included in a summary?
+	 *
+	 * @return bool
+	 */
+	public static function summary_enabled(): bool {
+		return ! empty( static::summary_type() ) && ! empty( static::summary_type_name() );
 	}
 
 	/**
@@ -1357,6 +1392,10 @@ abstract class Item {
 		/** @var Amazon_S3_And_CloudFront $as3cf */
 		global $as3cf;
 
+		if ( ! AS3CF_Utils::usable_url( $url ) ) {
+			return false;
+		}
+
 		$parts = AS3CF_Utils::parse_url( $url );
 		$path  = AS3CF_Utils::decode_filename_in_path( ltrim( $parts['path'], '/' ) );
 
@@ -1693,6 +1732,8 @@ abstract class Item {
 			return array();
 		}
 
+		$paths = array_map( 'esc_sql', $paths );
+
 		$paths = AS3CF_Utils::make_upload_file_paths_relative( array_unique( $paths ) );
 
 		$sql = '
@@ -1705,6 +1746,8 @@ abstract class Item {
 			if ( ! is_array( $exclude_source_ids ) ) {
 				$exclude_source_ids = array( $exclude_source_ids );
 			}
+
+			$exclude_source_ids = array_map( 'intval', $exclude_source_ids );
 
 			$sql .= ' AND items.source_id NOT IN (' . join( ',', $exclude_source_ids ) . ')';
 		}
@@ -1727,7 +1770,7 @@ abstract class Item {
 			$sql .= ' ORDER BY items.source_id LIMIT 1';
 		}
 
-		return array_map( 'static::create', $wpdb->get_results( $sql ) );
+		return array_map( static::class . '::create', $wpdb->get_results( $sql ) );
 	}
 
 	/**
@@ -1843,7 +1886,7 @@ abstract class Item {
 			$delivery_domain = AS3CF_Utils::sanitize_custom_domain( $delivery_domain );
 		}
 
-		if ( ! is_null( $expires ) && $as3cf->is_plugin_setup( true ) ) {
+		if ( ! is_null( $expires ) && ! $as3cf->get_storage_provider()->needs_access_keys() ) {
 			try {
 				/**
 				 * Filters the expires time for private content
@@ -2025,4 +2068,130 @@ abstract class Item {
 
 		return false;
 	}
+
+	/**
+	 * Count items on current site.
+	 *
+	 * @param bool $skip_transient Whether to force database query and skip transient, default false
+	 * @param bool $force          Whether to force database query and skip static cache, implies $skip_transient, default false
+	 * @param int  $blog_id        Optional, the blog ID to count media items for
+	 *
+	 * @return array Keys:
+	 *               total: Total media count for site (current blog id)
+	 *               offloaded: Count of offloaded media for site (current blog id)
+	 *               not_offloaded: Difference between total and offloaded
+	 */
+	public static function count_items( bool $skip_transient = false, bool $force = false, int $blog_id = 0 ): array {
+		if ( empty( $blog_id ) ) {
+			$blog_id = get_current_blog_id();
+		}
+
+		$transient_key = static::transient_key_for_item_counts( $blog_id );
+
+		// Been here, done it, won't do it again!
+		// Well, unless this is the first transient skip for the prefix, then we need to do it.
+		if ( ! $force && ! empty( static::$item_counts[ $transient_key ] ) && ( false === $skip_transient || ! empty( static::$item_count_skips[ $transient_key ] ) ) ) {
+			return static::$item_counts[ $transient_key ];
+		}
+
+		static $sites_count;
+
+		if ( $force || $skip_transient || false === ( $result = get_site_transient( $transient_key ) ) ) {
+			$result = static::get_item_counts();
+
+			ksort( $result );
+
+			// Timeout is randomised to ensure multisite subsites don't all try and update at the same time.
+			// Large site default of 15 - 120 minutes range gives us 6300 possible timeouts, checked every 5 minutes,
+			// with each subsite getting at least 15 mins breather before records counted again.
+			$min = 15;
+			$max = 120;
+
+			if ( empty( $sites_count ) ) {
+				$sites_count = is_multisite() ? count( AS3CF_Utils::get_blog_ids() ) : 1;
+			}
+
+			// For smaller media counts we can reduce the timeout to make changes more responsive
+			// without noticeably impacting performance.
+			if ( 5000 > $result['total'] && 50 > $sites_count ) {
+				$min = 0;
+				$max = 0;
+			} elseif ( 50000 > $result['total'] && 500 > $sites_count ) {
+				$min = 5;
+				$max = 15;
+			}
+
+			/**
+			 * How many minutes minimum should a subsite's media counts be cached?
+			 *
+			 * Min: 0 minutes.
+			 * Max: 1 day (1440 minutes).
+			 *
+			 * Default 0 for small media counts, 5 for medium (5k <= X < 50k), 15 for larger (>= 50k).
+			 * However, on a multisite, 0 is only set for < 50 subsites, 5 for < 500 subsites, otherwise it's 15.
+			 *
+			 * @param int    $minutes
+			 * @param int    $blog_id
+			 * @param string $source_type The source type currently being counted, e.g. 'media-library'.
+			 *
+			 * @retun int
+			 */
+			$min = min( max( 0, (int) apply_filters( 'as3cf_blog_media_counts_timeout_min', $min, $blog_id, static::source_type() ) ), 1440 );
+			$max = max( $min, $max );
+
+			/**
+			 * How many minutes maximum should a subsite's media counts be cached?
+			 *
+			 * Min: 0 minutes (or minimum set by as3cf_blog_media_counts_timeout_min filter for same blog id and source type).
+			 * Max: 1 day (1440 minutes).
+			 *
+			 * Default 0 for small media counts, 15 for medium (5k <= X < 50k), 120 for larger (>= 50k).
+			 * However, on a multisite, 0 is only set for < 50 subsites, 15 for < 500 subsites, otherwise it's 120.
+			 *
+			 * @param int    $minutes     Default or larger minimum set by as3cf_blog_media_counts_timeout_min filter for same blog id and source type.
+			 * @param int    $blog_id
+			 * @param string $source_type The source type currently being counted, e.g. 'media-library'.
+			 *
+			 * @retun int
+			 */
+			$max = min( max( $min, (int) apply_filters( 'as3cf_blog_media_counts_timeout_max', $max, $blog_id, static::source_type() ) ), 1440 );
+
+			// We lied, our real minimums are min 3 and max 15 seconds
+			// to ensure there's at least a tiny bit of caching,
+			// which helps combat some potential race conditions,
+			// and makes sure the transient has a timeout.
+			$min = max( $min, 0.05 );
+			$max = max( $max, 0.25 );
+
+			set_site_transient( $transient_key, $result, rand( $min * MINUTE_IN_SECONDS, $max * MINUTE_IN_SECONDS ) );
+
+			// One way or another we've skipped the transient.
+			static::$item_count_skips[ $transient_key ] = true;
+		}
+
+		static::$item_counts[ $transient_key ] = $result;
+
+		return $result;
+	}
+
+	/**
+	 * Returns the transient key to be used for storing blog specific item counts.
+	 *
+	 * @param int $blog_id
+	 *
+	 * @return string
+	 */
+	public static function transient_key_for_item_counts( int $blog_id ): string {
+		return 'as3cf_' . absint( $blog_id ) . '_attachment_counts_' . static::$source_type;
+	}
+
+	/**
+	 * Count total, offloaded and not offloaded items on current site.
+	 *
+	 * @return array Keys:
+	 *               total: Total media count for site (current blog id)
+	 *               offloaded: Count of offloaded media for site (current blog id)
+	 *               not_offloaded: Difference between total and offloaded
+	 */
+	abstract protected static function get_item_counts(): array;
 }

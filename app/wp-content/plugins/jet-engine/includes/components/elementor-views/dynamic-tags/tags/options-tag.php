@@ -32,7 +32,7 @@ class Jet_Engine_Options_Tag extends Elementor\Core\DynamicTags\Tag {
 		return true;
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		if ( jet_engine()->options_pages ) {
 

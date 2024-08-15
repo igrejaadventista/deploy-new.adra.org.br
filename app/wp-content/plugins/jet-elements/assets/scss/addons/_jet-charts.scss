@@ -20,10 +20,11 @@
 }
 
 .jet-line-chart-tooltip {
+    position: relative;
 	background: rgba(0, 0, 0, 0.5);
 	border-radius: 4px;
 	padding: 6px;
-
+    z-index: 9999999999;
 	.jet-line-chart-tooltip-color-box {
 		width: 10px;
 		height: 10px;

@@ -38,6 +38,9 @@ if ( $is_lightbox ) {
 	$is_external = $this->_loop_item( array( 'item_button_url', 'is_external') );
 	$link_target = 'on' === $is_external ? '_blank' : '';
 	$this->add_render_attribute( $link_instance, 'target', $link_target );
+	$is_nofollow = $this->_loop_item( array( 'item_button_url', 'nofollow') );
+	$rel = 'on' === $is_nofollow ? 'nofollow' : '';
+	$this->add_render_attribute( $link_instance, 'rel', $rel );
 }
 
 $this->add_render_attribute( $link_instance, 'href', $link_href );

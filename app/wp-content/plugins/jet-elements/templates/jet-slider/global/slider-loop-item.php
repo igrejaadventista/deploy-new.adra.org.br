@@ -35,16 +35,16 @@ if (  isset( $item_settings['item_link_url'] ) && ! empty( $item_settings['item_
 	$this->add_render_attribute( 'item_link', 'data-slide-url', $item_settings['item_link_url'] );
 	$this->add_render_attribute( 'item_link', 'data-slide-url-target',  $item_target );
 	$linked_class = 'jet-slider__item-linked';
-	$pseudo_link  = '<a class="jet-slider__content-item-link" href="' . $item_settings['item_link_url'] . '"></a>';
+	$pseudo_link  = '<a class="jet-slider__content-item-link" href="' . esc_url( $item_settings['item_link_url'] ) . '"></a>';
 }
 
-?><div <?php echo $slide_id; ?> class="jet-slider__item sp-slide elementor-repeater-item-<?php echo $item_settings['_id'];?>"><?php
+?><div <?php echo esc_attr( $slide_id ); ?> class="jet-slider__item sp-slide elementor-repeater-item-<?php echo esc_attr( $item_settings['_id'] );?>"><?php
 		echo $this->_loop_item_image_tag( $image_lazyload );
 
 		if ( filter_var( $settings['thumbnails'], FILTER_VALIDATE_BOOLEAN ) ) {
 			echo $this->_loop_item_image_thumb();
 		}
-	?><div class="jet-slider__content sp-layer <?php echo $linked_class;?>" data-position="centerCenter" data-width="100%" data-height="100%" data-horizontal="0%" data-show-transition="<?php echo esc_attr( $show_transition ); ?>" data-show-duration="400" data-show-delay="400" <?php echo $this->get_render_attribute_string( 'item_link' ); $this->remove_render_attribute( 'item_link' );?>>
+	?><div class="jet-slider__content sp-layer <?php echo esc_attr( $linked_class );?>" data-position="centerCenter" data-width="100%" data-height="100%" data-horizontal="0%" data-show-transition="<?php echo esc_attr( $show_transition ); ?>" data-show-duration="400" data-show-delay="400" <?php echo $this->get_render_attribute_string( 'item_link' ); $this->remove_render_attribute( 'item_link' );?>>
 		<div class="jet-slider__content-item">
 			<div class="jet-slider__content-inner"><?php
 				switch ( $content_type ) {

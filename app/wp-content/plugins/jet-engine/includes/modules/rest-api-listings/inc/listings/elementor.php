@@ -16,22 +16,6 @@ class Elementor {
 
 		$this->manager = $manager;
 
-		add_filter(
-			'jet-engine/listings/dynamic-image/fields',
-			array( $this, 'add_image_source_fields' ), 10, 2
-		);
-
-		add_filter(
-			'jet-engine/listings/dynamic-link/fields',
-			array( $this->manager, 'add_source_fields' ),
-			10, 2
-		);
-
-		add_action(
-			'jet-engine/listings/document/get-preview/' . $this->manager->source,
-			array( $this->manager, 'setup_preview' )
-		);
-
 		add_action(
 			'jet-engine/listings/document/custom-source-control',
 			array( $this, 'add_document_controls' )
@@ -50,7 +34,7 @@ class Elementor {
 
 		add_action(
 			'jet-engine/elementor-views/dynamic-tags/register',
-			array( $this, 'register_dynamic_tags' )
+			array( $this, 'register_dynamic_tags' ), 10, 2
 		);
 
 	}
@@ -58,16 +42,17 @@ class Elementor {
 	/**
 	 * Register REST API related Dynamic tags
 	 *
+	 * @param  [type] $dynamic_tags [description]
 	 * @param  [type] $tags_module [description]
 	 * @return [type]              [description]
 	 */
-	public function register_dynamic_tags( $tags_module ) {
+	public function register_dynamic_tags( $dynamic_tags, $tags_module ) {
 
 		require_once Module::instance()->module_path( 'listings/dynamic-tags/field-tag.php' );
 		require_once Module::instance()->module_path( 'listings/dynamic-tags/image-tag.php' );
 
-		$tags_module->register_tag( new Dynamic_Tags\Field_Tag() );
-		$tags_module->register_tag( new Dynamic_Tags\Image_Tag() );
+		$tags_module->register_tag( $dynamic_tags, new Dynamic_Tags\Field_Tag() );
+		$tags_module->register_tag( $dynamic_tags, new Dynamic_Tags\Image_Tag() );
 
 	}
 
@@ -148,15 +133,6 @@ class Elementor {
 			)
 		);
 
-	}
-
-	/**
-	 * Register content types media fields
-	 *
-	 * @param [type] $groups [description]
-	 */
-	public function add_image_source_fields( $groups, $for ) {
-		return $this->manager->add_source_fields( $groups );
 	}
 
 }

@@ -31,6 +31,10 @@ class Module {
 		return jet_engine()->modules->modules_path( 'profile-builder/inc/' . $path );
 	}
 
+	public function module_url( $path ) {
+		return jet_engine()->modules->modules_url( 'profile-builder/inc/' . $path );
+	}
+
 	/**
 	 * Init module components
 	 *
@@ -42,8 +46,14 @@ class Module {
 		require $this->module_path( 'rewrite.php' );
 		require $this->module_path( 'query.php' );
 		require $this->module_path( 'frontend.php' );
+		require $this->module_path( 'base-integration.php' );
 		require $this->module_path( 'elementor-integration.php' );
 		require $this->module_path( 'blocks-integration.php' );
+		require $this->module_path( 'twig-integration.php' );
+		require $this->module_path( 'compatibility.php' );
+
+		// Bricks Integration
+		require jet_engine()->modules->modules_path( 'profile-builder/inc/bricks-views/manager.php' );
 
 		$this->settings  = new Settings();
 		$this->rewrite   = new Rewrite();
@@ -52,6 +62,9 @@ class Module {
 		$this->elementor = new Elementor_Integration();
 
 		new Blocks_Integration();
+		new Twig_Integration();
+		new Compatibility();
+		new Bricks_Views\Manager();
 
 		$this->maybe_disable_admin_bar();
 
@@ -59,14 +72,20 @@ class Module {
 			require $this->module_path( 'forms-integration.php' );
 			new Forms_Integration();
 		}
+		if ( function_exists( 'jet_form_builder' ) ) {
+			require $this->module_path( 'forms-jfb-integration.php' );
+			new Forms_Jfb_Integration();
+		}
 
 		add_action( 'jet-engine/modules/dynamic-visibility/conditions/register', function( $conditions_manager ) {
 
 			require $this->module_path( 'dynamic-visibility/can-add-posts.php' );
 			require $this->module_path( 'dynamic-visibility/is-profile-page.php' );
+			require $this->module_path( 'dynamic-visibility/post-by-queried-user.php' );
 
 			$conditions_manager->register_condition( new Dynamic_Visibility\User_Can_Add_Posts() );
 			$conditions_manager->register_condition( new Dynamic_Visibility\Is_Profile_Page() );
+			$conditions_manager->register_condition( new Dynamic_Visibility\Post_By_Queried_User() );
 
 		} );
 
@@ -90,6 +109,24 @@ class Module {
 			add_filter( 'show_admin_bar', '__return_false' );
 		}
 
+	}
+
+	/**
+	 * Returns path to module template file.
+	 *
+	 * @param $name
+	 *
+	 * @return string|bool
+	 */
+	public function get_template( $name ) {
+
+		$template = jet_engine()->get_template( 'profile-builder/' . $name ); // for back-compatibility
+
+		if ( $template ) {
+			return $template;
+		}
+
+		return jet_engine()->modules->modules_path( 'profile-builder/inc/templates/' . $name );
 	}
 
 	/**

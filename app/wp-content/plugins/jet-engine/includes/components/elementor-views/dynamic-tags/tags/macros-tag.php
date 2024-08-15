@@ -28,7 +28,7 @@ class Jet_Engine_Macros_Tag extends Elementor\Core\DynamicTags\Data_Tag {
 		return true;
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->add_control(
 			'macros',
@@ -56,9 +56,7 @@ class Jet_Engine_Macros_Tag extends Elementor\Core\DynamicTags\Data_Tag {
 
 				if ( empty( $controls[ $control_id ] ) ) {
 
-					$control_data['condition'] = array(
-						'macros' => array( $macros ),
-					);
+					$control_data['condition']['macros'] = array( $macros );
 
 					$controls[ $control_id ] = $control_data;
 				} else {

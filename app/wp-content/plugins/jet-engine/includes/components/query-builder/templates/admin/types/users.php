@@ -143,56 +143,7 @@
 					label="<?php _e( 'Order By', 'jet-engine' ); ?>"
 					description="<?php _e( 'Field to order terms by', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
-					:options-list="[
-						{
-							value: 'ID',
-							label: 'By user ID',
-						},
-						{
-							value: 'display_name',
-							label: 'By user display name',
-						},
-						{
-							value: 'name',
-							label: 'By user name',
-						},
-						{
-							value: 'include',
-							label: 'By the included list of user IDs (requires the Include parameter)',
-						},
-						{
-							value: 'login',
-							label: 'By user login',
-						},
-						{
-							value: 'nicename',
-							label: 'By user nicename',
-						},
-						{
-							value: 'email',
-							label: 'By user email',
-						},
-						{
-							value: 'url',
-							label: 'By user url',
-						},
-						{
-							value: 'registered',
-							label: 'By user registered date',
-						},
-						{
-							value: 'post_count',
-							label: 'By user post count',
-						},
-						{
-							value: 'meta_value',
-							label: 'Meta value',
-						},
-						{
-							value: 'meta_value_num',
-							label: 'Numeric meta value',
-						},
-					]"
+					:options-list="orderbyOptions"
 					size="fullwidth"
 					name="query_orderby"
 					v-model="query.orderby"
@@ -375,7 +326,7 @@
 									size="fullwidth"
 									:value="query.date_query[ index ].after"
 									@input="setFieldProp( dateClause._id, 'after', $event, query.date_query )"
-								><jet-query-dynamic-args v-model="dynamicQuery.date_query[ dateClause._id ].day"></jet-query-dynamic-args></cx-vui-input>
+								><jet-query-dynamic-args v-model="dynamicQuery.date_query[ dateClause._id ].after"></jet-query-dynamic-args></cx-vui-input>
 								<cx-vui-input
 									label="<?php _e( 'Before', 'jet-engine' ); ?>"
 									description="<?php _e( 'Date to retrieve posts before. Eg. January 1st 2020, Today, Tomorrow etc.', 'jet-engine' ); ?>"
@@ -441,6 +392,7 @@
 					v-model="query.date_query_relation"
 				></cx-vui-select>
 			</cx-vui-tabs-panel>
+			<?php do_action( 'jet-engine/query-builder/users/controls' ); ?>
 		</cx-vui-tabs>
 	</div>
 </div>

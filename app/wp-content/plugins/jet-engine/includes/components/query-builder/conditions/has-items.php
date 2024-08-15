@@ -26,7 +26,7 @@ class Has_Items extends \Jet_Engine\Modules\Dynamic_Visibility\Conditions\Base {
 	public function get_custom_controls() {
 		return array(
 			'query_id' => array(
-				'type'        => \Elementor\Controls_Manager::SELECT,
+				'type'        => 'select',
 				'label'       => __( 'Query to check', 'jet-engine' ),
 				'label_block' => true,
 				'default'     => '',

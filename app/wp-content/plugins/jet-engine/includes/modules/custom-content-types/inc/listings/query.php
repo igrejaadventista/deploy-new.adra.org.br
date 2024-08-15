@@ -30,11 +30,6 @@ class Query {
 			array( $this, 'prepare_object_vars' ), 10
 		);
 
-		add_action(
-			'the_post',
-			array( $this, 'maybe_add_item_to_post' )
-		);
-
 		add_action( 'jet-engine/listings/frontend/reset-data', function( $data ) {
 			if ( $this->source === $data->get_listing_source() ) {
 				wp_reset_postdata();
@@ -42,6 +37,43 @@ class Query {
 		} );
 
 		add_filter( 'jet-smart-filters/pre-get-indexed-data', array( $this, 'get_indexed_data' ), 10, 4 );
+
+		add_action( 'jet-engine/custom-content-types/after-register-instances', function( $manager ) {
+
+			$post_types = $manager->get_post_types_map();
+
+			if ( empty( $post_types ) ) {
+				return;
+			}
+
+			add_action(
+				'the_post',
+				array( $this, 'maybe_add_item_to_post' )
+			);
+
+		} );
+
+	}
+
+	public function format_filter_args( $query_args = array() ) {
+
+		$args = array();
+
+		if ( ! empty( $query_args['meta_query'] ) ) {
+			
+			$result = array();
+
+			foreach ( $query_args['meta_query'] as $row ) {
+				$result = $this->add_filter_row( $row, $result );
+			}
+
+			$args = $result;
+
+		} elseif ( isset( $query_args['args'] ) ) {
+			$args = $query_args['args'];
+		}
+
+		return $args;
 
 	}
 
@@ -77,16 +109,33 @@ class Query {
 			return $data;
 		}
 
+		$query_id = ! empty( $props['query_id'] ) ? $props['query_id'] : false;
+
+		if ( $query_id ) {
+			$query_object = \Jet_Engine\Query_Builder\Manager::instance()->get_query_by_id( $query_id );
+		} else {
+			$query_object = false;
+		}
+
+		if ( $query_object ) {
+			$query_object->setup_query();
+		}
+
 		$result = array(
 			'meta_query' => array(),
 		);
 
 		if ( ! empty( $query_args ) && ! empty( $query_args[ $provider_name ] ) && ! empty( $query_args[ $provider_name ][ $provider_id ] ) ) {
+			// setup front-end query args
 			$query_args = $query_args[ $provider_name ][ $provider_id ];
+		} elseif ( ! empty( $query_args['meta_query'] ) && $query_object ) {
+			// setup AJAX query args
+			$query_object->set_filtered_prop( 'meta_query', $query_args['meta_query'] );
+			$query_args['args'] = $query_object->final_query['args'];
+			unset($query_args['meta_query'] );
 		}
 
-		$args  = ! empty( $query_args ) && isset( $query_args['args'] ) ? $query_args['args'] : array();
-		$args  = $content_type->prepare_query_args( $args );
+		$args  = $content_type->prepare_query_args( $this->format_filter_args( $query_args ) );
 		$where = $content_type->db->add_where_args( $args, 'AND', false );
 		$table = $content_type->db->table();
 
@@ -184,21 +233,34 @@ class Query {
 			return $result;
 		}
 
-		$select       = implode( ', ', $selects );
-		$group        = implode( ', ', $groups );
-		$group_by     = '';
-		$where_prefix = 'WHERE';
+		$select   = implode( ', ', $selects );
+		$group    = implode( ', ', $groups );
+		$group_by = '';
 
-		if ( empty( $where ) ) {
-			$where_prefix = '';
+		if ( $where ) {
+			$where = 'WHERE 1=1 AND ' . $where;
+		} else {
+			$where = 'WHERE 1=1 ';
 		}
 
 		if ( $group ) {
 			$group_by = "GROUP BY $group";
 		}
 
-		$query  = "SELECT $select FROM $table $where_prefix $where $group_by";
-		$counts = $content_type->db::wpdb()->get_results( $query, ARRAY_A );
+		if ( $query_object ) {
+			$query_object->setup_query();
+			$content_type->db->set_query_object( $query_object );
+		}
+
+		$sql_query = apply_filters( 'jet-engine/custom-content-types/sql-query-parts', array(
+			'select' => "SELECT $select",
+			'from'   => "FROM $table",
+			'where'  => $where,
+			'group'  => $group_by,
+		), $table, $args, $content_type->db );
+
+		$sql_query = implode( ' ', $sql_query );
+		$counts    = $content_type->db::wpdb()->get_results( $sql_query, ARRAY_A );
 
 		if ( ! empty( $counts ) ) {
 
@@ -346,19 +408,21 @@ class Query {
 	 * @param  [type] &$post [description]
 	 * @return [type]        [description]
 	 */
-	public function maybe_add_item_to_post( &$post ) {
+	public function maybe_add_item_to_post( $post ) {
 
 		$post_id   = $post->ID;
 		$post_type = $post->post_type;
 		$item      = $this->get_current_item( $post_id, $post_type );
 
 		if ( ! $item ) {
-			return;
+			return $post;
 		}
 
 		foreach ( $item as $prop => $value ) {
 			$post->$prop = $value;
 		}
+
+		return $post;
 
 	}
 
@@ -373,7 +437,7 @@ class Query {
 			return true;
 		}
 
-		if ( ! empty( $_REQUEST['jsf'] ) && 'jet-engine' === $_REQUEST['jsf'] ) {
+		if ( ! empty( $_REQUEST['jsf'] ) && false !== strpos( $_REQUEST['jsf'], 'jet-engine' ) ) {
 			return true;
 		}
 
@@ -535,7 +599,11 @@ class Query {
 		$prepared_args = array();
 
 		foreach ( $args as $arg ) {
-			$arg['value'] = jet_engine()->listings->macros->do_macros( $arg['value'] );
+
+			if ( ! empty( $arg['value'] ) ) {
+				$arg['value'] = jet_engine()->listings->macros->do_macros( $arg['value'] );
+			}
+
 			$prepared_args[] = $arg;
 		}
 
@@ -552,22 +620,7 @@ class Query {
 
 		if ( ! empty( $row['relation'] ) ) {
 
-			$new_row = array(
-				'relation' => $row['relation'],
-			);
-
-			unset( $row['relation'] );
-
-			foreach ( $row as $inner_row ) {
-				$new_row[] = array(
-					'field'    => $inner_row['key'],
-					'operator' => $inner_row['compare'],
-					'value'    => $inner_row['value'],
-					'type'     => $inner_row['type'],
-				);
-			}
-
-			$query[] = $new_row;
+			$query[] = $this->prepare_multi_relation_row( $row );
 
 		} else {
 
@@ -595,8 +648,6 @@ class Query {
 				}
 			}
 
-
-
 			if ( ! $found ) {
 				$query[] = $row;
 			}
@@ -604,6 +655,32 @@ class Query {
 
 		return $query;
 
+	}
+
+	public function prepare_multi_relation_row( $row ) {
+
+		if ( ! empty( $row['relation'] ) ) {
+
+			$new_row = array(
+				'relation' => $row['relation'],
+			);
+
+			unset( $row['relation'] );
+
+			foreach ( $row as $inner_row ) {
+				$new_row[] = $this->prepare_multi_relation_row( $inner_row );
+			}
+
+		} else {
+			$new_row = array(
+				'field'    => ! empty( $row['key'] ) ? $row['key'] : false,
+				'operator' => ! empty( $row['compare'] ) ? $row['compare'] : '=',
+				'value'    => ! empty( $row['value'] ) ? $row['value'] : '',
+				'type'     => ! empty( $row['type'] ) ? $row['type'] : false,
+			);
+		}
+
+		return $new_row;
 	}
 
 }

@@ -247,6 +247,18 @@ class Jet_Elements_Testimonials extends Jet_Elements_Base {
 			)
 		);
 
+		$this->add_control(
+			'image_lazyload',
+			array(
+				'label'        => esc_html__( 'Lazy Load Images', 'jet-elements' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'label_on'     => esc_html__( 'Yes', 'jet-elements' ),
+				'label_off'    => esc_html__( 'No', 'jet-elements' ),
+				'return_value' => 'true',
+				'default'      => 'true',
+			)
+		);
+
 		$this->add_responsive_control(
 			'slides_to_show',
 			array(
@@ -2606,7 +2618,6 @@ class Jet_Elements_Testimonials extends Jet_Elements_Base {
 				'selectors'  => array(
 					'{{WRAPPER}} ' . $css_scheme['dots'] => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				),
-				'separator' => 'after',
 			),
 			50
 		);
@@ -2770,11 +2781,15 @@ class Jet_Elements_Testimonials extends Jet_Elements_Base {
 	}
 
 	public function _get_testimonials_image() {
-		$image_item = $this->_processed_item['item_image'];
+		$settings        = $this->get_settings_for_display();
+		$image_item      = $this->_processed_item['item_image'];
+		$image_lazyload  = isset( $settings['image_lazyload'] ) ? $settings['image_lazyload'] : 'true';
 
 		if ( empty( $image_item['url'] ) ) {
 			return;
 		}
+
+		$lazyload = 'true' === $image_lazyload ? 'lazy' : '';
 
 		$item_link = isset( $this->_processed_item['item_link'] ) ? $this->_processed_item['item_link'] : false;
 
@@ -2796,16 +2811,18 @@ class Jet_Elements_Testimonials extends Jet_Elements_Base {
 				}
 			}
 
-			return sprintf( '<figure class="jet-testimonials__figure"><a %3$s><img class="jet-testimonials__tag-img" src="%1$s" alt="%2$s" loading="lazy"></a></figure>',
+			return sprintf( '<figure class="jet-testimonials__figure"><a %3$s><img class="jet-testimonials__tag-img" src="%1$s" alt="%2$s" loading="%4$s"></a></figure>',
 				$image_item['url'],
 				esc_attr( Control_Media::get_image_alt( $image_item ) ),
-				$this->get_render_attribute_string( 'img-link-' . $_id )
+				$this->get_render_attribute_string( 'img-link-' . $_id ),
+				$lazyload
 			);
 		}
 
-		return sprintf( '<figure class="jet-testimonials__figure"><img class="jet-testimonials__tag-img" src="%1$s" alt="%2$s" loading="lazy"></figure>',
+		return sprintf( '<figure class="jet-testimonials__figure"><img class="jet-testimonials__tag-img" src="%1$s" alt="%2$s" loading="%3$s"></figure>',
 			$image_item['url'],
-			esc_attr( Control_Media::get_image_alt( $image_item ) )
+			esc_attr( Control_Media::get_image_alt( $image_item ) ),
+			$lazyload
 		);
 	}
 

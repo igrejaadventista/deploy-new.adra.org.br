@@ -12,9 +12,9 @@ namespace RankMath\Frontend;
 
 use RankMath\Helper;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Url;
-use MyThemeShop\Helpers\HTML;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Url;
+use RankMath\Helpers\HTML;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -24,6 +24,56 @@ defined( 'ABSPATH' ) || exit;
 class Link_Attributes {
 
 	use Hooker;
+
+	/**
+	 * Add rel=noopener or not.
+	 *
+	 * @var bool
+	 */
+	public $add_noopener;
+
+	/**
+	 * Add rel=nofollow to links or not.
+	 *
+	 * @var bool
+	 */
+	public $nofollow_link;
+
+	/**
+	 * Add rel=nofollow to images or not.
+	 *
+	 * @var bool
+	 */
+	public $nofollow_image;
+
+	/**
+	 * Open links in a new window or not.
+	 *
+	 * @var bool
+	 */
+	public $new_window_link;
+
+	/**
+	 * Remove existing CSS class from links or not.
+	 *
+	 * @var bool
+	 */
+	public $remove_class;
+
+	/**
+	 * Check if the link attributes have been modified or not.
+	 *
+	 * @var bool
+	 */
+	public $is_dirty;
+
+	/**
+	 * Additional attributes to add to links.
+	 *
+	 * @var array
+	 */
+	public $add_attributes;
+
 
 	/**
 	 * The Constructor.
@@ -61,6 +111,11 @@ class Link_Attributes {
 	 * @return string
 	 */
 	public function add_link_attributes( $content ) {
+		// Early bail if content is empty.
+		if ( empty( $content ) ) {
+			return $content;
+		}
+
 		preg_match_all( '/<(a\s[^>]+)>/', $content, $matches );
 		if ( empty( $matches ) || empty( $matches[0] ) ) {
 			return $content;
@@ -168,7 +223,7 @@ class Link_Attributes {
 			return $attrs;
 		}
 
-		if ( $this->should_add_nofollow( $attrs['href'] ) ) {
+		if ( $this->do_filter( 'nofollow/url', $this->should_add_nofollow( $attrs['href'] ), $attrs['href'] ) ) {
 			if ( $this->nofollow_link || ( $this->nofollow_image && $this->is_valid_image( $attrs['href'] ) ) ) {
 				$this->is_dirty = true;
 				$this->set_rel_attribute( $attrs, 'nofollow', ( isset( $attrs['rel'] ) && ! Str::contains( 'dofollow', $attrs['rel'] ) && ! Str::contains( 'nofollow', $attrs['rel'] ) ) );
@@ -207,14 +262,15 @@ class Link_Attributes {
 		$include_domains = $this->get_nofollow_domains( 'include' );
 		$exclude_domains = $this->get_nofollow_domains( 'exclude' );
 		$parent_domain   = Url::get_domain( $url );
+		$parent_domain   = preg_replace( '/^www\./', '', $parent_domain );
 
 		// Check if domain is in list.
 		if ( ! empty( $include_domains ) ) {
-			return Str::contains( $parent_domain, $include_domains );
+			return in_array( $parent_domain, $include_domains, true );
 		}
 
-		// Check if domains is NOT in list.
-		if ( ! empty( $exclude_domains ) && Str::contains( $parent_domain, $exclude_domains ) ) {
+		// Check if domain is NOT in list.
+		if ( ! empty( $exclude_domains ) && in_array( $parent_domain, $exclude_domains, true ) ) {
 			return false;
 		}
 
@@ -238,7 +294,16 @@ class Link_Attributes {
 		$domains = Helper::get_settings( "general.{$setting}" );
 		$domains = Str::to_arr_no_empty( $domains );
 
-		$rank_math_nofollow_domains[ $type ] = empty( $domains ) ? false : join( ';', $domains );
+		// Strip off www. prefixes.
+		$domains = array_map(
+			function( $domain ) {
+				$domain = preg_replace( '#^http(s)?://#', '', trim( $domain, '/' ) );
+				return preg_replace( '/^www\./', '', $domain );
+			},
+			$domains
+		);
+
+		$rank_math_nofollow_domains[ $type ] = $domains;
 
 		return $rank_math_nofollow_domains[ $type ];
 	}

@@ -19,6 +19,8 @@ class Listing {
 
 	private $processed_listing = false;
 
+	private $relations_source = 'jet_engine_related_items';
+
 	private $listing_source = 'relation_meta_data';
 
 	public function __construct() {
@@ -36,6 +38,7 @@ class Listing {
 
 		// Blocks integration
 		add_filter( 'jet-engine/blocks-views/editor-data', array( $this, 'blocks_register_relations_meta' ) );
+		add_filter( 'jet-engine/blocks-views/block-types/attributes/dynamic-field', array( $this, 'register_relations_meta_attr' ) );
 
 		// Elementor + Blocks
 		add_filter( 'jet-engine/listings/dynamic-image/fields', array( $this, 'dynamic_image_controls' ) );
@@ -43,9 +46,105 @@ class Listing {
 
 		// Process meta value
 		add_filter( 'jet-engine/listings/dynamic-field/field-value', array( $this, 'return_meta_value' ), 10, 2 );
-		add_filter( 'jet-engine/listings/dynamic-image/custom-image', array( $this, 'custom_image_renderer' ), 10, 2 );
+		add_filter( 'jet-engine/listings/dynamic-image/custom-image', array( $this, 'custom_image_renderer' ), 10, 4 );
 		add_filter( 'jet-engine/listings/dynamic-image/custom-url', array( $this, 'custom_image_url' ), 10, 2 );
 		add_filter( 'jet-engine/listings/dynamic-link/custom-url', array( $this, 'custom_link_url' ), 10, 2 );
+
+		// Add and ge relations props for the Dynamic Field widget
+		add_filter( 'jet-engine/listing/data/object-fields-groups', array( $this, 'add_dynamic_field_props' ), 999 );
+		add_filter( 'jet-engine/listings/data/prop-not-found', array( $this, 'get_dynamic_field_prop' ), 10, 3 );
+
+	}
+
+	/**
+	 * Check id we trying to get relation property and get the appropriate data
+	 */
+	public function get_dynamic_field_prop( $result, $prop, $object ) {
+		
+		if ( false === strpos( $prop, $this->relations_source ) ) {
+			return $result;
+		}
+
+		$prop   = str_replace( $this->relations_source . '_', '', $prop );
+		$rel_id = false;
+		$get    = false;
+
+		if ( false !== strpos( $prop, 'children_' ) ) {
+			$get    = 'children';
+			$rel_id = str_replace( 'children_', '', $prop );
+		} elseif ( false !== strpos( $prop, 'parents_' ) ) {
+			$get = 'parents';
+			$rel_id = str_replace( 'parents_', '', $prop );
+		}
+
+		if ( ! $get || ! $rel_id ) {
+			return $result;
+		}
+
+		$relation = jet_engine()->relations->get_active_relations( $rel_id );
+
+		if ( ! $relation ) {
+			return $result;
+		}
+
+		$object_id = jet_engine()->listings->data->get_current_object_id( $object );
+
+		if ( ! $object_id ) {
+			return $result;
+		}
+
+		$related_ids = array();
+
+		switch ( $get ) {
+			case 'parents':
+				$related_ids = $relation->get_parents( $object_id, 'ids' );
+				break;
+
+			default:
+				$related_ids = $relation->get_children( $object_id, 'ids' );
+				break;
+		}
+
+		$related_ids = ! empty( $related_ids ) ? $related_ids : array();
+
+		return $related_ids;
+
+	}
+
+	/**
+	 * Register listing source
+	 */
+	public function add_dynamic_field_props( $groups ) {
+
+		$prefixed_rels_list = $this->get_prefixed_relations_sources();
+
+		if ( ! empty( $prefixed_rels_list ) ) {
+
+			$groups[] = array(
+				'label'   => __( 'Related items for current object', 'jet-engine' ),
+				'options' => $prefixed_rels_list,
+			);
+		}
+
+		return $groups;
+	}
+
+	public function get_prefixed_relations_sources() {
+
+		$relations = jet_engine()->relations->get_active_relations();
+		$prefixed_rels_list = array();
+
+		if ( ! empty( $relations ) ) {
+
+			foreach ( $relations as $rel ) {
+				$prefixed_rels_list[ $this->relations_source . '_children_' . $rel->get_id() ] = __( 'Children from', 'jet-engine' ) . ' ' . $rel->get_relation_name();
+				$prefixed_rels_list[ $this->relations_source . '_parents_' . $rel->get_id() ] = __( 'Parents from', 'jet-engine' ) . ' ' . $rel->get_relation_name();
+			}
+
+		}
+
+		return $prefixed_rels_list;
+
 	}
 
 	/**
@@ -112,7 +211,7 @@ class Listing {
 			return $result;
 		}
 
-		$data     = explode( '::', $data );
+		$data     = explode( '::', $data, 2 );
 		$rel_id   = $data[0];
 		$field    = $data[1];
 		$relation = jet_engine()->relations->get_active_relations( $rel_id );
@@ -175,7 +274,33 @@ class Listing {
 			return false;
 		}
 
-		return $relation->get_current_meta( $field );
+		$object_context  = isset( $settings['object_context'] ) ? $settings['object_context'] : false;
+		$current_context = 'rel_' . $rel_id;
+		$default_object  = false;
+		$current_object  = false;
+
+		if ( $object_context === $current_context ) {
+
+			$default_object = jet_engine()->listings->data->get_current_object();
+			$current_object = $relation->apply_context();
+
+			if ( is_array( $current_object ) ) {
+				$current_object = (object) $current_object;
+			}
+
+			if ( $current_object && is_object( $current_object ) ) {
+				jet_engine()->listings->data->set_current_object( $current_object );
+			}
+
+		}
+
+		$meta = $relation->get_current_meta( $field );
+
+		if ( $object_context === $current_context && $default_object && $current_object ) {
+			jet_engine()->listings->data->set_current_object( $default_object );
+		}
+
+		return $meta;
 
 	}
 
@@ -184,10 +309,9 @@ class Listing {
 	 *
 	 * @return [type] [description]
 	 */
-	public function custom_image_renderer( $result = false, $settings = array() ) {
+	public function custom_image_renderer( $result = false, $settings = array(), $size = 'full', $render = null ) {
 
 		$image = $this->get_meta_from( 'dynamic_image_source', $settings );
-		$size  = isset( $settings['dynamic_image_size'] ) ? $settings['dynamic_image_size'] : 'full';
 
 		if ( is_array( $image ) && isset( $image['url'] ) ) {
 
@@ -208,11 +332,17 @@ class Listing {
 
 		ob_start();
 
+		$current_object = jet_engine()->listings->data->get_current_object();
+
+		$alt = apply_filters(
+			'jet-engine/relations/meta/image-alt/',
+			false,
+			$current_object
+		);
+
 		if ( filter_var( $image, FILTER_VALIDATE_URL ) ) {
-			printf( '<img src="%1$s" alt="%2$s">', $image, '' );
+			$render->print_image_html_by_src( $image, $alt );
 		} else {
-			$current_object = jet_engine()->listings->data->get_current_object();
-			$alt            = apply_filters( 'jet-engine/relations/meta/image-alt/', false );
 			echo wp_get_attachment_image( $image, $size, false, array( 'alt' => $alt ) );
 		}
 
@@ -302,8 +432,20 @@ class Listing {
 						'value' => $key,
 						'label' => $field['title'],
 					);
+
+					$group[] = array(
+						'value' => $key . '::child',
+						'label' => $field['title'] . ' ' . __( '(for child object)', 'jet-engine' ),
+					);
+
+					$group[] = array(
+						'value' => $key . '::parent',
+						'label' => $field['title'] . ' ' . __( '(for parent object)', 'jet-engine' ),
+					);
 				} else {
 					$group[ $key ] = $field['title'];
+					$group[ $key . '::child' ] = $field['title'] . ' ' . __( '(for child object)', 'jet-engine' );
+					$group[ $key . '::parent' ] = $field['title'] . ' ' . __( '(for parent object)', 'jet-engine' );
 				}
 
 			}
@@ -336,7 +478,7 @@ class Listing {
 	}
 
 	/**
-	 * Register realtiosn meta fields for the block editor configuration
+	 * Register relations meta fields for the block editor configuration
 	 *
 	 * @param  [type] $config [description]
 	 * @return [type]         [description]
@@ -346,6 +488,22 @@ class Listing {
 		$config['relationsMeta'] = $this->get_meta_fields_for_options( 'blocks' );
 
 		return $config;
+	}
+
+	/**
+	 * Register `dynamic_field_relation_meta` attribute in the Dynamic Field block.
+	 *
+	 * @param  array $atts Block attributes array.
+	 * @return array
+	 */
+	public function register_relations_meta_attr( $atts = array() ) {
+
+		$atts['dynamic_field_relation_meta'] = array(
+			'type'    => 'string',
+			'default' => '',
+		);
+
+		return $atts;
 	}
 
 	/**
@@ -365,11 +523,12 @@ class Listing {
 		$widget->add_control(
 			'dynamic_field_relation_meta',
 			array(
-				'label'     => __( 'Meta Field', 'jet-engine' ),
-				'type'      => \Elementor\Controls_Manager::SELECT,
-				'default'   => '',
-				'groups'    => $meta_fields,
-				'condition' => array(
+				'label'       => __( 'Meta Field', 'jet-engine' ),
+				'type'        => 'select',
+				'description' => __( 'By default you can use plain meta field name. For some cases (for example if you created relation by same post types, taxonomies etc.) you need to define direction of meta you trying to get. "for child object" means you getting meta from child object of current relation, "for parent" - from parent object of current relation' ),
+				'default'     => '',
+				'groups'      => $meta_fields,
+				'condition'   => array(
 					'dynamic_field_source' => $this->listing_source,
 				),
 			)

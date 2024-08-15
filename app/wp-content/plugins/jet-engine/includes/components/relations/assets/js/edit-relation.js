@@ -5,14 +5,16 @@ Vue.component( 'jet-engine-relation', {
 	props: {
 		value: {
 			type: Object,
-			default: {}
-		}
+			default: {},
+		},
 	},
 	data() {
 		return {
 			args: {},
 			relationsTypes: JetEngineRelationConfig.relations_types,
 			objectTypes: JetEngineRelationConfig.object_types,
+			restBase: JetEngineRelationConfig.rest_base,
+			relID: JetEngineRelationConfig.item_id,
 		};
 	},
 	computed: {
@@ -39,6 +41,9 @@ Vue.component( 'jet-engine-relation', {
 	},
 	created() {
 		this.args = _.assign( {}, this.value );
+		if ( undefined === this.args.rest_post_access ) {
+			this.$set( this.args, 'rest_post_access', 'manage_options' );
+		}
 	},
 	methods: {
 		emitInput() {

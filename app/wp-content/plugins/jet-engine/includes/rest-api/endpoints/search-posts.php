@@ -21,12 +21,13 @@ class Jet_Engine_Rest_Search_Posts extends Jet_Engine_Base_API_Endpoint {
 	 */
 	public function callback( $request ) {
 
-		$params       = $request->get_params();
-		$query        = $params['query'];
-		$ids          = $params['ids'];
-		$post_type    = $params['post_type'];
-		$search_terms = $params['search_terms'];
-		$tax          = $params['tax'];
+		$params        = $request->get_params();
+		$query         = $params['query'];
+		$ids           = $params['ids'];
+		$post_type     = $params['post_type'];
+		$search_terms  = $params['search_terms'];
+		$tax           = $params['tax'] ?? '';
+		$query_context = $params['query_context'] ?? null;
 
 		if ( ! empty( $ids ) ) {
 			$ids = explode( ',', $ids );
@@ -69,10 +70,10 @@ class Jet_Engine_Rest_Search_Posts extends Jet_Engine_Base_API_Endpoint {
 		$result = array();
 
 		foreach ( $posts as $post ) {
-			$result[] = array(
+			$result[] = apply_filters( 'jet-engine/rest-api/search-posts/result-item', array(
 				'value' => (string) $post->ID,
 				'label' => $post->post_title,
-			);
+			), $post, $query_context );
 		}
 
 		return rest_ensure_response( $result );
@@ -183,6 +184,10 @@ class Jet_Engine_Rest_Search_Posts extends Jet_Engine_Base_API_Endpoint {
 			),
 			'search_terms' => array(
 				'default'  => false,
+				'required' => false,
+			),
+			'query_context' => array(
+				'default'  => null,
 				'required' => false,
 			),
 		);

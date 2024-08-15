@@ -32,7 +32,7 @@ if ( ! class_exists( 'Jet_Engine_Module_Dynamic_Visibility' ) ) {
 		 * @return string
 		 */
 		public function module_name() {
-			return __( 'Dynamic Visibility for Widgets and Sections', 'jet-engine' );
+			return __( 'Dynamic Visibility', 'jet-engine' );
 		}
 
 		/**
@@ -78,15 +78,6 @@ if ( ! class_exists( 'Jet_Engine_Module_Dynamic_Visibility' ) ) {
 		public function create_instance( $jet_engine ) {
 			require $jet_engine->modules->modules_path( 'dynamic-visibility/inc/module.php' );
 			$this->instance = \Jet_Engine\Modules\Dynamic_Visibility\Module::instance();
-		}
-
-		/**
-		 * Is module supports blocks view
-		 *
-		 * @return [type] [description]
-		 */
-		public function support_blocks() {
-			return false;
 		}
 
 	}

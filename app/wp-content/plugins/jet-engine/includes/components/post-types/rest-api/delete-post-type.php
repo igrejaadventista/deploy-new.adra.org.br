@@ -66,16 +66,30 @@ class Jet_Engine_CPT_Rest_Delete_Post_Type extends Jet_Engine_Base_API_Endpoint 
 				break;
 
 			case 'delete':
+
 				$this->delete_posts( $from_post_type );
+
+				/**
+				 * @todo probabaly process as hook from \Jet_Engine\CPT\Custom_Tables\Manager class
+				 */
+				if ( 
+					! empty( $post_type_data['general_settings']['custom_storage'] )
+					&& true === $post_type_data['general_settings']['custom_storage']
+				) {
+					$db = \Jet_Engine\CPT\Custom_Tables\Manager::instance()->get_db_instance( $from_post_type, [] );
+					$db->drop_table();
+				}
+
 				break;
 
 		}
 
-		$this->remove_post_type_from_meta_boxes_comp( $from_post_type );
-
 		jet_engine()->cpt->data->set_request( array( 'id' => $id ) );
 
 		if ( jet_engine()->cpt->data->delete_item( false ) ) {
+
+			do_action( 'jet-engine/post-types/deleted-post-type', $from_post_type );
+
 			return rest_ensure_response( array(
 				'success' => true,
 			) );
@@ -135,43 +149,6 @@ class Jet_Engine_CPT_Rest_Delete_Post_Type extends Jet_Engine_Base_API_Endpoint 
 
 		foreach ( $posts as $post_id ) {
 			wp_delete_post( $post_id, true );
-		}
-
-	}
-
-	/**
-	 * Remove post type from `allowed_post_type` param in meta boxes component
-	 *
-	 * @param $deleted_post_type
-	 */
-	public function remove_post_type_from_meta_boxes_comp( $deleted_post_type ) {
-
-		$meta_boxes = jet_engine()->meta_boxes->data->get_raw();
-
-		if ( empty( $meta_boxes ) ) {
-			return;
-		}
-
-		foreach ( $meta_boxes as $meta_box ) {
-			$args        = $meta_box['args'];
-			$object_type = isset( $args['object_type'] ) ? esc_attr( $args['object_type'] ) : 'post';
-
-			if ( 'post' !== $object_type ) {
-				continue;
-			}
-
-			$post_types = ! empty( $args['allowed_post_type'] ) ? $args['allowed_post_type'] : array();
-
-			if ( ! in_array( $deleted_post_type, $post_types ) ) {
-				continue;
-			}
-
-			$post_types = array_combine( $post_types, $post_types );
-			unset( $post_types[ $deleted_post_type ] );
-
-			$meta_box['args']['allowed_post_type'] = array_values( $post_types );
-
-			jet_engine()->meta_boxes->data->update_item_in_db( $meta_box );
 		}
 
 	}

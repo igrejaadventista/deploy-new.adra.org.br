@@ -29,11 +29,14 @@ if ( ! class_exists( 'Jet_Engine_Smart_Filters_Package' ) ) {
 				10, 3
 			);
 
+			/*
+			This filter not needed anymore with new ajax listing url.
 			add_filter(
 				'jet-engine/listing/grid/is_lazy_load',
 				array( $this, 'maybe_disable_lazy_load_listing' ),
 				10, 2
 			);
+			*/
 
 			add_filter(
 				'jet-engine/listing/grid/posts-query-args',
@@ -47,6 +50,34 @@ if ( ! class_exists( 'Jet_Engine_Smart_Filters_Package' ) ) {
 				10, 3
 			);
 
+			add_filter(
+				'jet-engine/listing/grid/lazy-load/options',
+				array( $this, 'add_redirect_filter_data' )
+			);
+
+			add_filter(
+				'jet-engine/listing/posts-loop/start-from',
+				array( $this, 'update_start_from_on_pagination_request' ),
+				10, 3
+			);
+
+		}
+
+		public function is_filters_request() {
+
+			if ( ! empty( $_REQUEST['action'] ) && 'jet_smart_filters' === $_REQUEST['action'] && ! empty( $_REQUEST['provider'] ) ) {
+				return true;
+			}
+
+			if ( ! empty( $_REQUEST['jet-smart-filters'] ) ) {
+				return true;
+			}
+
+			if ( ! empty( $_REQUEST['jsf'] ) ) {
+				return true;
+			}
+
+			return false;
 		}
 
 		public function maybe_enable_users_count( $args, $widget ) {
@@ -69,6 +100,8 @@ if ( ! class_exists( 'Jet_Engine_Smart_Filters_Package' ) ) {
 				if ( isset( $_REQUEST['jet_paged'] ) ) {
 					$page = absint( $_REQUEST['jet_paged'] );
 				} elseif ( wp_doing_ajax() && isset( $_REQUEST['paged'] ) ) {
+					$page = absint( $_REQUEST['paged'] );
+				} elseif ( defined( 'JET_SMART_FILTERS_DOING_REQUEST' ) && isset( $_REQUEST['paged'] ) ) {
 					$page = absint( $_REQUEST['paged'] );
 				} else {
 					$page = $widget->query_vars['page'];
@@ -110,6 +143,8 @@ if ( ! class_exists( 'Jet_Engine_Smart_Filters_Package' ) ) {
 				$query_id = $widget_settings['_element_id'];
 			}
 
+			$query_id = apply_filters( 'jet-engine/compatibility/listing/query-id', $query_id, $widget_settings );
+
 			$filters_data = array();
 
 			$filters_settings = array(
@@ -133,9 +168,29 @@ if ( ! class_exists( 'Jet_Engine_Smart_Filters_Package' ) ) {
 					'provider' => 'jet-engine/' . $query_id,
 					'query'    => wp_parse_args(
 						$query,
-						isset( $filters_data['queries'][$query_id] ) ? $filters_data['queries'][$query_id] : array()
+						isset( $filters_data['queries'][ $query_id ] ) ? $filters_data['queries'][ $query_id ] : array()
 					)
 				);
+			}
+
+			$query_builder_id = false;
+
+			if ( class_exists( 'Jet_Engine\Query_Builder\Manager' ) ) {
+				$query_builder_id = Jet_Engine\Query_Builder\Manager::instance()->listings->get_query_id( $widget_settings['lisitng_id'], $widget_settings );
+
+				$query = Jet_Engine\Query_Builder\Manager::instance()->get_query_by_id( $query_builder_id );
+
+				if ( $query && ! empty( $query->final_query['_random_seed'] ) ) {
+					$response['filters_data']['extra_props'][ '_random_seed_' . $query_builder_id ] = $query->final_query['_random_seed'];
+				}
+			}
+
+			/**
+			 * After indexer get required data, remove query builder-related arguments from filters data to avoid it from sending
+			 * with AJAX requests and break these requests if query have to much args
+			 */
+			if ( ! empty( $query_builder_id ) && ! empty( $response['filters_data'] ) && ! empty( $response['filters_data']['queries'] ) ) {
+				$response['filters_data']['queries'][ $query_id ] = array();
 			}
 
 			return $response;
@@ -195,6 +250,72 @@ if ( ! class_exists( 'Jet_Engine_Smart_Filters_Package' ) ) {
 			}
 
 			return $stored_settings;
+		}
+
+		public function add_redirect_filter_data( $options ) {
+
+			if ( empty( $_POST['jet-smart-filters-redirect'] ) ) {
+				return $options;
+			}
+
+			if ( ! empty( $_POST['jsf'] ) || ! empty( $_POST['jet-smart-filters'] ) ) {
+
+				if ( empty( $options['extra_props'] ) ) {
+					$options['extra_props'] = array();
+				}
+
+				$options['extra_props'] = array_merge( $options['extra_props'], $_POST );
+			}
+
+			return $options;
+		}
+
+		public function update_start_from_on_pagination_request( $start_from, $settings, $render ) {
+
+			if ( ! $this->is_filters_request() ) {
+				return $start_from;
+			}
+
+			if ( empty( $_REQUEST['paged'] ) && empty( $_REQUEST['jet_paged'] ) ) {
+				return $start_from;
+			}
+
+			$request_provider = jet_smart_filters()->query->get_current_provider( 'raw' );
+
+			if ( ! $request_provider ) {
+				return $start_from;
+			}
+
+			$current_provider = 'jet-engine' . ( ! empty( $settings['_element_id'] ) ? '/' . $settings['_element_id'] : '/default' );
+
+			if ( $request_provider !== $current_provider ) {
+				return $start_from;
+			}
+
+			if ( ! empty( $_REQUEST['paged'] ) ) {
+				$page = absint( $_REQUEST['paged'] );
+			} elseif ( ! empty( $_REQUEST['jet_paged'] ) ) {
+				$page = absint( $_REQUEST['jet_paged'] );
+			} else {
+				$page = 1;
+			}
+
+			if ( 1 < $page ) {
+
+				$per_page = $settings['posts_num'];
+
+				if ( $render->listing_query_id ) {
+					$query = Jet_Engine\Query_Builder\Manager::instance()->get_query_by_id( $render->listing_query_id );
+
+					if ( $query ) {
+						$per_page = $query->get_items_per_page();
+					}
+				}
+
+				$start_from = ( $page - 1 ) * absint( $per_page ) + 1;
+			}
+
+			return $start_from;
 		}
 
 	}

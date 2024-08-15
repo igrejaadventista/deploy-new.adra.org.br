@@ -38,6 +38,7 @@ function RestApiAction( props ) {
 				  source,
 				  onChangeSetting,
 				  requestFields,
+				  onChangeSettingObj,
 			  } = props;
 
 		const [ formFields, setFormFields ] = useState( [] );
@@ -159,6 +160,31 @@ addFilter(
 				help={ help( 'bearer_token' ) }
 				value={ settings.bearer_token }
 				onChange={ newValue => onChangeSetting( newValue, 'bearer_token' ) }
+			/>
+		</>;
+	} );
+
+addFilter(
+	'jet.engine.restapi.authorization.fields.custom-header',
+	'jet-engine',
+	function RESTCustomHeader( empty, {
+		settings,
+		label,
+		help,
+		onChangeSettingObj,
+	} ) {
+		return <>
+			<TextControl
+				label={ label( 'custom_header_name' ) }
+				help={ help( 'custom_header_name' ) }
+				value={ settings.custom_header_name }
+				onChange={ custom_header_name => onChangeSettingObj( { custom_header_name } ) }
+			/>
+			<TextControl
+				label={ label( 'custom_header_value' ) }
+				help={ help( 'custom_header_value' ) }
+				value={ settings.custom_header_value }
+				onChange={ custom_header_value => onChangeSettingObj( { custom_header_value } ) }
 			/>
 		</>;
 	} );

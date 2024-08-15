@@ -24,6 +24,6 @@ class Object_Id extends \Jet_Engine_Base_Macros {
 	 * @inheritDoc
 	 */
 	public function macros_callback( $args = array() ) {
-		return jet_engine()->listings->data->get_current_object_id();
+		return jet_engine()->listings->data->get_current_object_id( $this->get_macros_object() );
 	}
 }

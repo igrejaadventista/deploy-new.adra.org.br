@@ -2,7 +2,7 @@
 /**
  * Term Meta module
  *
- * Version: 1.3.6
+ * Version: 1.6.1
  */
 
 // If this file is called directly, abort.
@@ -71,7 +71,7 @@ if ( ! class_exists( 'Cherry_X_Term_Meta' ) ) {
 			$tax      = esc_attr( $this->args['tax'] );
 
 			add_action( "{$tax}_add_form_fields", array( $this, 'render_add_fields' ), $priority );
-			add_action( "{$tax}_edit_form_fields", array( $this, 'render_edit_fields' ), $priority, 2 );
+			add_action( "{$tax}_edit_form", array( $this, 'render_edit_fields' ), $priority, 2 );
 
 			add_action( "created_{$tax}", array( $this, 'save_meta' ) );
 			add_action( "edited_{$tax}", array( $this, 'save_meta' ) );
@@ -223,9 +223,35 @@ if ( ! class_exists( 'Cherry_X_Term_Meta' ) ) {
 					}
 
 					break;
+
+				case 'text':
+
+					if ( ! empty( $value ) && $this->to_timestamp( $field ) && is_numeric( $value ) ) {
+
+						switch ( $field['input_type'] ) {
+							case 'date':
+								$value = $this->get_date( 'Y-m-d', $value );
+								break;
+
+							case 'datetime-local':
+								$value = $this->get_date( 'Y-m-d\TH:i', $value );
+								break;
+						}
+					}
+
+					break;
 			}
 
 			return $value;
+		}
+
+		/**
+		 * Returns date converted from timestamp
+		 * 
+		 * @return [type] [description]
+		 */
+		public function get_date( $format, $time ) {
+			return apply_filters( 'cx_term_meta/date', date( $format, $time ), $time, $format );
 		}
 
 		/**
@@ -246,18 +272,6 @@ if ( ! class_exists( 'Cherry_X_Term_Meta' ) ) {
 			}
 
 			$meta = get_term_meta( $term->term_id, $key, false );
-
-			if ( ! empty( $meta[0] ) && $this->to_timestamp( $field ) && is_numeric( $meta[0] ) ) {
-
-				switch ( $field['input_type'] ) {
-					case 'date':
-						return date( 'Y-m-d', $meta[0] );
-
-					case 'datetime-local':
-						return date( 'Y-m-d\TH:i', $meta[0] );
-				}
-
-			}
 
 			return ( empty( $meta ) ) ? $default : $meta[0];
 		}
@@ -345,22 +359,34 @@ if ( ! class_exists( 'Cherry_X_Term_Meta' ) ) {
 
 					// Specific key will be deleted only on `editedtag` page
 					if ( ! empty( $_POST['action'] ) && 'editedtag' === $_POST['action'] ) {
+
+						/**
+						 * Fires before specific key will be deleted
+						 */
+						do_action( 'cx_term_meta/before_delete_meta/' . $key, $term_id, $key, $field );
+
+						// Delete all separate fields of repeater.
+						if ( 'repeater' === $field['type'] && ! empty( $field['save_separate'] ) ) {
+							$this->delete_repeater_separate_fields( $term_id, $key, $field );
+						}
+
 						update_term_meta( $term_id, $key, false );
 					}
 
 					continue;
 				}
 
-				if ( $this->to_timestamp( $field ) ) {
-					$new_val = strtotime( $_POST[ $key ] );
-				} else {
-					$new_val = $this->sanitize_meta( $field, $_POST[ $key ] );
-				}
+				$new_val = $this->sanitize_meta( $field, $_POST[ $key ] );
 
 				/**
 				 * Hook on before current metabox saving with meta box id as dynamic part
 				 */
-				do_action( 'cx_term_meta/before_save_meta/' . $key, $term_id, $new_val );
+				do_action( 'cx_term_meta/before_save_meta/' . $key, $term_id, $new_val, $key, $field );
+
+				// Save the value of each repeater field as a separate field.
+				if ( 'repeater' === $field['type'] && ! empty( $field['save_separate'] ) ) {
+					$this->save_repeater_separate_fields( $term_id, $key, $new_val, $field );
+				}
 
 				update_term_meta( $term_id, $key, $new_val );
 
@@ -434,12 +460,83 @@ if ( ! class_exists( 'Cherry_X_Term_Meta' ) ) {
 				return $result;
 			}
 
+			if ( $this->to_timestamp( $field ) ) {
+				return apply_filters( 'cx_term_meta/strtotime', strtotime( $value ), $value );
+			}
+
 			if ( ! empty( $field['sanitize_callback'] ) && is_callable( $field['sanitize_callback'] ) ) {
 				$key = ! empty( $field['name'] ) ? $field['name'] : null;
 				return call_user_func( $field['sanitize_callback'], $value, $key, $field );
 			}
 
-			return is_array( $value ) ? $value : esc_attr( $value );
+			return is_array( $value ) ? $value : sanitize_text_field( $value );
+		}
+
+		/**
+		 * Returns the repeater separate field key.
+		 *
+		 * @param $repeater_key
+		 * @param $field_key
+		 *
+		 * @return string
+		 */
+		public function get_repeater_separate_field_key( $repeater_key, $field_key ) {
+			return apply_filters(
+				'cx_term_meta/repeater/separate_field_key',
+				$repeater_key . '_' . $field_key,
+				$repeater_key,
+				$field_key
+			);
+		}
+
+		/**
+		 * Delete all separate fields of repeater.
+		 *
+		 * @param $term_id
+		 * @param $key
+		 * @param $field
+		 */
+		public function delete_repeater_separate_fields( $term_id, $key, $field ) {
+
+			if ( empty( $field['fields'] ) ) {
+				return;
+			}
+
+			foreach ( $field['fields'] as $repeater_field_key => $repeater_field ) {
+				delete_term_meta( $term_id, $this->get_repeater_separate_field_key( $key, $repeater_field_key ) );
+			}
+		}
+
+		/**
+		 * Save the value of each repeater field as a separate field.
+		 *
+		 * @param $term_id
+		 * @param $key
+		 * @param $value
+		 * @param $field
+		 */
+		public function save_repeater_separate_fields( $term_id, $key, $value, $field ) {
+
+			$this->delete_repeater_separate_fields( $term_id, $key, $field );
+
+			if ( empty( $value ) || ! is_array( $value ) ) {
+				return;
+			}
+
+			foreach ( $value as $repeater_item_value ) {
+
+				if ( empty( $repeater_item_value ) ) {
+					continue;
+				}
+
+				foreach ( $repeater_item_value as $repeater_field_key => $repeater_field_value ) {
+					add_term_meta(
+						$term_id,
+						$this->get_repeater_separate_field_key( $key, $repeater_field_key ),
+						$repeater_field_value
+					);
+				}
+			}
 		}
 
 	}

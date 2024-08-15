@@ -29,7 +29,7 @@ class Profile_Page_URL extends \Elementor\Core\DynamicTags\Data_Tag {
 		);
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$pages = Module::instance()->elementor->get_pages_for_options();
 

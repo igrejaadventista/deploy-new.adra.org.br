@@ -23,17 +23,42 @@
 		</div>
 	</div>
 	<div class="jet-query-macros__popup" v-if="isActive">
-		<div class="jet-query-macros__content" v-if="! editMacros">
-			<div class="jet-query-macros__list">
-				<div class="jet-query-macros-item" v-for="macros in macrosList">
-					<div class="jet-query-macros-item__name" @click="applyMacros( macros )">
-						<span class="jet-query-macros-item__mark">≫</span>
-						{{ macros.name }}
-					</div>
-				</div>
-			</div>
+		<div class="jet-query-macros__config">
+			<span class="jet-query-macros__config-trigger" v-if="! editSettings" @click="advancedSettingsPanel( true )"><?php 
+				_e( 'Advanced settings', 'jet-engine' );
+			?></span>
+			<span class="jet-query-macros__config-trigger" v-else @click="advancedSettingsPanel( false )"><?php 
+				_e( 'Back', 'jet-engine' );
+			?></span>
 		</div>
-		<div class="jet-query-macros__content" v-if="editMacros">
+		<div class="jet-query-macros__content" v-if="editSettings">
+			<cx-vui-select
+				label="<?php _e( 'Context', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'mini-label' ]"
+				:options-list="contextList"
+				size="fullwidth"
+				v-model="advancedSettings.context"
+			></cx-vui-select>
+			<cx-vui-input
+				label="<?php _e( 'Fallback', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'mini-label' ]"
+				size="fullwidth"
+				v-model="advancedSettings.fallback"
+			></cx-vui-input>
+			<cx-vui-input
+				label="<?php _e( 'Before', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'mini-label' ]"
+				size="fullwidth"
+				v-model="advancedSettings.before"
+			></cx-vui-input>
+			<cx-vui-input
+				label="<?php _e( 'After', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'mini-label' ]"
+				size="fullwidth"
+				v-model="advancedSettings.after"
+			></cx-vui-input>
+		</div>
+		<div class="jet-query-macros__content" v-else-if="editMacros">
 			<div class="jet-query-macros__title">
 				<span class="jet-query-macros__back" @click="resetEdit()"><?php _e( 'All Macros', 'jet-engine' ); ?></span> > {{ currentMacros.name }}:
 			</div>
@@ -57,5 +82,22 @@
 				@click="applyMacros( false, true )"
 			><span slot="label"><?php _e( 'Apply', 'jet-engine' ); ?></span></cx-vui-button>
 		</div>
+		<div class="jet-query-macros__content" v-else-if="! editMacros && ! editSettings">
+			<input
+				class="jet-query-macros__search cx-vui-input size-fullwidth"
+				type="search"
+				:placeholder="'<?php _e( 'Enter keyword search', 'jet-engine' ); ?>'"
+				v-model="searchKeyword"
+			>
+			<div class="jet-query-macros__list">
+				<div class="jet-query-macros-item" v-for="macros in filteredMacrosList" :key="macros.id">
+					<div class="jet-query-macros-item__name" @click="applyMacros( macros )">
+						<span class="jet-query-macros-item__mark">≫</span>
+						{{ macros.name }}
+					</div>
+				</div>
+			</div>
+		</div>
+		
 	</div>
 </div>

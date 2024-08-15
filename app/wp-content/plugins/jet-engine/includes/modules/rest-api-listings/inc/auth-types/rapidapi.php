@@ -127,7 +127,7 @@ class RapidAPI extends Base {
 		></cx-vui-input>
 		<cx-vui-input
 			label="<?php _e( 'Query String', 'jet-engine' ); ?>"
-			description="<?php _e( '<b>Optional.</b> Is required only to connect API and fetch fields. Some APIs not return any data if some required query parameters was not passed. Use this option to pass required query parametes ans connect such APIs. Foramt: query_key=value or query_key_1=value-1&query_key_2=value-2', 'jet-engine' ); ?>"
+			description="<?php _e( '<b>Optional.</b> Is required only to connect API and fetch fields. Some APIs do not return any data if required query parameters are not passed. Use this option to pass required query parameters and connect such APIs. Format: query_key=value or query_key_1=value-1&query_key_2=value-2', 'jet-engine' ); ?>"
 			:wrapper-css="[ 'equalwidth' ]"
 			size="fullwidth"
 			v-model="settings.rapidapi_query_string"

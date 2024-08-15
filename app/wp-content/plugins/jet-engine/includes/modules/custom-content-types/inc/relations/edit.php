@@ -15,6 +15,7 @@ class Edit {
 
 	public function __construct() {
 		add_action( 'jet-engine/relations/edit/custom-controls', array( $this, 'register_editor_controls' ) );
+		add_action( 'jet-engine/relations/edit/before-enqueue-assets', array( $this, 'enqueue_assets' ) );
 	}
 
 	/**
@@ -31,8 +32,6 @@ class Edit {
 		/>
 		<?php
 
-		$this->enqueue_assets();
-
 		add_action( 'admin_footer', array( $this, 'print_templates' ), 99 );
 
 	}
@@ -47,12 +46,12 @@ class Edit {
 		wp_enqueue_script(
 			'jet-engine-cct-edit-relation',
 			Module::instance()->module_url( 'assets/js/admin/edit-relation.js' ),
-			array( 'jet-engine-relation-edit' ),
+			array( 'cx-vue-ui', 'wp-api-fetch', ),
 			jet_engine()->get_version(),
 			true
 		);
 
-		wp_localize_script( 'jet-engine-relation-edit', 'JetCCTRelationConfig', array(
+		wp_localize_script( 'jet-engine-cct-edit-relation', 'JetCCTRelationConfig', array(
 			'types' => $this->get_types_for_relations()
 		) );
 

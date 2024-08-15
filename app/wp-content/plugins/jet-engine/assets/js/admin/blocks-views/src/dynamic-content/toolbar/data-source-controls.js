@@ -82,4 +82,7 @@ class DataSourceControls extends wp.element.Component {
 	}
 }
 
+window.JetEngineBlocksComponents = window.JetEngineBlocksComponents || {};
+window.JetEngineBlocksComponents.DataSourceControls = withFilters( 'jetEngine.dynamic.dataSourceControls' )( DataSourceControls );
+
 export default withFilters( 'jetEngine.dynamic.dataSourceControls' )( DataSourceControls );

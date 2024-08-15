@@ -12,7 +12,7 @@ namespace RankMath\Sitemap;
 
 use RankMath\Runner;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
+use RankMath\Helpers\Str;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -48,7 +48,7 @@ class Sitemap_Index implements Runner {
 			return $output;
 		}
 
-		$sitemap_url = esc_url( Router::get_base_url( 'sitemap_index.xml' ) );
+		$sitemap_url = esc_url( Router::get_base_url( Sitemap::get_sitemap_index_slug() . '.xml' ) );
 		return $output . "\nSitemap: {$sitemap_url}\n";
 	}
 

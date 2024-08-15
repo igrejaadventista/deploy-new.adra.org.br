@@ -12,9 +12,11 @@ namespace RankMath\Analytics;
 
 use RankMath\Helper;
 use RankMath\Google\Api;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Param;
+use RankMath\Google\Analytics;
 use RankMath\Google\Authentication;
+use RankMath\Sitemap\Sitemap;
 use RankMath\Google\Console as Google_Analytics;
 
 defined( 'ABSPATH' ) || exit;
@@ -42,8 +44,136 @@ class AJAX {
 		$this->ajax( 'analytic_cancel_fetching', 'analytic_cancel_fetching' );
 
 		// Save Linked Google Account info Services.
+		$this->ajax( 'check_console_request', 'check_console_request' );
+		$this->ajax( 'check_analytics_request', 'check_analytics_request' );
 		$this->ajax( 'save_analytic_profile', 'save_analytic_profile' );
 		$this->ajax( 'save_analytic_options', 'save_analytic_options' );
+
+		// Create new GA4 property.
+		$this->ajax( 'create_ga4_property', 'create_ga4_property' );
+		$this->ajax( 'get_ga4_data_streams', 'get_ga4_data_streams' );
+	}
+
+	/**
+	 * Create a new GA4 property.
+	 */
+	public function create_ga4_property() {
+		check_ajax_referer( 'rank-math-ajax-nonce', 'security' );
+		$this->has_cap_ajax( 'analytics' );
+		$account_id = Param::post( 'accountID', false, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_STRIP_BACKTICK );
+
+		$timezone = get_option( 'timezone_string' );
+		$offset   = get_option( 'gmt_offset' );
+
+		if ( empty( $timezone ) && 0 !== $offset && floor( $offset ) === $offset ) {
+			$offset_st = $offset > 0 ? "-$offset" : '+' . absint( $offset );
+			$timezone  = 'Etc/GMT' . $offset_st;
+		}
+
+		$args = [
+			'displayName' => get_bloginfo( 'sitename' ) . ' - GA4',
+			'parent'      => "accounts/{$account_id}",
+			'timeZone'    => empty( $timezone ) ? 'UTC' : $timezone,
+		];
+
+		$response = Api::get()->http_post(
+			'https://analyticsadmin.googleapis.com/v1alpha/properties',
+			$args
+		);
+
+		if ( ! empty( $response['error'] ) ) {
+			$this->error( $response['error']['message'] );
+		}
+
+		$property_id   = str_replace( 'properties/', '', $response['name'] );
+		$property_name = esc_html( $response['displayName'] );
+		$all_accounts  = get_option( 'rank_math_analytics_all_services' );
+		if ( isset( $all_accounts['accounts'][ $account_id ] ) ) {
+			$all_accounts['accounts'][ $account_id ]['properties'][ $property_id ] = [
+				'name'       => $property_name,
+				'id'         => $property_id,
+				'account_id' => $account_id,
+				'type'       => 'GA4',
+			];
+
+			update_option( 'rank_math_analytics_all_services', $all_accounts );
+		}
+
+		$this->success(
+			[
+				'id'   => $property_id,
+				'name' => $property_name,
+			]
+		);
+	}
+
+	/**
+	 * Get the list of Web data streams.
+	 */
+	public function get_ga4_data_streams() {
+		check_ajax_referer( 'rank-math-ajax-nonce', 'security' );
+		$this->has_cap_ajax( 'analytics' );
+		$property_id = Param::post( 'propertyID', false, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_STRIP_BACKTICK );
+
+		$response = Api::get()->http_get(
+			"https://analyticsadmin.googleapis.com/v1alpha/properties/{$property_id}/dataStreams"
+		);
+
+		if ( ! empty( $response['error'] ) ) {
+			$this->error( $response['error']['message'] );
+		}
+
+		if ( ! empty( $response['dataStreams'] ) ) {
+			$streams = [];
+			foreach ( $response['dataStreams'] as $data_stream ) {
+				$streams[] = [
+					'id'            => str_replace( "properties/{$property_id}/dataStreams/", '', $data_stream['name'] ),
+					'name'          => $data_stream['displayName'],
+					'measurementId' => $data_stream['webStreamData']['measurementId'],
+				];
+			}
+
+			$this->success( [ 'streams' => $streams ] );
+		}
+
+		$stream = $this->create_ga4_data_stream( "properties/{$property_id}" );
+		if ( ! is_array( $stream ) ) {
+			$this->error( $stream );
+		}
+
+		$this->success( [ 'streams' => [ $stream ] ] );
+	}
+
+	/**
+	 * Check the Google Search Console request.
+	 */
+	public function check_console_request() {
+		check_ajax_referer( 'rank-math-ajax-nonce', 'security' );
+		$this->has_cap_ajax( 'analytics' );
+
+		$success = Api::get()->get_search_analytics();
+
+		if ( is_wp_error( $success ) ) {
+			$this->error( esc_html__( 'Data import will not work for this service as sufficient permissions are not given.', 'rank-math' ) );
+		}
+
+		$this->success();
+	}
+
+	/**
+	 * Check the Google Analytics request.
+	 */
+	public function check_analytics_request() {
+		check_ajax_referer( 'rank-math-ajax-nonce', 'security' );
+		$this->has_cap_ajax( 'analytics' );
+
+		$success = Analytics::get_analytics( [], true );
+
+		if ( is_wp_error( $success ) ) {
+			$this->error( esc_html__( 'Data import will not work for this service as sufficient permissions are not given.', 'rank-math' ) );
+		}
+
+		$this->success();
 	}
 
 	/**
@@ -58,6 +188,17 @@ class AJAX {
 		$days                = Param::get( 'days', 90, FILTER_VALIDATE_INT );
 		$enable_index_status = Param::post( 'enableIndexStatus', false, FILTER_VALIDATE_BOOLEAN );
 
+		$success = Api::get()->get_search_analytics(
+			[
+				'country' => $country,
+				'profile' => $profile,
+			]
+		);
+
+		if ( is_wp_error( $success ) ) {
+			$this->error( esc_html__( 'Data import will not work for this service as sufficient permissions are not given.', 'rank-math' ) );
+		}
+
 		$prev  = get_option( 'rank_math_google_analytic_profile', [] );
 		$value = [
 			'country'             => $country,
@@ -69,6 +210,7 @@ class AJAX {
 		// Remove other stored sites from option for privacy.
 		$all_accounts          = get_option( 'rank_math_analytics_all_services', [] );
 		$all_accounts['sites'] = [ $profile => $profile ];
+
 		update_option( 'rank_math_analytics_all_services', $all_accounts );
 
 		// Purge Cache.
@@ -95,20 +237,37 @@ class AJAX {
 		$this->has_cap_ajax( 'analytics' );
 
 		$value = [
-			'account_id'          => Param::post( 'accountID', false, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_STRIP_BACKTICK ),
-			'property_id'         => Param::post( 'propertyID', false, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_STRIP_BACKTICK ),
-			'view_id'             => Param::post( 'viewID', false, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_STRIP_BACKTICK ),
-			'country'             => Param::post( 'country', 'all', FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_BACKTICK ),
-			'install_code'        => Param::post( 'installCode', false, FILTER_VALIDATE_BOOLEAN ),
-			'anonymize_ip'        => Param::post( 'anonymizeIP', false, FILTER_VALIDATE_BOOLEAN ),
-			'local_ga_js'         => Param::post( 'localGAJS', false, FILTER_VALIDATE_BOOLEAN ),
-			'cookieless_ga'       => Param::post( 'cookielessGA', false, FILTER_VALIDATE_BOOLEAN ),
-			'exclude_loggedin'    => Param::post( 'excludeLoggedin', false, FILTER_VALIDATE_BOOLEAN ),
+			'account_id'       => Param::post( 'accountID', false, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_STRIP_BACKTICK ),
+			'property_id'      => Param::post( 'propertyID', false, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_STRIP_BACKTICK ),
+			'view_id'          => Param::post( 'viewID', false, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_STRIP_BACKTICK ),
+			'measurement_id'   => Param::post( 'measurementID', false, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_STRIP_BACKTICK ),
+			'stream_name'      => Param::post( 'streamName', false, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_STRIP_BACKTICK ),
+			'country'          => Param::post( 'country', 'all', FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_BACKTICK ),
+			'install_code'     => Param::post( 'installCode', false, FILTER_VALIDATE_BOOLEAN ),
+			'anonymize_ip'     => Param::post( 'anonymizeIP', false, FILTER_VALIDATE_BOOLEAN ),
+			'local_ga_js'      => Param::post( 'localGAJS', false, FILTER_VALIDATE_BOOLEAN ),
+			'exclude_loggedin' => Param::post( 'excludeLoggedin', false, FILTER_VALIDATE_BOOLEAN ),
 		];
 
-		$prev = get_option( 'rank_math_google_analytic_options' );
+		// Test Google Analytics (GA) connection request.
+		if ( ! empty( $value['view_id'] ) || ! empty( $value['country'] ) || ! empty( $value['property_id'] ) ) {
+			$request = Analytics::get_analytics(
+				[
+					'view_id'     => $value['view_id'],
+					'country'     => $value['country'],
+					'property_id' => $value['property_id'],
+				],
+				true
+			);
+
+			if ( is_wp_error( $request ) ) {
+				$this->error( esc_html__( 'Data import will not work for this service as sufficient permissions are not given.', 'rank-math' ) );
+			}
+		}
+
 		$days = Param::get( 'days', 90, FILTER_VALIDATE_INT );
 
+		$prev = get_option( 'rank_math_google_analytic_options' );
 		// Preserve adsense info.
 		if ( isset( $prev['adsense_id'] ) ) {
 			$value['adsense_id'] = $prev['adsense_id'];
@@ -175,7 +334,7 @@ class AJAX {
 		}
 
 		$days = Param::get( 'days', 90, FILTER_VALIDATE_INT );
-
+		$days = $days * 2;
 		$rows = DB::objects()
 			->selectCount( 'id' )
 			->getVar();
@@ -183,7 +342,7 @@ class AJAX {
 		if ( empty( $rows ) ) {
 			delete_option( 'rank_math_analytics_installed' );
 		}
-
+		delete_option( 'rank_math_analytics_last_single_action_schedule_time' );
 		// Start fetching data.
 		foreach ( [ 'console', 'analytics', 'adsense' ] as $action ) {
 			Workflow\Workflow::do_workflow(
@@ -266,6 +425,7 @@ class AJAX {
 		}
 
 		$result['accounts'] = Api::get()->get_analytics_accounts();
+
 		if ( ! empty( $result['accounts'] ) ) {
 			$result['hasAnalytics']         = true;
 			$result['hasAnalyticsProperty'] = $this->is_site_in_analytics( $result['accounts'] );
@@ -350,7 +510,7 @@ class AJAX {
 
 		foreach ( $accounts as $account ) {
 			foreach ( $account['properties'] as $property ) {
-				if ( trailingslashit( $property['url'] ) === $home_url ) {
+				if ( ! empty( $property['url'] ) && trailingslashit( $property['url'] ) === $home_url ) {
 					return true;
 				}
 			}
@@ -373,11 +533,41 @@ class AJAX {
 		}
 
 		foreach ( $sitemaps as $sitemap ) {
-			if ( $sitemap['path'] === $home_url . 'sitemap_index.xml' ) {
+			if ( $sitemap['path'] === $home_url . Sitemap::get_sitemap_index_slug() . '.xml' ) {
 				return true;
 			}
 		}
 
 		return false;
+	}
+
+	/**
+	 * Create a new data stream.
+	 *
+	 * @param string $property_id GA4 property ID.
+	 */
+	private function create_ga4_data_stream( $property_id ) {
+		$args = [
+			'type'          => 'WEB_DATA_STREAM',
+			'displayName'   => 'Website',
+			'webStreamData' => [
+				'defaultUri' => home_url(),
+			],
+		];
+
+		$stream = Api::get()->http_post(
+			"https://analyticsadmin.googleapis.com/v1alpha/{$property_id}/dataStreams",
+			$args
+		);
+
+		if ( ! empty( $stream['error'] ) ) {
+			return $stream['error']['message'];
+		}
+
+		return [
+			'id'            => str_replace( "properties/{$property_id}/dataStreams/", '', $stream['name'] ),
+			'name'          => $stream['displayName'],
+			'measurementId' => $stream['webStreamData']['measurementId'],
+		];
 	}
 }

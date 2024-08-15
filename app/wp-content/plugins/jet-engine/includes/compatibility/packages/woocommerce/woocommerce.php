@@ -28,14 +28,31 @@ if ( ! class_exists( 'Jet_Engine_Woo_Package' ) ) {
 
 			add_filter( 'jet-engine/post-type/product/meta-fields', array( $this, 'product_fields' ) );
 			add_filter( 'jet-engine/taxonomy/product_cat/meta-fields', array( $this, 'product_cat_fields' ) );
-			add_action( 'woocommerce_shop_loop', array( $this, 'set_object_on_each_loop_post' ) );
 			add_filter( 'jet-engine/listings/taxonomies-for-options', array( $this, 'add_visibility_tax' ) );
 			add_action( 'jet-engine/listing/after-tax-fields', array( $this, 'add_tax_visibility_options' ), 10, 2 );
 			add_filter( 'jet-engine/listing/grid/tax-query-item-settings', array( $this, 'apply_visibility_terms' ) );
 			add_filter( 'jet-engine/elementor-views/frontend/add-inline-css', array( $this, 'add_inline_css' ) );
 			add_filter( 'jet-engine/listing/grid/posts-query-args', array( $this, 'modify_default_query_args' ) );
 
+			add_action( 'woocommerce_shop_loop', array( $this, 'set_object_on_each_loop_post' ) );
+			add_action( 'woocommerce_product_duplicate', [ $this, 'duplicate_custom_taxonomy_terms' ], 10, 2 );
+
+			add_action( 'jet-engine/listing/grid/before-render', array( $this, 'remove_ordering_filters_before_listing' ) );
+
 			$this->create_wc_package_instance();
+
+			$custom_orders_table_is_enabled = get_option( 'woocommerce_custom_orders_table_enabled' ) === 'yes';
+
+			if ( $custom_orders_table_is_enabled ) {
+				add_filter( 'cx_post_meta/args',            array( $this, 'modify_order_meta_args' ) );
+				add_filter( 'cx_post_meta/get_fields/post', array( $this, 'modify_order_post_object' ), 10, 2 );
+
+				add_filter(
+					'jet-engine/meta-boxes/is-allowed-on-current-admin-hook',
+					array( $this, 'is_allowed_on_current_admin_hook' ),
+					10, 3
+				);
+			}
 
 		}
 
@@ -98,7 +115,7 @@ if ( ! class_exists( 'Jet_Engine_Woo_Package' ) ) {
 				'tax_query_wc_visibility_term',
 				array(
 					'label'         => __( 'WooCommerce Visibility Term', 'jet-engine' ),
-					'type'          => \Elementor\Controls_Manager::SELECT,
+					'type'          => 'select',
 					'options'       => $options,
 					'default'       => '',
 					'display_block' => true,
@@ -119,6 +136,33 @@ if ( ! class_exists( 'Jet_Engine_Woo_Package' ) ) {
 				global $post;
 				jet_engine()->listings->data->set_current_object( $post );
 			}
+		}
+
+		/**
+		 * Duplicate custom taxonomy terms.
+		 *
+		 * Set custom taxonomy terms for duplicated products.
+		 *
+		 * @since  3.0.1
+		 * @access public
+		 *
+		 * @param $duplicate
+		 * @param $product
+		 */
+		public function duplicate_custom_taxonomy_terms( $duplicate, $product ) {
+
+			$taxonomies = jet_engine()->taxonomies->data->get_items();
+
+			foreach ( $taxonomies as $taxonomy ) {
+				if ( 'product' === $taxonomy['object_type'] || false !== strpos( $taxonomy['object_type'], 'product' ) ) {
+					$terms = get_the_terms( $product->get_id(), $taxonomy['slug'] );
+
+					if ( ! is_wp_error( $terms ) ) {
+						wp_set_object_terms( $duplicate->get_id(), wp_list_pluck( $terms, 'term_id' ), $taxonomy['slug'] );
+					}
+				}
+			}
+
 		}
 
 		/**
@@ -240,8 +284,15 @@ if ( ! class_exists( 'Jet_Engine_Woo_Package' ) ) {
 			if ( wp_doing_ajax() ) {
 
 				if ( isset( $args['wc_query'] ) ) {
+
 					if ( isset( $args['orderby'] ) && isset( $args['order'] ) ) {
 						$ordering_args = WC()->query->get_catalog_ordering_args( $args['orderby'], $args['order'] );
+
+						// Prevent rewrite the order only to DESC if the orderby is relevance.
+						if ( 'relevance' === $args['orderby'] && ! empty( $args['order'] ) ) {
+							$ordering_args['order'] = $args['order'];
+						}
+
 					} else {
 						$ordering_args = WC()->query->get_catalog_ordering_args();
 					}
@@ -263,6 +314,55 @@ if ( ! class_exists( 'Jet_Engine_Woo_Package' ) ) {
 			}
 
 			return $args;
+		}
+
+		public function remove_ordering_filters_before_listing() {
+			WC()->query->remove_ordering_args();
+		}
+
+		public function modify_order_meta_args( $args ) {
+
+			if ( in_array( 'shop_order', $args['page'] ) ) {
+				array_unshift( $args['page'], 'woocommerce_page_wc-orders' );
+			}
+
+			return $args;
+		}
+
+		public function modify_order_post_object( $post, $post_meta ) {
+
+			if ( is_object( $post ) ) {
+				return $post;
+			}
+
+			if ( ! in_array( 'shop_order', $post_meta->args['page'] ) ) {
+				return $post;
+			}
+
+			if ( empty( $_GET['page'] ) || 'wc-orders' !== $_GET['page'] ) {
+				return $post;
+			}
+
+			if ( empty( $_GET['action'] ) || 'edit' !== $_GET['action'] ) {
+				return $post;
+			}
+
+			if ( empty( $_GET['id'] ) ) {
+				return $post;
+			}
+
+			$id = esc_attr( $_GET['id'] );
+
+			return get_post( $id );
+		}
+
+		public function is_allowed_on_current_admin_hook( $result, $hook, $post_meta  ) {
+
+			if ( 'shop_order' === $post_meta->post_type && 'woocommerce_page_wc-orders' === $hook  ) {
+				return true;
+			}
+
+			return $result;
 		}
 
 	}

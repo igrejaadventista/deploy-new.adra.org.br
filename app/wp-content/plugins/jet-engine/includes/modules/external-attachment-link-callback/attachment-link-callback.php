@@ -37,7 +37,7 @@ class Jet_Engine_Module_Attachment_Link_Callback extends Jet_Engine_External_Mod
 	 * @return string
 	 */
 	public function module_name() {
-		return __( 'Attachment file link by ID', 'jet-engine' );
+		return __( 'Attachment File Link by ID', 'jet-engine' );
 	}
 
 	/**

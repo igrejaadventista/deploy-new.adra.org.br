@@ -64,7 +64,7 @@ class Breadcrumbs {
 	}
 
 	/**
-	 * Magic method to use in case the class would be send to string.
+	 * Convenience method to output as string.
 	 *
 	 * @return string
 	 */
@@ -161,7 +161,7 @@ class Breadcrumbs {
 		 * @param array       $crumbs The breadcrumbs array.
 		 * @param Breadcrumbs $this   Current breadcrumb.
 		 */
-		return $this->do_filter( 'frontend/breadcrumb/html', $html, $crumbs, $this );
+		return $this->do_filter( 'frontend/breadcrumb/html', wp_kses_post( $html ), $crumbs, $this );
 	}
 
 	/**
@@ -383,7 +383,7 @@ class Breadcrumbs {
 
 		$type_object = get_post_type_object( $post_type );
 		if ( ! empty( $type_object->has_archive ) ) {
-			$this->add_crumb( $type_object->labels->singular_name, get_post_type_archive_link( $post_type ) );
+			$this->add_crumb( $type_object->labels->name, get_post_type_archive_link( $post_type ) );
 		}
 	}
 
@@ -448,6 +448,9 @@ class Breadcrumbs {
 	/**
 	 * Single post trail.
 	 *
+	 * @copyright Copyright (C) 2008-2019, Yoast BV
+	 * The following code is a derivative work of the code from the Yoast (https://github.com/Yoast/wordpress-seo/), which is licensed under GPL v3.
+	 *
 	 * @param WP_Post $post Post object.
 	 */
 	private function add_post_ancestors( $post ) {
@@ -462,7 +465,6 @@ class Breadcrumbs {
 			return;
 		}
 
-		// Reverse the order so it's oldest to newest.
 		$ancestors = array_reverse( $ancestors );
 		foreach ( $ancestors as $ancestor ) {
 			$this->add_crumb( $this->get_breadcrumb_title( 'post', $ancestor, get_the_title( $ancestor ) ), get_permalink( $ancestor ) );

@@ -32,7 +32,7 @@ class Jet_Engine_Term_Field_Tag extends Elementor\Core\DynamicTags\Tag {
 		return true;
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->add_control(
 			'taxonomy',
@@ -137,7 +137,14 @@ class Jet_Engine_Term_Field_Tag extends Elementor\Core\DynamicTags\Tag {
 				break;
 
 			case 'term_url':
-				echo get_term_link( $term->term_id, $tax );
+
+				$term_url = get_term_link( $term->term_id, $tax );
+
+				if ( is_wp_error( $term_url ) ) {
+					$term_url = '';
+				}
+
+				echo $term_url;
 				break;
 
 			default:

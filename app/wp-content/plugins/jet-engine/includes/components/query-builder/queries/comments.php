@@ -6,6 +6,7 @@ use Jet_Engine\Query_Builder\Manager;
 class Comments_Query extends Base_Query {
 
 	use Traits\Meta_Query_Trait;
+	use Traits\Date_Query_Trait;
 
 	public $current_comments_query = null;
 	public $current_count_query = null;
@@ -47,6 +48,10 @@ class Comments_Query extends Base_Query {
 
 		if ( ! empty( $args['meta_query'] ) ) {
 			$args['meta_query'] = $this->prepare_meta_query_args( $args );
+		}
+
+		if ( ! empty( $args['date_query'] ) ) {
+			$args['date_query'] = $this->prepare_date_query_args( $args );
 		}
 
 		if ( isset( $args['paged'] ) && empty( $args['paged'] ) ) {
@@ -151,9 +156,52 @@ class Comments_Query extends Base_Query {
 				break;
 
 			default:
-				$this->final_query[ $prop ] = $value;
+				$this->merge_default_props( $prop, $value );
 				break;
 		}
+
+	}
+
+	/**
+	 * Adds date range query arguments to given query parameters.
+	 * Required to allow ech query to ensure compatibility with Dynamic Calendar
+	 * 
+	 * @param array $args [description]
+	 */
+	public function add_date_range_args( $args = array(), $dates_range = array(), $settings = array() ) {
+
+		$group_by = $settings['group_by'];
+
+		switch ( $group_by ) {
+
+			case 'item_date':
+
+				if ( isset( $args['date_query'] ) ) {
+					$date_query = $args['date_query'];
+				} else {
+					$date_query = array();
+				}
+
+				$date_query = array_merge( $date_query, array(
+					array(
+						'column'    => 'comment_date',
+						'after'     => date( 'Y-m-d', $dates_range['start'] ),
+						'before'    => date( 'Y-m-d', $dates_range['end'] ),
+						'inclusive' => true,
+					),
+				) );
+
+				$args['date_query'] = $date_query;
+
+				break;
+
+			case 'meta_date':
+				$args['meta_query'] = $this->get_dates_range_meta_query( $args, $dates_range, $settings );
+				break;
+
+		}
+
+		return $args;
 
 	}
 

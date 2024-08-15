@@ -26,6 +26,12 @@ class Current_Categories extends \Jet_Engine_Base_Macros {
 	public function macros_callback( $args = array() ) {
 
 		$object = $this->get_macros_object();
+		
+		//https://github.com/Crocoblock/issues-tracker/issues/9453
+		if ( empty( $object ) || ! is_object( $object ) ){
+			return '';
+		}
+		
 		$class  = get_class( $object );
 
 		if ( 'WP_Post' !== $class ) {

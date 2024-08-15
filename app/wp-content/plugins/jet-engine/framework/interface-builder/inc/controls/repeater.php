@@ -107,18 +107,6 @@ if ( ! class_exists( 'CX_Control_Repeater' ) ) {
 		}
 
 		/**
-		 * Get required attribute.
-		 *
-		 * @return string required attribute
-		 */
-		public function get_required() {
-			if ( $this->settings['required'] ) {
-				return 'required="required"';
-			}
-			return '';
-		}
-
-		/**
 		 * Render html UI_Repeater.
 		 *
 		 * @since 1.0.1
@@ -128,7 +116,7 @@ if ( ! class_exists( 'CX_Control_Repeater' ) ) {
 			$html        = '';
 			$class       = $this->settings['class'];
 			$ui_kit      = ! empty( $this->settings['ui_kit'] ) ? 'cx-ui-kit' : '';
-			$value       = ! empty( $this->settings['value'] ) ? count( $this->settings['value'] ) : 0 ;
+			$value       = ( ! empty( $this->settings['value'] ) && is_array( $this->settings['value'] ) ) ? count( $this->settings['value'] ) : 0 ;
 			$title_field = ! empty( $this->settings['title_field'] ) ? 'data-title-field="' . $this->settings['title_field'] . '"' : '' ;
 
 			add_filter( 'cx_control/is_repeater', '__return_true' );
@@ -138,7 +126,7 @@ if ( ! class_exists( 'CX_Control_Repeater' ) ) {
 					esc_attr( $class )
 				);
 				if ( '' !== $this->settings['label'] ) {
-					$html .= '<label class="cx-label" for="' . esc_attr( $this->settings['id'] ) . '">' . esc_html( $this->settings['label'] ) . '</label> ';
+					$html .= '<label class="cx-label" for="' . esc_attr( $this->settings['id'] ) . '">' . wp_kses_post( $this->settings['label'] ) . '</label> ';
 				}
 
 				$html .= sprintf(
@@ -229,8 +217,9 @@ if ( ! class_exists( 'CX_Control_Repeater' ) ) {
 			foreach ( $this->settings['fields'] as $field ) {
 
 				$field_classes = array(
+					'cx-ui-repeater-item-control',
+					'cx-repeater-item-control-' . esc_attr( $field['type'] ),
 					$field['id'] . '-wrap',
-					'cx-ui-repeater-item-control'
 				);
 
 				if ( ! empty( $field['class'] ) ) {
@@ -264,7 +253,49 @@ if ( ! class_exists( 'CX_Control_Repeater' ) ) {
 			}
 
 			if ( ! empty( $this->data[ $this->settings['title_field'] ] ) ) {
-				return  $this->data[ $this->settings['title_field'] ];
+				$title_field    = $this->settings['title_field'];
+				$field_settings = $this->settings['fields'][ $title_field ];
+				$row_title      = $this->data[ $title_field ];
+
+				if ( empty( $row_title ) ) {
+					return '';
+				}
+
+				switch( $field_settings['type'] ) {
+
+					case 'posts':
+
+						if ( is_array( $row_title ) ) {
+							$row_title = array_map( 'get_the_title', $row_title );
+						} else {
+							$row_title = get_the_title( $row_title );
+						}
+						break;
+
+					case 'select':
+
+						if ( ! is_array( $row_title ) ) {
+							$row_title = array( $row_title );
+						}
+
+						$row_title = array_map( function ( $item ) use ( $field_settings ) {
+
+							if ( isset( $field_settings['options'][ $item ] ) ) {
+								return $field_settings['options'][ $item ];
+							}
+
+							return $item;
+
+						}, $row_title );
+
+						break;
+				}
+
+				if ( is_array( $row_title ) ) {
+					$row_title = join( ', ', $row_title );
+				}
+
+				return $row_title;
 			}
 
 			return '';
@@ -292,6 +323,84 @@ if ( ! class_exists( 'CX_Control_Repeater' ) ) {
 			ob_start();
 			include $file;
 			return ob_get_clean();
+
+		}
+
+		public function prepare_field_value( $field, $value ) {
+
+			$field_type = isset( $field['type'] ) ? $field['type'] : false;
+
+			switch ( $field_type ) {
+				case 'checkbox':
+
+					if ( ! empty( $field['options_callback'] ) ) {
+						$options = call_user_func( $field['options_callback'] );
+					}
+
+					if ( ! empty( $field['is_array'] ) && ! empty( $options ) && ! empty( $value ) ) {
+
+						$adjusted = array();
+
+						if ( ! is_array( $value ) ) {
+							$value = array( $value );
+						}
+
+						foreach ( $value as $val ) {
+							$adjusted[ $val ] = 'true';
+						}
+
+						foreach ( $options as $opt_val => $opt_label ) {
+							if ( ! in_array( $opt_val, $value ) ) {
+								$adjusted[ $opt_val ] = 'false';
+							}
+						}
+
+						$value = $adjusted;
+					}
+
+					break;
+				case 'text':
+
+					if ( ! empty( $value ) && $this->to_timestamp( $field ) && is_numeric( $value ) ) {
+
+						switch ( $field['input_type'] ) {
+							case 'date':
+								$value = $this->get_date( 'Y-m-d', $value );
+								break;
+
+							case 'datetime-local':
+								$value = $this->get_date( 'Y-m-d\TH:i', $value );
+								break;
+						}
+					}
+
+					break;
+
+			}
+
+			return $value;
+		}
+
+		public function get_date( $format, $time ) {
+			return apply_filters( 'jet-engine/repeater/date', date( $format, $time ), $time, $format );
+		}
+
+		public function to_timestamp( $field ) {
+
+			if ( empty( $field['input_type'] ) ) {
+				return false;
+			}
+
+			if ( empty( $field['is_timestamp'] ) ) {
+				return false;
+			}
+
+
+			if ( ! in_array( $field['input_type'], array( 'date', 'datetime-local' ) ) ) {
+				return false;
+			}
+
+			return ( true === $field['is_timestamp'] );
 
 		}
 
@@ -331,6 +440,8 @@ if ( ! class_exists( 'CX_Control_Repeater' ) ) {
 					if ( ! class_exists( $ui_class_name ) ) {
 						return '<p>Class <b>' . $ui_class_name . '</b> not exist!</p>';
 					}
+
+					$field['value'] = $this->prepare_field_value( $field, $field['value'] );
 
 					$ui_item = new $ui_class_name( $field );
 

@@ -7,9 +7,11 @@ if ( empty( $args ) ) {
 $options             = $args['options'];
 $query_var           = $args['query_var'];
 $by_parents          = $args['by_parents'];
+$collapsible         = isset( $args['collapsible'] ) ? $args['collapsible'] : false;
 $scroll_height_style = $args['scroll_height'] ? 'style="max-height:' . $args['scroll_height'] . 'px"' : false;
 $show_decorator      = isset( $args['display_options']['show_decorator'] ) ? filter_var( $args['display_options']['show_decorator'], FILTER_VALIDATE_BOOLEAN ) : false;
 $extra_classes       = '';
+$accessibility_label = $args['accessibility_label'];
 
 if ( ! $options ) {
 	return;
@@ -24,7 +26,9 @@ $current = $this->get_current_filter_value( $args );
 
 	if ( $scroll_height_style ) {echo '<div class="jet-filter-items-scroll" ' . $scroll_height_style . '><div class="jet-filter-items-scroll-container">'; }
 
-	echo '<div class="jet-radio-list-wrapper">';
+	echo '<form class="jet-radio-list-wrapper">';
+	echo '<fieldset>';
+	echo '<legend style="display:none;">' . $accessibility_label . '</legend>';
 	if ( $by_parents ) {
 		if ( ! class_exists( 'Jet_Smart_Filters_Terms_Walker' ) ) {
 			require_once jet_smart_filters()->plugin_path( 'includes/walkers/terms-walker.php' );
@@ -38,7 +42,13 @@ $current = $this->get_current_filter_value( $args );
 		$args['current']       = $current;
 		$args['decorator']     = $show_decorator;
 
-		echo '<div class="jet-list-tree">';
+		$container_classes = "jet-list-tree";
+
+		if ( $collapsible ) {
+			$container_classes .= " jet-list-collapsible";
+		}
+
+		echo '<div class="' . $container_classes . '">';
 		echo $walker->walk( $options, 0, $args );
 		echo '</div>';
 	} else {
@@ -61,7 +71,8 @@ $current = $this->get_current_filter_value( $args );
 			include jet_smart_filters()->get_template( 'filters/radio-item.php' );
 		}
 	}
-	echo '</div>';
+	echo '</fieldset>';
+	echo '</form>';
 
 	if ( $scroll_height_style ) { echo '</div></div>'; }
 

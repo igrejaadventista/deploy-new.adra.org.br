@@ -31,7 +31,7 @@ class Profile_Menu_Widget extends \Elementor\Widget_Base {
 		return 'https://crocoblock.com/knowledge-base/article-category/jet-engine/?utm_source=jetengine&utm_medium=profile-menu&utm_campaign=need-help';
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->start_controls_section(
 			'section_general',
@@ -110,7 +110,7 @@ class Profile_Menu_Widget extends \Elementor\Widget_Base {
 			'add_main_slug',
 			array(
 				'label'        => __( 'Add subpage slug to the first page URL', 'jet-engine' ),
-				'description'  => __( 'By default subpage slug is not added to the URL of the first page of menu. If you enable this options subpage slug will be added to all menu page URLs includes first one', 'jet-engine' ),
+				'description'  => __( 'By default, the subpage slug is not added to the URL of the menu\'s first page. If you enable this option subpage slug will be added to all menu page URLs, including the first one', 'jet-engine' ),
 				'type'         => Controls_Manager::SWITCHER,
 				'label_on'     => __( 'Yes', 'jet-engine' ),
 				'label_off'    => __( 'No', 'jet-engine' ),
@@ -223,10 +223,7 @@ class Profile_Menu_Widget extends \Elementor\Widget_Base {
 			array(
 				'label'      => esc_html__( 'Item Width', 'jet-engine' ),
 				'type'       => Controls_Manager::SLIDER,
-				'size_units' => array(
-					'%',
-					'px',
-				),
+				'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( '%', 'px' ) ),
 				'range'      => array(
 					'%'  => array(
 						'min' => 0,
@@ -400,7 +397,7 @@ class Profile_Menu_Widget extends \Elementor\Widget_Base {
 			array(
 				'label'      => __( 'Padding', 'jet-engine' ),
 				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', '%', 'em' ),
+				'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 				'selectors'  => array(
 					'{{WRAPPER}} .jet-profile-menu__item-link' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				),
@@ -412,7 +409,7 @@ class Profile_Menu_Widget extends \Elementor\Widget_Base {
 			array(
 				'label'      => __( 'Margin', 'jet-engine' ),
 				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', '%', 'em' ),
+				'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 				'selectors'  => array(
 					'{{WRAPPER}} .jet-profile-menu__item' => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				),
@@ -434,7 +431,7 @@ class Profile_Menu_Widget extends \Elementor\Widget_Base {
 			array(
 				'label'      => __( 'Border Radius', 'jet-engine' ),
 				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', '%' ),
+				'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 				'selectors'  => array(
 					'{{WRAPPER}} .jet-profile-menu__item-link' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				),

@@ -16,9 +16,8 @@ use RankMath\Traits\Hooker;
 use RankMath\Helpers\Editor;
 use RankMath\Frontend_SEO_Score;
 use RankMath\Admin\Admin_Helper;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Url;
-use MyThemeShop\Helpers\WordPress;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Url;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -139,11 +138,8 @@ class Post_Screen implements IScreen {
 			'postName'               => get_post_field( 'post_name', get_post() ),
 			'permalinkFormat'        => $this->get_permalink_format(),
 			'assessor'               => [
-				'hasTOCPlugin'     => $this->has_toc_plugin(),
-				'sentimentKbLink'  => KB::get( 'sentiments' ),
 				'focusKeywordLink' => admin_url( 'edit.php?focus_keyword=%focus_keyword%&post_type=%post_type%' ),
-				'isUserEdit'       => Admin_Helper::is_user_edit(),
-				'socialPanelLink'  => Helper::get_admin_url( 'options-titles#setting-panel-social' ),
+				'hasTOCPlugin'     => $this->has_toc_plugin(),
 				'primaryTaxonomy'  => $this->get_primary_taxonomy(),
 			],
 		];
@@ -363,8 +359,8 @@ class Post_Screen implements IScreen {
 		$toc_plugins = $this->do_filter(
 			'researches/toc_plugins',
 			[
-				'wp-shortcode/wp-shortcode.php'         => 'WP Shortcode by MyThemeShop',
-				'wp-shortcode-pro/wp-shortcode-pro.php' => 'WP Shortcode Pro by MyThemeShop',
+				'wp-shortcode/wp-shortcode.php'         => 'WP Shortcode by RankMath',
+				'wp-shortcode-pro/wp-shortcode-pro.php' => 'WP Shortcode Pro by RankMath',
 			]
 		);
 
@@ -416,6 +412,9 @@ class Post_Screen implements IScreen {
 		}
 
 		$taxonomy = get_taxonomy( $taxonomy );
+		if ( empty( $taxonomy ) ) {
+			return false;
+		}
 
 		$this->primary_taxonomy = [
 			'title'         => $taxonomy->labels->singular_name,

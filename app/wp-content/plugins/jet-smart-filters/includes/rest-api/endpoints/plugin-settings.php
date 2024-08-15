@@ -5,51 +5,68 @@ namespace Jet_Smart_Filters\Endpoints;
 if ( ! defined( 'WPINC' ) ) {
 	die;
 }
+
 /**
  * Define Posts class
  */
 class Plugin_Settings extends Base {
-
-	/**
-	 * [get_method description]
-	 * @return [type] [description]
-	 */
-	public function get_method() {
-		return 'POST';
-	}
-
 	/**
 	 * Returns route name
-	 *
-	 * @return string
 	 */
 	public function get_name() {
+
 		return 'plugin-settings';
 	}
 
-	/**
-	 * [callback description]
-	 * @param  [type]   $request [description]
-	 * @return function          [description]
-	 */
+	public function get_args() {
+
+		return array(
+			'key'      => array(
+				'required' => false,
+			),
+			'settings' => array(
+				'required' => true,
+			),
+		);
+	}
+
 	public function callback( $request ) {
 
-		$data = $request->get_params();
+		$args     = $request->get_params();
+		$key      = $args['key'];
+		$settings = $args['settings'];
 
-		$current = get_option( jet_smart_filters()->settings->key, array() );
+		if ( $key ) {
 
-		if ( is_wp_error( $current ) ) {
-			return rest_ensure_response( [
-				'status'  => 'error',
-				'message' => __( 'Server Error', 'jet-smart-filters' ),
-			] );
+			// update specified option by key
+			$data = array_map(
+				function( $setting ) {
+					return is_array( $setting ) ? $setting : esc_attr( $setting );
+				},
+				$settings
+			);
+
+			jet_smart_filters()->settings->update( $key, $data );
+
+			if ( $key === 'seo_sitemap_rules' ) {
+				jet_smart_filters()->seo_sitemap->update_seo_sitemap();
+			}
+
+		} else {
+
+			// update all settings
+			$data = array_map(
+				function( $setting ) {
+					return is_array( $setting ) ? $setting : esc_attr( $setting );
+				},
+				$settings
+			);
+
+			jet_smart_filters()->seo_sitemap->process_seo_sitemap_settings( $data );
+
+			update_option( jet_smart_filters()->settings->key, $data );
+
 		}
-
-		foreach ( $data as $key => $value ) {
-			$current[ $key ] = is_array( $value ) ? $value : esc_attr( $value );
-		}
-
-		update_option( jet_smart_filters()->settings->key, $current );
 
 		return rest_ensure_response( [
 			'status'  => 'success',
@@ -57,4 +74,10 @@ class Plugin_Settings extends Base {
 		] );
 	}
 
+	/**
+	 * Check user access to current end-popint
+	 */
+	public function permission_callback( $request ) {
+		return current_user_can( 'manage_options' );
+	}
 }

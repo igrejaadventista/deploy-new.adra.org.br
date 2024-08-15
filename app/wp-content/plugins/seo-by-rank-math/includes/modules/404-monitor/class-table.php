@@ -14,7 +14,8 @@ use RankMath\Helper;
 use RankMath\Traits\Hooker;
 use RankMath\Redirections\DB as RedirectionsDB;
 use RankMath\Redirections\Cache as RedirectionsCache;
-use MyThemeShop\Admin\List_Table;
+use RankMath\Admin\List_Table;
+use RankMath\Monitor\Admin;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -29,9 +30,9 @@ class Table extends List_Table {
 	 * The Constructor.
 	 */
 	public function __construct() {
-
 		parent::__construct(
 			[
+				'screen'   => Admin::get_screen(),
 				'singular' => 'event',
 				'plural'   => 'events',
 				'no_items' => esc_html__( 'The 404 error log is empty.', 'rank-math' ),
@@ -104,7 +105,8 @@ class Table extends List_Table {
 	 * @param object $item The current item.
 	 */
 	protected function column_uri( $item ) {
-		$out = esc_html( $item['uri_decoded'] ) . $this->column_actions( $item );
+		$link = '<a href="' . esc_url( home_url( $item['uri'] ) ) . '" target="_blank" title="' . esc_attr__( 'View', 'rank-math' ) . '">' . esc_html( $item['uri_decoded'] ) . '</a>';
+		$out  = $link . $this->column_actions( $item );
 		return $this->do_filter( '404_monitor/list_table_column', $out, $item, 'uri' );
 	}
 
@@ -141,6 +143,11 @@ class Table extends List_Table {
 	public function column_actions( $item ) {
 		$actions = [];
 
+		$actions['view'] = sprintf(
+			'<a href="%s" target="_blank">' . esc_html__( 'View', 'rank-math' ) . '</a>',
+			esc_url( home_url( $item['uri'] ) )
+		);
+
 		if ( Helper::get_module( 'redirections' ) ) {
 			$this->add_redirection_actions( $item, $actions );
 		}
@@ -175,7 +182,7 @@ class Table extends List_Table {
 
 		if ( $redirection ) {
 			$redirection_array = (array) $redirection;
-			$url = esc_url(
+			$url               = esc_url(
 				Helper::get_admin_url(
 					'redirections',
 					[

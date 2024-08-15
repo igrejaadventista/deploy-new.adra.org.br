@@ -61,9 +61,59 @@ class Blocks_Integration {
 		$config['mapsListingConfig'] = array(
 			'markerTypes'      => $marker_types_for_js,
 			'markerLabelTypes' => $marker_label_types_for_js,
+			'providerControls' => $this->get_provider_controls(),
 		);
 
 		return $config;
+	}
+
+	public function get_provider_controls() {
+		
+		$provider = Module::instance()->providers->get_active_map_provider();
+		$settings = $provider->provider_settings();
+
+		if ( ! empty( $settings ) ) {
+			foreach ( $settings as $section => $controls ) {
+				$settings[ $section ] = $this->get_prepared_controls( $controls );
+			}
+		}
+
+		return $settings;
+
+	}
+
+	public function get_prepared_controls( $controls ) {
+
+		$result = array();
+
+		foreach ( $controls as $key => $control ) {
+
+			if ( ! empty( $control['options'] ) ) {
+				$control['options'] = $this->get_prepared_control_options( $control['options'] );
+			}
+
+			$result[] = array(
+				'key'     => $key,
+				'control' => $control,
+			);
+		}
+
+		return $result;
+
+	}
+
+	public function get_prepared_control_options( $options ) {
+		
+		$result = array();
+
+		foreach ( $options as $value => $label ) {
+			$result[] = array(
+				'value' => $value,
+				'label' => $label,
+			);
+		}
+
+		return $result;
 	}
 
 }

@@ -102,6 +102,8 @@ class Data extends \Jet_Engine_Base_Data {
 
 		$bool_args = array(
 			'show_preview',
+			'cache_query',
+			'api_endpoint',
 		);
 
 		foreach ( $bool_args as $key ) {
@@ -113,6 +115,14 @@ class Data extends \Jet_Engine_Base_Data {
 			'preview_page',
 			'preview_page_title',
 			'preview_query_string',
+			'query_id',
+			'description',
+			'api_namespace',
+			'api_path',
+			'api_access',
+			'api_access_cap',
+			'api_access_role',
+			'api_schema',
 		);
 
 		foreach ( $regular_args as $key ) {
@@ -149,6 +159,11 @@ class Data extends \Jet_Engine_Base_Data {
 		$labels       = maybe_unserialize( $item['labels'] );
 		$args['name'] = $labels['name'];
 		$result       = array_merge( $item, $args );
+
+		// Set default value for `cache_query` setting if setting is not existing.
+		if ( ! isset( $result['cache_query'] ) ) {
+			$result['cache_query'] = true;
+		}
 
 		unset( $result['args'] );
 		unset( $result['labels'] );

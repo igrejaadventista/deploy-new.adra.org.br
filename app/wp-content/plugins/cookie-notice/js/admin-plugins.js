@@ -17,8 +17,8 @@
 
 		// deactivation with sending data
 		$( document ).on( 'click', '.cn-deactivate-plugin-data', function( e ) {
-			var spinner = $( '#cn-deactivation-footer .spinner' ),
-				url = $( this ).attr( 'href' );
+			var spinner = $( '#cn-deactivation-footer .spinner' );
+			var url = $( this ).attr( 'href' );
 
 			// display spinner
 			spinner.addClass( 'is-active' );
@@ -42,14 +42,16 @@
 
 		// click on deactivation link
 		$( document ).on( 'click', '.cn-deactivate-plugin-modal', function( e ) {
-			var modalBox = $( '#cn-deactivation-container' ).closest( '#TB_window' );
-
 			tb_show( cnArgsPlugins.deactivate, '#TB_inline?inlineId=cn-deactivation-modal&modal=false' );
 
-			if ( modalBox.length > 0 ) {
-				$( modalBox ).addClass( 'cn-deactivation-modal' );
-				$( modalBox ).find( '#TB_closeWindowButton' ).on( 'blur' );
-			}
+			setTimeout( function() {
+				var modalBox = $( '#cn-deactivation-container' ).closest( '#TB_window' );
+
+				if ( modalBox.length > 0 ) {
+					$( modalBox ).addClass( 'cn-deactivation-modal' );
+					$( modalBox ).find( '#TB_closeWindowButton' ).on( 'blur' );
+				}
+			}, 0 );
 
 			return false;
 		} );

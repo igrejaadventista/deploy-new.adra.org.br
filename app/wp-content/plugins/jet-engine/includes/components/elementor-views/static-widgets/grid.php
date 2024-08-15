@@ -6,9 +6,12 @@ use Elementor\Repeater;
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
+// Ensure required files are included
+jet_engine()->elementor_views->include_base_widget();
+
 if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 
-	class Jet_Listing_Grid_Widget extends Widget_Base {
+	class Jet_Listing_Grid_Widget extends \Jet_Listing_Dynamic_Widget {
 
 		public $is_first     = false;
 		public $data         = false;
@@ -46,11 +49,27 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 			$this->add_control(
 				'lisitng_id',
 				array(
-					'label'      => __( 'Listing', 'jet-engine' ),
-					'type'       => 'jet-query',
-					'query_type' => 'post',
-					'query'      => array(
-						'post_type' => jet_engine()->post_type->slug(),
+					'label'         => __( 'Listing', 'jet-engine' ),
+					'type'          => 'jet-query',
+					'query_type'    => 'post',
+					'create_button' => array(
+						'active'  => true,
+						'handler' => 'JetListings',
+					),
+					'query'         => array(
+						'post_type'  => jet_engine()->post_type->slug(),
+						'meta_query' => [
+							'relation' => 'or',
+							[
+								'key'     => '_entry_type',
+								'value'   => '',
+								'compare' => 'NOT EXISTS',
+							],
+							[
+								'key'     => '_entry_type',
+								'value'   => 'listing',
+							],
+						],
 					),
 					'prevent_looping' => true,
 				)
@@ -73,10 +92,31 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 						8  => 8,
 						9  => 9,
 						10 => 10,
+						'auto' => __( 'Auto', 'jet-engine' ),
 					),
 					'frontend_available' => true,
 					'selectors' => array(
 						'{{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__items' => '--columns: {{VALUE}}',
+					),
+				)
+			);
+
+			$this->add_responsive_control(
+				'column_min_width',
+				array(
+					'label'   => __( 'Column Min Width', 'jet-engine' ),
+					'type'        => Controls_Manager::NUMBER,
+					'default'     => 240,
+					'min'         => 0,
+					'max'         => 1600,
+					'step'        => 1,
+					'condition'   => array(
+						'columns' => 'auto',
+					),
+					'frontend_available' => true,
+					'selectors' => array(
+						'{{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__items' => 'display: grid; grid-template-columns: repeat( auto-fill, minmax( {{VALUE}}px, 1fr ) );',
+						'{{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__slider > .jet-listing-grid__items.slick-slider .slick-slide' => 'width: {{VALUE}}px;',
 					),
 				)
 			);
@@ -182,6 +222,9 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 					'type'        => Controls_Manager::TEXT,
 					'default'     => __( 'No data was found', 'jet-engine' ),
 					'label_block' => true,
+					'dynamic'     => array(
+						'active' => true,
+					),
 				)
 			);
 
@@ -229,6 +272,9 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 					'label_off'    => __( 'No', 'jet-engine' ),
 					'return_value' => 'yes',
 					'default'      => '',
+					'condition'    => array(
+						'columns!' => 'auto',
+					),
 				)
 			);
 
@@ -280,6 +326,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 				'load_more_id',
 				array(
 					'label'       => __( 'Load more element ID', 'jet-engine' ),
+					'description' => __( 'Please, make sure to add a Button widget that will be used as "Load more" button', 'jet-engine' ),
 					'type'        => Controls_Manager::TEXT,
 					'default'     => '',
 					'label_block' => true,
@@ -287,36 +334,104 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 						'use_load_more'  => 'yes',
 						'load_more_type' => 'click',
 					),
-				)
-			);
-
-			$this->add_control(
-				'use_custom_post_types',
-				array(
-					'label'        => __( 'Use Custom Post Types', 'jet-engine' ),
-					'type'         => Controls_Manager::SWITCHER,
-					'label_on'     => __( 'Yes', 'jet-engine' ),
-					'label_off'    => __( 'No', 'jet-engine' ),
-					'return_value' => 'yes',
-					'default'      => '',
-				)
-			);
-
-			$this->add_control(
-				'custom_post_types',
-				array(
-					'label'       => esc_html__( 'Post Types', 'jet-engine' ),
-					'type'        => Controls_Manager::SELECT2,
-					'label_block' => true,
-					'multiple'    => true,
-					'options'     => jet_engine()->listings->get_post_types_for_options(),
-					'condition'   => array(
-						'use_custom_post_types' => 'yes',
+					'dynamic' => array(
+						'active' => true,
 					),
 				)
 			);
 
+			$this->add_control(
+				'load_more_offset',
+				array(
+					'label'      => __( 'Load more offset', 'jet-engine' ),
+					'type'       => Controls_Manager::SLIDER,
+					'size_units' => array( 'px', '%' ),
+					'range' => array(
+						'px' => array(
+							'min' => -1000,
+							'max' => 1000,
+						),
+						'%' => array(
+							'min' => -100,
+							'max' => 100,
+						),
+					),
+					'default' => array(
+						'unit' => 'px',
+						'size' => 0,
+					),
+					'condition' => array(
+						'use_load_more'  => 'yes',
+						'load_more_type' => 'scroll',
+					),
+				)
+			);
+
+			$this->add_control(
+				'loader_text',
+				array(
+					'label'     => __( 'Loader text', 'jet-engine' ),
+					'type'      => Controls_Manager::TEXT,
+					'default'   => '',
+					'condition' => array(
+						'use_load_more' => 'yes',
+					),
+				)
+			);
+
+			$this->add_control(
+				'loader_spinner',
+				array(
+					'label'     => __( 'Loader spinner', 'jet-engine' ),
+					'type'      => Controls_Manager::SWITCHER,
+					'label_on'  => __( 'Show', 'jet-engine' ),
+					'label_off' => __( 'Hide', 'jet-engine' ),
+					'default'   => '',
+					'separator' => 'after',
+					'condition' => array(
+						'use_load_more' => 'yes',
+					),
+				)
+			);
+
+			if ( ! jet_engine()->listings->legacy->is_disabled() ) {
+				$this->add_control(
+					'use_custom_post_types',
+					array(
+						'label'        => __( 'Use Custom Post Types', 'jet-engine' ),
+						'type'         => Controls_Manager::SWITCHER,
+						'label_on'     => __( 'Yes', 'jet-engine' ),
+						'label_off'    => __( 'No', 'jet-engine' ),
+						'return_value' => 'yes',
+						'default'      => '',
+					)
+				);
+
+				$this->add_control(
+					'custom_post_types',
+					array(
+						'label'       => esc_html__( 'Post Types', 'jet-engine' ),
+						'type'        => Controls_Manager::SELECT2,
+						'label_block' => true,
+						'multiple'    => true,
+						'options'     => jet_engine()->listings->get_post_types_for_options(),
+						'condition'   => array(
+							'use_custom_post_types' => 'yes',
+						),
+					)
+				);
+				
+			}
+
 			do_action( 'jet-engine/listing/after-general-settings', $this );
+
+			$this->add_control(
+				'legacy_notice',
+				array(
+					'type' => Controls_Manager::RAW_HTML,
+					'raw'  => jet_engine()->listings->legacy->get_notice(),
+				)
+			);
 
 			$this->end_controls_section();
 
@@ -348,7 +463,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 				'custom_query_id',
 				array(
 					'label'   => __( 'Custom Query', 'jet-engine' ),
-					'type'    => Controls_Manager::SELECT,
+					'type'    => Controls_Manager::SELECT2,
 					'default' => '',
 					'options' => \Jet_Engine\Query_Builder\Manager::instance()->get_queries_for_options(),
 					'condition' => array(
@@ -358,6 +473,10 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 			);
 
 			$this->end_controls_section();
+
+			if ( jet_engine()->listings->legacy->is_disabled() ) {
+				return;
+			}
 
 			$this->start_controls_section(
 				'section_posts_query',
@@ -966,6 +1085,10 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 		 */
 		public function register_terms_query_settings() {
 
+			if ( jet_engine()->listings->legacy->is_disabled() ) {
+				return;
+			}
+
 			$this->start_controls_section(
 				'section_terms_query',
 				array(
@@ -1469,9 +1592,10 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 							'max' => 100,
 						),
 					),
+					'size_units' => array( 'px', 'em', 'rem', 'custom' ),
 					'selectors' => array(
-						'{{WRAPPER}} .jet-listing-grid__item' => 'padding-left: calc({{SIZE}}{{UNIT}} / 2); padding-right: calc({{SIZE}}{{UNIT}} / 2);',
-						'{{WRAPPER}} .jet-listing-grid__items' => 'margin-left: calc(-{{SIZE}}{{UNIT}} / 2); margin-right: calc(-{{SIZE}}{{UNIT}} / 2); width: calc(100% + {{SIZE}}{{UNIT}});',
+						':is( {{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__items, {{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__slider > .jet-listing-grid__items > .slick-list > .slick-track, {{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__scroll-slider > .jet-listing-grid__items ) > .jet-listing-grid__item' => 'padding-left: calc({{SIZE}}{{UNIT}} / 2); padding-right: calc({{SIZE}}{{UNIT}} / 2);',
+						':is( {{WRAPPER}} > .elementor-widget-container > .jet-listing-grid, {{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__slider, {{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__scroll-slider ) > .jet-listing-grid__items' => 'margin-left: calc( {{SIZE}}{{UNIT}} / -2); margin-right: calc( {{SIZE}}{{UNIT}} / -2); width: calc(100% + {{SIZE}}{{UNIT}});',
 					),
 				)
 			);
@@ -1487,8 +1611,9 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 							'max' => 100,
 						),
 					),
+					'size_units' => array( 'px', 'em', 'rem', 'custom' ),
 					'selectors' => array(
-						'{{WRAPPER}} .jet-listing-grid__item' => 'padding-top: calc({{SIZE}}{{UNIT}} / 2); padding-bottom: calc({{SIZE}}{{UNIT}} / 2);',
+						':is( {{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__items, {{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__slider > .jet-listing-grid__items > .slick-list > .slick-track, {{WRAPPER}} > .elementor-widget-container > .jet-listing-grid > .jet-listing-grid__scroll-slider > .jet-listing-grid__items ) > .jet-listing-grid__item' => 'padding-top: calc({{SIZE}}{{UNIT}} / 2); padding-bottom: calc({{SIZE}}{{UNIT}} / 2);',
 					),
 				)
 			);
@@ -1498,10 +1623,22 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 			$this->start_controls_section(
 				'section_loader_style',
 				array(
-					'label'     => esc_html__( 'Loader', 'jet-engine' ),
+					'label'      => esc_html__( 'Loader', 'jet-engine' ),
 					'tab'        => Controls_Manager::TAB_STYLE,
-					'condition' => array(
-						'lazy_load' => 'yes',
+					'conditions' => array(
+						'relation' => 'or',
+						'terms'    => array(
+							array(
+								'name'     => 'lazy_load',
+								'operator' => '==',
+								'value'    => 'yes',
+							),
+							array(
+								'name'     => 'use_load_more',
+								'operator' => '==',
+								'value'    => 'yes',
+							),
+						),
 					),
 				)
 			);
@@ -1509,14 +1646,89 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 			$this->add_control(
 				'loader_color',
 				array(
-					'label'     => esc_html__( 'Color', 'jet-engine' ),
+					'label'     => esc_html__( 'Spinner Color', 'jet-engine' ),
 					'type'      => Controls_Manager::COLOR,
 					'selectors' => array(
-						'{{WRAPPER}} .jet-listing-grid-loading:after' => 'color: {{VALUE}};',
+						'{{WRAPPER}} .jet-listing-grid__loader' => '--spinner-color: {{VALUE}};',
 					),
 				)
 			);
 
+			$this->add_control(
+				'loader_size',
+				array(
+					'label'      => esc_html__( 'Spinner Size', 'jet-engine' ),
+					'type'       => Controls_Manager::SLIDER,
+					'size_units' => array( 'px' ),
+					'range'      => array(
+						'px' => array(
+							'min' => 10,
+							'max' => 100,
+						),
+					),
+					'selectors' => array(
+						'{{WRAPPER}} .jet-listing-grid__loader' => '--spinner-size: {{SIZE}}{{UNIT}};',
+					),
+				)
+			);
+
+			$this->add_control(
+				'loader_text_color',
+				array(
+					'label'     => esc_html__( 'Text Color', 'jet-engine' ),
+					'type'      => Controls_Manager::COLOR,
+					'selectors' => array(
+						'{{WRAPPER}} .jet-listing-grid__loader-text' => 'color: {{VALUE}};',
+					),
+					'condition' => array(
+						'use_load_more' => 'yes',
+						'loader_text!'  => '',
+					),
+					'separator' => 'before',
+				)
+			);
+
+			$this->add_group_control(
+				Group_Control_Typography::get_type(),
+				array(
+					'name'      => 'loader_text_typography',
+					'selector'  => '{{WRAPPER}} .jet-listing-grid__loader-text',
+					'condition' => array(
+						'use_load_more' => 'yes',
+						'loader_text!'  => '',
+					),
+				)
+			);
+
+			$this->end_controls_section();
+
+			$this->start_controls_section(
+				'section_not_found_style',
+				array(
+					'label' => __( 'Not Found Message', 'jet-engine' ),
+					'tab'   => Controls_Manager::TAB_STYLE,
+				)
+			);
+
+			$this->add_group_control(
+				Group_Control_Typography::get_type(),
+				array(
+					'name'     => 'not_found_typography',
+					'selector' => '{{WRAPPER}} .jet-listing-not-found',
+				)
+			);
+
+			$this->add_control(
+				'not_found_color',
+				array(
+					'label' => esc_html__( 'Color', 'jet-engine' ),
+					'type'  => Controls_Manager::COLOR,
+					'selectors' => array(
+						'{{WRAPPER}} .jet-listing-not-found' => 'color: {{VALUE}};',
+					),
+				)
+			);
+			
 			$this->end_controls_section();
 
 		}
@@ -1669,6 +1881,23 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 			);
 
 			$this->add_control(
+				'pause_on_hover',
+				array(
+					'label'        => __( 'Pause On Hover', 'jet-engine' ),
+					'type'         => Controls_Manager::SWITCHER,
+					'label_on'     => __( 'Yes', 'jet-engine' ),
+					'label_off'    => __( 'No', 'jet-engine' ),
+					'return_value' => 'true',
+					'default'      => 'true',
+					'condition'    => array(
+						'autoplay' => 'true',
+						'is_masonry!' => 'yes',
+						'carousel_enabled' => 'yes',
+					),
+				)
+			);
+
+			$this->add_control(
 				'infinite',
 				array(
 					'label'        => __( 'Infinite Loop', 'jet-engine' ),
@@ -1798,7 +2027,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 					array(
 						'label'      => sprintf( esc_html__( 'Static column width on %s', 'jet-engine' ), $device_label ),
 						'type'       => Controls_Manager::SLIDER,
-						'size_units' => array( 'px', '%', 'vw' ),
+						'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'vw' ) ),
 						'range' => array(
 							'px' => array(
 								'min' => 0,
@@ -1859,6 +2088,27 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 			);
 
 			$this->add_responsive_control(
+				'center_mode_padding',
+				array(
+					'label'      => __( 'Center Mode Padding', 'jet-engine' ),
+					'type'       => Controls_Manager::SLIDER,
+					'size_units' => array( 'px', '%' ),
+					'range'      => array(
+						'px' => array(
+							'min' => 0,
+							'max' => 200,
+						),
+					),
+					'selectors'  => array(
+						'{{WRAPPER}} .jet-listing-grid__slider > .jet-listing-grid__items > .slick-list' => 'padding: 0 {{SIZE}}{{UNIT}} !important;',
+					),
+					'condition' => array(
+						'center_mode' => 'true',
+					),
+				)
+			);
+
+			$this->add_responsive_control(
 				'arrows_box_size',
 				array(
 					'label'      => __( 'Slider arrows box size', 'jet-engine' ),
@@ -1891,6 +2141,17 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-listing-grid__slider-icon' => 'font-size: {{SIZE}}{{UNIT}};',
 						'{{WRAPPER}} .jet-listing-grid__slider-icon svg' => 'height: {{SIZE}}{{UNIT}};',
+					),
+				)
+			);
+			
+			$this->add_control(
+				'arrow_z_index',
+				array(
+					'label'     => esc_html__( 'Slider arrows Z-Index', 'jet-engine' ),
+					'type'      => Controls_Manager::NUMBER,
+					'selectors' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider-icon' => 'z-index: {{VALUE}};',
 					),
 				)
 			);
@@ -1960,6 +2221,15 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 			$this->end_controls_tab();
 
 			$this->end_controls_tabs();
+
+			$this->add_control(
+				'prev_arrow_position',
+				array(
+					'label'     => __( 'Prev Arrow Position', 'jet-engine' ),
+					'type'      => Controls_Manager::HEADING,
+					'separator' => 'before',
+				)
+			);
 
 			$this->add_control(
 				'prev_vert_position',
@@ -2446,7 +2716,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 
 		}
 
-		protected function _register_controls() {
+		protected function register_controls() {
 
 			$this->register_general_settings();
 
@@ -2454,7 +2724,9 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 			$this->register_terms_query_settings();
 			//$this->register_repeater_query_settings();
 
-			do_action( 'jet-engine/listing/custom-query-settings', $this );
+			if ( ! jet_engine()->listings->legacy->is_disabled() ) {
+				do_action( 'jet-engine/listing/custom-query-settings', $this );
+			}
 
 			$this->register_visibility_settings();
 			$this->register_carousel_settings();
@@ -2501,9 +2773,9 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Grid_Widget' ) ) {
 			$custom_settings = apply_filters( 'jet-engine/listing/grid/custom-settings', false, $this );
 
 			if ( ! empty( $custom_settings ) ) {
-				return $custom_settings;
+				return array_merge( array( '_id' => $this->get_id() ), $custom_settings );
 			} else {
-				return $this->get_settings_for_display();
+				return array_merge( array( '_id' => $this->get_id() ), $this->get_settings_for_display() );
 			}
 
 		}

@@ -6,12 +6,14 @@ namespace Jet_Engine\Blocks_Views\Dynamic_Content;
  */
 class Dynamic_Block_Parser {
 
-	private $block;
-	private $attrs;
+	public $block;
+	public $attrs;
+	public $data;
 
-	public function __construct( $block, $attrs ) {
+	public function __construct( $block, $attrs, $data ) {
 		$this->block = $block;
 		$this->attrs = $attrs;
+		$this->data  = $data;
 	}
 
 	public function apply_dynamic_data( $content, $parsed_attrs = array() ) {
@@ -24,10 +26,12 @@ class Dynamic_Block_Parser {
 				continue;
 			}
 
-			$dynamic_value = $this->get_dynamic_value( $this->attrs[ $attr_name ], $attr, $parsed_attrs );
+			$dynamic_value = $this->data->get_dynamic_value( $this->attrs[ $attr_name ], $attr, $parsed_attrs );
 
 			if ( ! empty( $attr['rewrite'] ) ) {
-				$content = str_replace( '%%' . $attr_name . '%%', $dynamic_value, $content );
+				if ( is_scalar( $dynamic_value ) ) {
+					$content = str_replace( '%%' . $attr_name . '%%', $dynamic_value, $content );
+				}
 			} else {
 				$content = $this->block->replace_attr_content( $attr_name, $dynamic_value, $content, $this->attrs, $parsed_attrs );
 			}
@@ -74,6 +78,7 @@ class Dynamic_Block_Parser {
 
 				if ( ! empty( $data['macros'] ) ) {
 
+					$macros_context = jet_engine()->listings->macros->get_macros_context();
 					jet_engine()->listings->macros->set_macros_context( $object_context );
 
 					if ( 'jet_engine_field_name' === $data['macros'] ) {
@@ -81,6 +86,8 @@ class Dynamic_Block_Parser {
 					}
 
 					$result = jet_engine()->listings->macros->call_macros_func( $data['macros'], $data );
+
+					jet_engine()->listings->macros->set_macros_context( $macros_context );
 
 				}
 
@@ -93,6 +100,10 @@ class Dynamic_Block_Parser {
 
 		if ( ! empty( $data['filter_output'] ) && ! empty( $data['filter_callback'] ) ) {
 			$result = jet_engine()->listings->apply_callback( $result, $data['filter_callback'], $data );
+		}
+
+		if ( is_wp_error( $result ) ) {
+			$result = null;
 		}
 
 		return $result;

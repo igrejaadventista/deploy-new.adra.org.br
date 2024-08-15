@@ -11,6 +11,9 @@
 		align-items: stretch;
 		text-align: center;
 		margin: 5px;
+		&-value{
+			direction: ltr;
+		}
 	}
 
 	&__separator {

@@ -1,11 +1,11 @@
 === EWWW Image Optimizer ===
 Contributors: nosilver4u
 Donate link: https://ewww.io/donate/
-Tags: optimize, image, convert, webp, resize, compress, lazy load, optimization, lossless, lossy, seo, scale
-Requires at least: 5.8
-Tested up to: 6.1
-Requires PHP: 7.2
-Stable tag: 6.9.2
+Tags: optimize, image, convert, webp, resize, compress, lazy load, optimization, lossless, lossy, scale
+Requires at least: 6.3
+Tested up to: 6.6
+Requires PHP: 7.3
+Stable tag: 7.8.0
 License: GPLv3
 
 Smaller Images, Faster Sites, Happier Visitors. Comprehensive image optimization that doesn't require a degree in rocket science.
@@ -38,7 +38,10 @@ With Easy IO, images are automatically compressed, scaled to fit the page and de
 
 Stuck? Feeling like maybe you DO need that rocket science degree? [We provide free one-on-one email support to everyone](https://ewww.io/contact-us/).
 Do you have an idea to make EWWW IO even better? [Share it and vote on future features](https://feedback.ewww.io/b/features)!
+
 Found a bug? Report the issue on [GitHub](https://github.com/nosilver4u/ewww-image-optimizer), and we'll get it fixed!
+
+You may report security issues through our Patchstack Vulnerability Disclosure Program. The Patchstack team helps validate, triage and handle any security vulnerabilities. [Report a security vulnerability.](https://patchstack.com/database/vdp/ewww-image-optimizer)
 
 = Bulk Optimize =
 
@@ -119,7 +122,7 @@ See [https://docs.ewww.io/article/39-bulk-optimizer-failure](https://docs.ewww.i
 
 = What are the supported operating systems? =
 
-I've tested it on Windows (with Apache), Linux, Mac OSX, FreeBSD, and Solaris. The Compress API and Easy IO CDN will work on any OS.
+Free mode using local server compression is supported on Windows, Linux, MacOS, and FreeBSD. The Compress API and Easy IO CDN will work on any OS.
 
 = I want to know more about image optimization, and why you chose these options/tools. =
 
@@ -137,50 +140,68 @@ That's not a question, but since I made it up, I'll answer it. See this resource
 * Feature requests can be viewed and submitted on our [feedback portal](https://feedback.ewww.io/b/features)
 * If you would like to help translate this plugin in your language, [join the team](https://translate.wordpress.org/projects/wp-plugins/ewww-image-optimizer/)
 
-= 6.9.2 =
-* changed: improved Easy IO detection for site URL changes
-* changed: load backup class earlier to prevent issues with custom image uploaders
-* fixed: and improved the ewwwio_translated_media_ids filter, props @ocean90
-* fixed: Lazy Load JS throws error if inline script vars are missing
-* fixed: Easy IO + Lazy Load auto-scale produces invalid URL if an image with no query string is constrained by height
+= 7.8.0 =
+*Release Date - July 25, 2024*
 
-= 6.9.1 =
-* changed: default syntax for MySQL 8.x to use faster upgrade query
-* fixed: bulk action parameter was not validated properly when selecting attachments for optimization
-* fixed: undefined function ewww_image_optimizer_get_primary_wpml_id
-* fixed: PHP notices when Easy IO filters srcset URLs
+* added: agency mode available by defining EWWWIO_WHITELABEL or using the ewwwio_whitelabel filter
+* changed: skip lazy load for LCP images based on fetchpriority when auto-scaling is disabled
+* fixed: JS WebP alters img srcset when src is non-WebP but srcset is already WebP
+* fixed: Lazy Load and Easy IO fail to decode URLs with HTML-encoded characters, which causes esc_url to break the URL
+* fixed: Easy IO fails to update CDN domain if site is re-registered while still active
 
-= 6.9.0 =
-* added: allow translation plugins to filter attachment IDs for retrieving Media Library results via ewwwio_primary_translated_media_id/ewwwio_translated_media_ids
-* changed: include upstream lazysizes unveilhooks for use by developers, props @saas786
-* fixed: Easy IO compatibility with S3 Uploads 3.x
-* fixed: better compatibility with S3 Uploads when using autoload
-* fixed: PHP notices when removing images and backups are disabled
-* fixed: trailing comma after parameters in WP-CLI remove_originals function
-* fixed: Easy IO srcset URL construction not accounting for object versioning with S3 (or other cloud storage)
+= 7.7.0 =
+*Release Date - June 6, 2024*
 
-= 6.8.0 =
-* added: ability to store image backups on local storage
-* added: tool to bulk restore images under Tools menu and WP-CLI
-* added: WebP cleanup tool can be resumed and run via WP-CLI
-* added: Delete Originals can be run via WP-CLI
-* added: remove originals after conversion (like PNG to JPG) via WP-CLI
-* added: exclude by page for Easy IO, Lazy Load, and WebP delivery methods
-* changed: ensure full-size image is optimized after resizing with Imsanity
-* fixed: incorrect cfasync attribute used for JS WebP scripts
+* added: improved resizing of paletted PNG images in WP_Image_Editor using pngquant or API
+* added: warning when hiding query strings with Hide My WP
+* changed: apply async loading to lazyload JS using WP core functionality
+* fixed: missing srcset when using JS WebP rewriting
+* fixed: multisite deactivate for Easy IO fails nonce verification
+* fixed: some strings were missing i18n (props @DAnn2012)
 
-= 6.7.0 =
-* added: API keys can be used to auto-register sites for Easy IO, including sub-keys
-* changed: expose legacy resize dimensions with removal option
-* fixed: Lazy Load not using EWWWIO_CONTENT_DIR
-* fixed: Easy IO Premium/WebP compression disabled incorrectly when in Easy Mode
-* fixed: JS WebP body script throws error if wp_head script missing
-* fixed: Lazy Load Auto-scale adds query parameters to SVG images
-* fixed: JS WebP and Lazy Load prevent image loading in GiveWP iframe
-* fixed: Auto Scale crops too much for object-* images in Oxygen
-* fixed: trailing space on image URL handled incorrectly
-* updated: Gifsicle to version 1.93 and Pngquant to 2.17
-* removed: free binaries for SunOS, may use free cloud-based JPG compression instead
+= 7.6.0 =
+*Release Date - April 24, 2024*
+
+* added: Easy IO delivery for JS/CSS assets from additional domains
+* added: Lazy Load can use dominant color placeholders via Easy IO
+* added: ability to filter/parse admin-ajax.php requests via eio_filter_admin_ajax_response filter
+* added: Easy IO support for Divi Pixel image masks
+* changed: improved smoothing of LQIP for Lazy Load when using Easy IO
+* changed: after editing an image in WordPress, optimization results for backup sizes will be hidden from Media Library list mode
+* changed: Lazy Load checks for auto-scale exclusions on ancestors of lazyloaded element
+* fixed: async bulk interface does not show Start Optimizing when image queue is already visible
+* fixed: bulk process appears to have completed after clearing queue
+* fixed: storing resize/webp results for new images fails with MySQL strict mode
+* fixed: database records not cleaned after thumbs are removed by Force Regenerate Thumbnails
+* fixed: JPG to PNG conversion on 8-bit PNGs sometimes uses incorrect black background
+* fixed: Help links broken in Firefox's Strict mode
+* fixed: async queue status not properly checked on multi-site
+
+= 7.5.0 =
+*Release Date - March 26, 2024*
+
+* added: Easy IO support for upcoming Slider Revolution 7 rendering engine
+* added: Easy IO updates existing image preload URLs
+* added: Lazy Load automatically excludes preloaded images
+* changed: async process locking uses unique key on disk to avoid duplicate processes
+* fixed: Easy IO skipping Slider Revolution 6 URLs
+* fixed: Lazy Load incorrectly auto-scales fixed group background images
+* fixed: uncaught errors when attempting svgcleaner install on FreeBSD
+* fixed: optimized images list links to WebP thumbnail for all sizes
+* fixed: optimized images list shows wrong thumbnail for non-media library images
+* fixed: quirks with new bulk interface and optimized images list
+* updated: cwebp to version 1.3.2
+* updated: gifsicle to version 1.95
+* updated: optipng to version 0.7.8
+
+= 7.4.0 =
+*Release Date - March 6, 2024*
+
+* added: async bulk optimizer on settings page
+* added: store WebP results/errors for display in Media Library, and in optimization table/results
+* added: ability to view pending/queued images, remove images from queue, and sort queue by original image size
+* fixed: restoring images from optimization table
+* fixed: attempting to install x64 binaries on arm64 servers
 
 = Earlier versions =
 Please refer to the separate changelog.txt file.

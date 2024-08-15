@@ -987,7 +987,11 @@ class Jet_Elements_Dropbar extends Jet_Elements_Base {
 
 					// for multi-language plugins
 					$template_id = apply_filters( 'jet-elements/widgets/template_id', $template_id, $this );
-					$content     = jet_elements()->elementor()->frontend->get_builder_content( $template_id );
+					if ( jet_elements()->elementor()->preview->is_preview_mode() ){
+						$content     = jet_elements()->elementor()->frontend->get_builder_content_for_display( $template_id );
+					} else {
+						$content     = jet_elements()->elementor()->frontend->get_builder_content( $template_id );
+					}
 
 					if ( jet_elements()->elementor()->editor->is_edit_mode() ) {
 						$edit_url = add_query_arg(

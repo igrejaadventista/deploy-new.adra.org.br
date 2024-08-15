@@ -15,6 +15,8 @@ class Manager {
 
 	public $source = 'query';
 	public $source_meta = '_query_id';
+	public $filters = null;
+	public $query = null;
 
 	public function __construct() {
 		add_action( 'jet-engine/query-builder/init', array( $this, 'init' ) );
@@ -27,7 +29,7 @@ class Manager {
 
 		require_once Query_Manager::instance()->component_path( 'listings/query.php' );
 
-		new Query();
+		$this->query = new Query();
 
 		if ( jet_engine()->has_elementor() ) {
 			require_once Query_Manager::instance()->component_path( 'listings/elementor.php' );
@@ -38,14 +40,39 @@ class Manager {
 		new Blocks();
 
 		if ( function_exists( 'jet_smart_filters' ) ) {
+			
 			require_once Query_Manager::instance()->component_path( 'listings/filters.php' );
-			new Filters();
+			require_once Query_Manager::instance()->component_path( 'listings/filters-options-source.php' );
+			require_once Query_Manager::instance()->component_path( 'listings/filters-switch-query.php' );
+
+			$this->filters = new Filters();
+
+			new Filters_Options_Source();
+			new Filters_Switch_Query();
+
 		}
+
+		add_action( 'jet-engine/listings/document/get-preview/' . $this->source, array( $this, 'setup_preview' ) );
+
+		add_filter( 'jet-engine/listing/custom-post-id', array( $this, 'set_sql_query_item_id' ), 10, 2 );
+
+	}
+
+	public function get_query_id( $listing_id, $settings ) {
+
+		$query_id        = get_post_meta( $listing_id, $this->source_meta, true );
+		$is_custom_query = ! empty( $settings['custom_query'] ) ? filter_var( $settings['custom_query'], FILTER_VALIDATE_BOOLEAN ) : false;
+
+		if ( $is_custom_query && ! empty( $settings['custom_query_id'] ) ) {
+			$query_id = absint( $settings['custom_query_id'] );
+		}
+
+		return $query_id;
 
 	}
 
 	/**
-	 * Replace listing source if cutom query is enabled
+	 * Replace listing source if custom query is enabled
 	 *
 	 * @param  [type] $source   [description]
 	 * @param  [type] $settings [description]
@@ -57,6 +84,16 @@ class Manager {
 
 		if ( $is_custom_query && ! empty( $settings['custom_query_id'] ) ) {
 			$source = $this->source;
+
+			// Replace listing document.
+			jet_engine()->listings->data->set_listing(
+				jet_engine()->listings->get_new_doc(
+					array(
+						'listing_source' => $source,
+						'_query_id'      => $settings['custom_query_id'],
+					),
+					absint( $settings['lisitng_id'] ) )
+			);
 		}
 
 		return $source;
@@ -72,8 +109,8 @@ class Manager {
 
 		$source = ! empty( $_REQUEST['listing_source'] ) ? esc_attr( $_REQUEST['listing_source'] ) : 'posts';
 
-		if ( $this->source === $source && ! empty( $_REQUEST['query_id'] ) ) {
-			update_post_meta( $listing_id, $this->source_meta, absint( $_REQUEST['query_id'] ) );
+		if ( $this->source === $source && ! empty( $_REQUEST['_query_id'] ) ) {
+			update_post_meta( $listing_id, $this->source_meta, absint( $_REQUEST['_query_id'] ) );
 		}
 
 	}
@@ -95,7 +132,11 @@ class Manager {
 			return false;
 		}
 
-		return $this->get_preview_object_for_document( $document->get_main_id() );
+		$preview_object = $this->get_preview_object_for_document( $document->get_main_id() );
+
+		jet_engine()->listings->data->set_current_object( $preview_object );
+
+		return $preview_object;
 
 	}
 
@@ -114,17 +155,28 @@ class Manager {
 		}
 
 		$items = $query->get_items();
+		$items = ! empty( $items ) ? array_values( $items ) : array();
 
 		if ( ! empty( $items ) ) {
 
 			$items[0]->_query_id = $query_id;
 
 			jet_engine()->listings->data->set_current_object( $items[0] );
+
 			return $items[0];
 		} else {
 			return false;
 		}
 
+	}
+
+	public function set_sql_query_item_id( $id, $object ) {
+
+		if ( isset( $object->sql_query_item_id ) ) {
+			$id = $object->sql_query_item_id;
+		}
+
+		return $id;
 	}
 
 }

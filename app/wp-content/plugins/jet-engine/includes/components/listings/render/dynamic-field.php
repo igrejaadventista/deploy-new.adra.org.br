@@ -13,6 +13,7 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 	class Jet_Engine_Render_Dynamic_Field extends Jet_Engine_Render_Base {
 
 		public $show_field     = true;
+		public $show_fallback  = false;
 		public $more_string    = '...';
 		public $excerpt_length = '...';
 		public $prevent_icon   = false;
@@ -33,6 +34,7 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 				'field_tag'                        => 'div',
 				'hide_if_empty'                    => false,
 				'dynamic_field_filter'             => false,
+				'filter_callbacks'                 => array(),
 				'date_format'                      => 'F j, Y',
 				'num_dec_point'                    => '.',
 				'num_thousands_sep'                => ',',
@@ -65,13 +67,7 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 			return absint( $this->excerpt_length );
 		}
 
-		/**
-		 * Render post/term field content
-		 *
-		 * @param  array $settings Widget settings.
-		 * @return void
-		 */
-		public function render_field_content( $settings ) {
+		public function get_field_content( $settings ) {
 
 			$source         = $this->get( 'dynamic_field_source' );
 			$object_context = $this->get( 'object_context' );
@@ -82,13 +78,17 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 				$this
 			);
 
-			if( ! $result ){
+			if ( ! $result ) {
 
 				switch ( $source ) {
 					case 'object':
 
 						$field = $this->get( 'dynamic_field_post_object' );
 						$auto  = $this->get( 'dynamic_field_wp_excerpt', '' );
+
+						if ( ! empty( $settings['dynamic_field_post_meta_custom'] ) ) {
+							$field = $settings['dynamic_field_post_meta_custom'];
+						}
 
 						if ( 'post_excerpt' === $field && ! empty( $auto ) ) {
 
@@ -101,7 +101,18 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 								add_filter( 'excerpt_length', array( $this, 'excerpt_length' ), 9999 );
 							}
 
-							$result = get_the_excerpt();
+							$post_object = jet_engine()->listings->data->get_object_by_context( $object_context );
+
+							if ( ! $post_object ) {
+								$post_object = jet_engine()->listings->data->get_current_object();
+							}
+
+							$result = get_the_excerpt( $post_object );
+
+							// If a post has excerpt, the filters `excerpt_more` and `excerpt_length` are not applied.
+							if ( has_excerpt( $post_object ) ) {
+								$result = wp_trim_words( $result, $this->excerpt_length, $this->more_string );
+							}
 
 							remove_filter( 'excerpt_more', array( $this, 'excerpt_more' ) );
 
@@ -110,6 +121,7 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 							}
 
 						} else {
+
 							$result = jet_engine()->listings->data->get_prop(
 								$field,
 								jet_engine()->listings->data->get_object_by_context( $object_context )
@@ -156,10 +168,7 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 						}
 
 						if ( $field ) {
-							$result = jet_engine()->listings->data->get_meta(
-								$field,
-								jet_engine()->listings->data->get_object_by_context( $object_context )
-							);
+							$result = jet_engine()->listings->data->get_meta_by_context( $field, $object_context );
 						}
 
 						break;
@@ -197,10 +206,28 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 
 						if ( $field ) {
 							$field  = trim( $field );
-							$result = jet_engine()->listings->data->get_meta(
-								$field,
-								jet_engine()->listings->data->get_object_by_context( $object_context )
-							);
+							$result = jet_engine()->listings->data->get_meta_by_context( $field, $object_context );
+						}
+
+						break;
+
+					case 'query_var':
+
+						$variable = ! empty( $settings['dynamic_field_var_name'] ) ? trim( $settings['dynamic_field_var_name'] ) : false;
+
+						if ( $variable ) {
+
+							global $wp_query;
+
+							if ( isset( $wp_query->query_vars[ $variable ] ) ) {
+								$result = $wp_query->query_vars[ $variable ];
+							} elseif ( isset( $_REQUEST[ $variable ] ) ) {
+								if ( ! is_array( $_REQUEST[ $variable ] ) ) {
+									$result = esc_attr( $_REQUEST[ $variable ] );
+								} else {
+									$result = $_REQUEST[ $variable ];
+								}
+							}
 						}
 
 						break;
@@ -247,14 +274,38 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 
 			if ( $hide_if_empty && Jet_Engine_Tools::is_empty( $result ) ) {
 				$this->show_field = false;
-				return;
-			} elseif ( Jet_Engine_Tools::is_empty( $result ) && ! empty( $settings['field_fallback'] ) ) {
-				echo wp_kses_post( $settings['field_fallback'] );
-				return;
+				return null;
+			} elseif ( Jet_Engine_Tools::is_empty( $result ) && ! Jet_Engine_Tools::is_empty( $settings, 'field_fallback' ) ) {
+				$this->show_fallback = true;
+				return wp_kses_post( $settings['field_fallback'] );
 			}
+
+			$this->need_sanitize = apply_filters(
+				'jet-engine/listings/dynamic-field/sanitize-output', 
+				$this->need_sanitize, $this 
+			);
 
 			if ( $this->need_sanitize && is_string( $result ) ) {
 				$result = wp_kses_post( $result );
+			}
+
+			return $result;
+
+		}
+
+		/**
+		 * Render post/term field content
+		 *
+		 * @param  array $settings Widget settings.
+		 * @return void
+		 */
+		public function render_field_content( $settings ) {
+
+			$result = $this->get_field_content( $settings );
+
+			if ( ! $this->show_field || $this->show_fallback ) {
+				echo $result;
+				return;
 			}
 
 			$this->render_filtered_result( $result, $settings );
@@ -293,8 +344,17 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 					return;
 				}
 
-				$result = ! is_array( $result ) ? $result : '';
-				$result = sprintf( $settings['dynamic_field_format'], $result );
+				$result = ! is_array( $result ) && ! is_object( $result ) ? $result : '';
+
+				try {
+					$result = sprintf( $settings['dynamic_field_format'], $result );
+				} catch ( ArgumentCountError $e ) {
+					printf( '<b>%1$s:</b> %2$s', esc_html__( 'Error', 'jet-engine' ), $e->getMessage() );
+
+					return;
+				}
+
+				$result = jet_engine()->listings->macros->do_macros( $result );
 				$result = do_shortcode( $result );
 			}
 
@@ -322,9 +382,22 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 		 * @return [type]           [description]
 		 */
 		public function apply_callback( $result, $settings ) {
-
+			
+			// Check if multiple callbacks applied
+			$callbacks = isset( $settings['filter_callbacks'] ) ? $settings['filter_callbacks'] : array();
 			$callback = isset( $settings['filter_callback'] ) ? $settings['filter_callback'] : '';
-			return jet_engine()->listings->apply_callback( $result, $callback, $settings, $this );
+			
+			if ( ! empty( $callbacks ) ) {
+				foreach ( $callbacks as $cb_data ) {
+					$cb     = isset( $cb_data['filter_callback'] ) ? $cb_data['filter_callback'] : '';
+					$result = jet_engine()->listings->apply_callback( $result, $cb, array_merge( $settings, $cb_data ), $this );
+				}
+			} elseif ( $callback ) {
+				$result = jet_engine()->listings->apply_callback( $result, $callback, $settings, $this );
+			}
+
+			
+			return $result;
 
 		}
 
@@ -342,6 +415,22 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 				&& ( $timestamp >= ~PHP_INT_MAX );
 		}
 
+		public function get_wrapper_classes() {
+
+			$classes       = parent::get_wrapper_classes();
+			$settings      = $this->get_settings();
+			$field_display = ! empty( $settings['field_display'] ) ? esc_attr( $settings['field_display'] ) : 'inline';
+
+			$classes[] = 'display-' . $field_display;
+
+			if ( $this->prevent_wrap() && 'inline' === $field_display ) {
+				$classes[] = $this->get_name() . '__inline-wrap';
+			}
+
+			return $classes;
+
+		}
+
 		public function render() {
 
 			$this->show_field = true;
@@ -354,25 +443,19 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 			$field_icon    = ! empty( $settings['field_icon'] ) ? esc_attr( $settings['field_icon'] ) : false;
 			$new_icon      = ! empty( $settings['selected_field_icon'] ) ? $settings['selected_field_icon'] : false;
 
-			$classes = array(
-				'jet-listing',
-				$base_class,
-				'display-' . $field_display
-			);
-
-			if ( ! empty( $settings['className'] ) ) {
-				$classes[] = esc_attr( $settings['className'] );
-			}
-
 			ob_start();
 			$this->render_field_content( $settings );
 			$field_content = ob_get_clean();
 
 			ob_start();
 
-			printf( '<div class="%s">', implode( ' ', $classes ) );
+			$classes = $this->get_wrapper_classes();
 
-				if ( 'inline' === $field_display ) {
+			if ( ! $this->prevent_wrap() ) {
+				printf( '<div class="%s">', implode( ' ', $classes ) );
+			}
+
+				if ( ! $this->prevent_wrap() && 'inline' === $field_display ) {
 					printf( '<div class="%s__inline-wrap">', $base_class );
 				}
 
@@ -396,11 +479,13 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Field' ) ) {
 
 				do_action( 'jet-engine/listing/dynamic-field/after-field', $this );
 
-				if ( 'inline' === $field_display ) {
+				if ( ! $this->prevent_wrap() && 'inline' === $field_display ) {
 					echo '</div>';
 				}
 
-			echo '</div>';
+			if ( ! $this->prevent_wrap() ) {
+				echo '</div>';
+			}
 
 			$content = ob_get_clean();
 

@@ -10,13 +10,10 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Provider_Jet_Woo_Grid class
 	 */
 	class Jet_Smart_Filters_Provider_Jet_Woo_Grid extends Jet_Smart_Filters_Provider_Base {
-
-		private $_query_id = 'default';
 
 		/**
 		 * Watch for default query
@@ -24,10 +21,14 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 		public function __construct() {
 
 			if ( ! jet_smart_filters()->query->is_ajax_filter() ) {
-
 				add_filter(
-					'jet-woo-builder/tools/carousel/pre-options',
-					array( $this, 'store_carousel_options' ),
+					'jet-woo-builder/shortcodes/jet-woo-products/query-args',
+					array( $this, 'filters_trigger' ),
+					10, 2
+				);
+
+				add_action( 'jet-woo-builder/shortcodes/jet-woo-products/final-query-args',
+					array( $this, 'store_default_query' ),
 					10, 2
 				);
 
@@ -37,11 +38,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 					0, 2
 				);
 
-				// Add provider and query ID to query
-				add_action( 'pre_get_posts',
-					array( $this, 'store_default_query' )
-				);
-
 				add_action(
 					'elementor/widget/before_render_content',
 					array( $this, 'store_default_settings' ),
@@ -49,108 +45,78 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 				);
 
 				add_filter(
-					'jet-woo-builder/shortcodes/jet-woo-products/query-args',
-					array( $this, 'filters_trigger' ),
+					'jet-woo-builder/tools/carousel/pre-options',
+					array( $this, 'store_carousel_options' ),
 					10, 2
 				);
-
 			}
-
 		}
 
 		/**
 		 * Returns widget name
-		 * @return [type] [description]
 		 */
 		public function widget_name() {
+
 			return 'jet-woo-products';
 		}
 
 		/**
+		 * Get provider name
+		 */
+		public function get_name() {
+
+			return __( 'JetWooBuilder Products Grid', 'jet-smart-filters' );
+		}
+
+		/**
+		 * Get provider ID
+		 */
+		public function get_id() {
+			
+			return 'jet-woo-products-grid';
+		}
+
+		/**
 		* Store default query args
-		*
-		* @param  array  $args       Query arguments.
-		* @param  array  $attributes Shortcode attributes.
-		* @param  string $type       Shortcode type.
-		* @return array
 		*/
-		public function store_default_query( $query ) {
+		public function store_default_query( $query_atts, $shortcode ) {
 
-			if ( !$query->get( 'jet_smart_filters' ) ) {
-				return;
+			$default_query = array();
+			$query_id      = ! empty( $shortcode->get_attr( '_element_id' ) )
+				? $shortcode->get_attr( '_element_id' )
+				: 'default';
+
+			foreach ( array(
+				'post_type',
+				'wc_query',
+				'tax_query',
+				'meta_query',
+				'orderby',
+				'order',
+				'posts_per_page',
+				'post__in',
+				'taxonomy',
+				'term',
+				's'
+			) as $value ) {
+				if ( isset( $query_atts[ $value ] ) ) {
+					$default_query[ $value ] = $query_atts[ $value ];
+				}
 			}
 
-			if ( 'yes' === $query->get( 'jet_use_current_query' ) && $query->get( 'wc_query' ) ) {
+			jet_smart_filters()->query->store_provider_default_query( $this->get_id(), $default_query, $query_id );
 
-				$default_query = array(
-					'post_type'         => $query->get( 'post_type' ),
-					'wc_query'          => $query->get( 'wc_query' ),
-					'tax_query'         => $query->get( 'tax_query' ),
-					'orderby'           => $query->get( 'orderby' ),
-					'order'             => $query->get( 'order' ),
-					'paged'             => $query->get( 'paged' ),
-					'posts_per_page'    => $query->get( 'posts_per_page' ),
-					'jet_smart_filters' => $this->get_id() . '/' . $this->_query_id,
-					//'post__in'        => $query->get( 'post__in' ),
-				);
-
-				if ( $query->get( 'taxonomy' ) ) {
-					$default_query['taxonomy'] = $query->get( 'taxonomy' );
-					$default_query['term'] = $query->get( 'term' );
-				}
-
-				if ( is_search() ){
-					$default_query['s'] = $query->get( 's' );
-				}
-
-				jet_smart_filters()->query->store_provider_default_query( $this->get_id(), $default_query, $this->_query_id );
-
-			} else {
-
-				$provider = $query->get( 'jet_smart_filters' );
-				$provider_args = jet_smart_filters()->query->decode_provider_data( $provider );
-
-				if ( 'jet-woo-products-grid' === $provider_args['provider'] ){
-
-					$default_query = array(
-						'post_type'         => $query->get( 'post_type' ),
-						'wc_query'          => $query->get( 'wc_query' ),
-						'tax_query'         => $query->get( 'tax_query' ),
-						'meta_query'        => $query->get( 'meta_query' ),
-						'orderby'           => $query->get( 'orderby' ),
-						'order'             => $query->get( 'order' ),
-						'paged'             => $query->get( 'paged' ),
-						'posts_per_page'    => $query->get( 'posts_per_page' ),
-						'jet_smart_filters' => $this->get_id() . '/' . $this->_query_id,
-						//'post__in'        => $query->get( 'post__in' ),
-					);
-
-					if ( $query->get( 'taxonomy' ) ) {
-						$default_query['taxonomy'] = $query->get( 'taxonomy' );
-						$default_query['term'] = $query->get( 'term' );
-					}
-
-					jet_smart_filters()->query->store_provider_default_query( $this->get_id(), $default_query, $this->_query_id );
-
-				}
-
-			}
-
+			return $query_atts;
 		}
 
 		/**
 		 * Save default carousel options
-		 *
-		 * @param  array  $options [description]
-		 * @return [type]          [description]
 		 */
 		public function store_carousel_options( $options = array(), $all_settings = array() ) {
 
-			if ( empty( $all_settings['_element_id'] ) ) {
-				$query_id = 'default';
-			} else {
-				$query_id = $all_settings['_element_id'];
-			}
+			$query_id = ! empty( $all_settings['_element_id'] )
+				? $all_settings['_element_id']
+				: 'default';
 
 			jet_smart_filters()->providers->add_provider_settings(
 				$this->get_id(),
@@ -165,19 +131,12 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 
 		/**
 		 * Store default query args
-		 *
-		 * @param  array  $args Query arguments.
-		 * @return array
 		 */
 		public function store_default_atts( $atts = array() ) {
 
-			if ( empty( $atts['_element_id'] ) ) {
-				$query_id = 'default';
-			} else {
-				$query_id = $atts['_element_id'];
-			}
-
-			$this->_query_id = $query_id;
+			$query_id = ! empty( $atts['_element_id'] )
+				? $atts['_element_id']
+				: 'default';
 
 			jet_smart_filters()->providers->add_provider_settings( $this->get_id(), $atts, $query_id );
 
@@ -186,9 +145,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 
 		/**
 		 * Save default widget settings
-		 *
-		 * @param  [type] $widget [description]
-		 * @return [type]         [description]
 		 */
 		public function store_default_settings( $widget ) {
 
@@ -199,12 +155,9 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 			$settings         = $widget->get_settings();
 			$store_settings   = $this->settings_to_store();
 			$default_settings = array();
-
-			if ( ! empty( $settings['_element_id'] ) ) {
-				$query_id = $settings['_element_id'];
-			} else {
-				$query_id = 'default';
-			}
+			$query_id         = ! empty( $settings['_element_id'] )
+				? $settings['_element_id']
+				: 'default';
 
 			foreach ( $store_settings as $key ) {
 				if ( false !== strpos( $key, 'selected_' ) ) {
@@ -220,14 +173,13 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 			$default_settings['_widget_id'] = $widget->get_id();
 
 			jet_smart_filters()->providers->store_provider_settings( $this->get_id(), $default_settings, $query_id );
-
 		}
 
 		/**
 		 * Returns settings to store list
-		 * @return [type] [description]
 		 */
 		public function settings_to_store() {
+
 			return apply_filters( 'jet-smart-filters/providers/jet-woo-products-grid/settings-list', [
 				'show_compare',
 				'compare_button_order',
@@ -277,31 +229,11 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 			] );
 		}
 
-		/**
-		 * Get provider name
-		 *
-		 * @return string
-		 */
-		public function get_name() {
-			return __( 'JetWooBuilder Products Grid', 'jet-smart-filters' );
-		}
-
-		/**
-		 * Get provider ID
-		 *
-		 * @return string
-		 */
-		public function get_id() {
-			return 'jet-woo-products-grid';
-		}
-
 		public function filters_trigger( $args, $shortcode ) {
 
-			$query_id = $shortcode->get_attr( '_element_id' );
-
-			if ( ! $query_id ) {
-				$query_id = 'default';
-			}
+			$query_id = ! empty( $shortcode->get_attr( '_element_id' ) )
+				? $shortcode->get_attr( '_element_id' )
+				: 'default';
 
 			$args['no_found_rows']     = false;
 			$args['jet_smart_filters'] = jet_smart_filters()->query->encode_provider_data(
@@ -310,13 +242,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 			);
 
 			return $args;
-
 		}
 
 		/**
 		 * Get filtered provider content
-		 *
-		 * @return string
 		 */
 		public function ajax_get_content() {
 
@@ -330,7 +259,9 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 				10, 2
 			);
 
-			add_filter( 'pre_get_posts', array( $this, 'add_query_args' ), 10 );
+			add_filter( 'jet-woo-builder/shortcodes/jet-woo-products/final-query-args',
+				array( $this, 'add_query_args' )
+			);
 
 			$attributes = jet_smart_filters()->query->get_query_settings();
 
@@ -354,24 +285,37 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 				$shortcode->do_shortcode( $attributes ),
 				$this->sanitize_settings( $settings )
 			);
-
 		}
 
 		/**
 		 * Get provider wrapper selector
-		 *
-		 * @return string
 		 */
 		public function get_wrapper_selector() {
+
 			return '.elementor-jet-woo-products.jet-woo-builder';
 		}
 
 		/**
+		 * Get provider list selector
+		 */
+		public function get_list_selector() {
+
+			return '.jet-woo-products';
+		}
+
+		/**
+		 * Get provider list item selector
+		 */
+		public function get_item_selector() {
+
+			return '.jet-woo-builder-product';
+		}
+
+		/**
 		 * If added unique ID this paramter will determine - search selector inside this ID, or is the same element
-		 *
-		 * @return bool
 		 */
 		public function in_depth() {
+
 			return true;
 		}
 
@@ -392,40 +336,39 @@ if ( ! class_exists( 'Jet_Smart_Filters_Provider_Jet_Woo_Grid' ) ) {
 				10, 2
 			);
 
-			add_filter( 'pre_get_posts', array( $this, 'add_query_args' ), 10 );
-
+			add_filter( 'jet-woo-builder/shortcodes/jet-woo-products/final-query-args',
+				array( $this, 'add_query_args' )
+			);
 		}
 
 		/**
 		 * Add custom query arguments
-		 *
-		 * @param array $args [description]
 		 */
-		public function add_query_args( $query ) {
+		public function add_query_args( $query_atts ) {
 
-			if ( ! $query->get( 'jet_smart_filters' ) ) {
-				return;
-			}
-
-			if ( $query->get( 'jet_smart_filters' ) !== jet_smart_filters()->render->request_provider( 'raw' ) ) {
+			if (
+				empty( $query_atts[ 'jet_smart_filters' ] )
+				||
+				$query_atts[ 'jet_smart_filters' ] !== jet_smart_filters()->render->request_provider( 'raw' ) )
+			{
 				return;
 			}
 
 			foreach ( jet_smart_filters()->query->get_query_args() as $query_var => $value ) {
 				if ( in_array( $query_var, array( 'tax_query', 'meta_query' ) ) ) {
-					$current = $query->get( $query_var );
+					$current = $query_atts[ $query_var ];
 
 					if ( ! empty( $current ) ) {
 						$value = array_merge( $current, $value );
 					}
 
-					$query->set( $query_var, $value );
+					$query_atts[ $query_var ] = $value;
 				} else {
-					$query->set( $query_var, $value );
+					$query_atts[ $query_var ] = $value;
 				}
 			}
 
+			return $query_atts;
 		}
 	}
-
 }

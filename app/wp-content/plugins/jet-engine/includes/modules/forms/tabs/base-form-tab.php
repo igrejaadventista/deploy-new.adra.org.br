@@ -33,4 +33,18 @@ abstract class Base_Form_Tab {
 	public function render_assets() {
 	}
 
+	public function verify_request() {
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => esc_html__( 'Access denied', 'jet-engine' ) ) );
+		}
+
+		$nonce = ! empty( $_REQUEST['_nonce'] ) ? $_REQUEST['_nonce'] : false;
+
+		if ( ! $nonce || ! wp_verify_nonce( $nonce, jet_engine()->dashboard->get_nonce_action() ) ) {
+			wp_send_json_error( array( 'message' => esc_html__( 'Nonce validation failed', 'jet-engine' ) ) );
+		}
+
+	}
+
 }

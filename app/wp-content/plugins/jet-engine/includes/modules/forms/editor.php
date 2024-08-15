@@ -64,6 +64,10 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms_Editor' ) ) {
 				return;
 			}
 
+			if ( empty( $_POST ) || ! isset( $_POST['_wpnonce'] ) ) {
+				return;
+			}
+
 			if ( ! empty( $_POST['action'] ) && 'inline-save' === $_POST['action'] && ! empty( $_POST['_inline_edit'] ) ) {
 				return;
 			}
@@ -315,6 +319,7 @@ Order details:
 					0               => __( 'Select post property...', 'jet-engine' ),
 					'ID'            => __( 'Post ID (will update post)', 'jet-engine' ),
 					'post_title'    => __( 'Post Title', 'jet-engine' ),
+					'post_name'     => __( 'Post Slug', 'jet-engine' ),
 					'post_content'  => __( 'Post Content', 'jet-engine' ),
 					'post_date'     => __( 'Post Date', 'jet-engine' ),
 					'post_date_gmt' => __( 'Post Date GMT', 'jet-engine' ),
@@ -652,6 +657,17 @@ Order details:
 				'rewrite'             => false,
 				'capability_type'     => 'post',
 				'supports'            => array( 'title' ),
+				'capabilities' => array(
+					'publish_posts'       => 'manage_options',
+					'edit_posts'          => 'manage_options',
+					'edit_others_posts'   => 'manage_options',
+					'delete_posts'        => 'manage_options',
+					'delete_others_posts' => 'manage_options',
+					'read_private_posts'  => 'manage_options',
+					'edit_post'           => 'manage_options',
+					'delete_post'         => 'manage_options',
+					'read_post'           => 'manage_options',
+				),
 			);
 
 			$post_type = register_post_type(

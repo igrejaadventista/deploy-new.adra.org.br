@@ -24,6 +24,22 @@ class Author_Id extends \Jet_Engine_Base_Macros {
 	 * @inheritDoc
 	 */
 	public function macros_callback( $args = array() ) {
-		return get_the_author_meta( 'ID' );
+
+		$author_id = null;
+
+		global $authordata;
+
+		if ( $authordata ) {
+			$author_id = get_the_author_meta( 'ID' );
+		} else {
+
+			$post = get_post();
+
+			if ( $post ) {
+				$author_id = get_the_author_meta( 'ID', $post->post_author );
+			}
+		}
+
+		return $author_id;
 	}
 }

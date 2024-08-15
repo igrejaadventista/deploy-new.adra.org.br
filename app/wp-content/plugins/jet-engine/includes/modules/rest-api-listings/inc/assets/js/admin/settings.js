@@ -271,7 +271,45 @@
 
 				} );
 
-			}
+			},
+
+			addNewRepeaterField: function( event, key, defaultField ) {
+				var field = defaultField || {};
+
+				field._id = Math.round( Math.random() * 1000000 );
+				field.collapsed = false;
+
+				if ( ! this.settings[ key ] ) {
+					this.$set( this.settings, key, [] );
+				}
+
+				this.settings[ key ].push( field );
+			},
+			setRepeaterFieldProp: function( parentKey, index, key, value ) {
+				var field = this.settings[ parentKey ][ index ];
+
+				field[ key ] = value;
+
+				this.settings[ parentKey ].splice( index, 1, field );
+			},
+			cloneRepeaterField: function( index, key ) {
+				var field = JSON.parse( JSON.stringify( this.settings[ key ][ index ] ) );
+
+				field.collapsed = false;
+				field._id = Math.round( Math.random() * 1000000 );
+
+				this.settings[ key ].splice( index + 1, 0, field );
+			},
+			deleteRepeaterField: function( index, key ) {
+				this.settings[ key ].splice( index, 1 );
+			},
+			isCollapsed: function( field ) {
+				if ( undefined === field.collapsed || true === field.collapsed ) {
+					return true;
+				} else {
+					return false;
+				}
+			},
 		}
 	} );
 

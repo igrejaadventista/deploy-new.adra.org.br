@@ -68,6 +68,13 @@ function RelationAction( {
 			onChange={ context => onChangeSettingObj( { context } ) }
 			options={ withPlaceholder( source.context_options ) }
 		/>
+		<SelectControl
+			label={ label( 'store_items_type' ) }
+			labelPosition='side'
+			value={ settings.store_items_type }
+			onChange={ store_items_type => onChangeSettingObj( { store_items_type } ) }
+			options={ withPlaceholder( source.store_items_type_options ) }
+		/>
 	</Fragment>;
 }
 

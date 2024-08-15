@@ -11,7 +11,7 @@ const {
 	SVG
 } = wp.components;
 
-export default class JetEngineRepeater extends React.Component {
+class JetEngineRepeater extends React.Component {
 	moveDown(startIndex) {
 		const data = [ ...this.props.data ],
 			endIndex = startIndex + 1;
@@ -45,10 +45,11 @@ export default class JetEngineRepeater extends React.Component {
 	}
 
 	addNew() {
+
 		const data = [ ...this.props.data ];
 
-		data.push(this.props.default);
-		this.props.onChange(data);
+		data.push( this.props.default );
+		this.props.onChange( data );
 
 	}
 
@@ -63,7 +64,7 @@ export default class JetEngineRepeater extends React.Component {
 			<div className='je-repeater'>
 				{data.map((itemData, index) => {
 
-					const item = React.cloneElement(children(itemData), { key: `${indexPrefix}-${index}` });
+					const item = React.cloneElement(children(itemData, index), { key: `${indexPrefix}-${index}` });
 
 					return (
 						<div className='je-repeater-item' key={ 'repeater-item-' + index }>
@@ -96,3 +97,8 @@ export default class JetEngineRepeater extends React.Component {
 		);
 	}
 }
+
+window.JetEngineBlocksComponents = window.JetEngineBlocksComponents || {};
+window.JetEngineBlocksComponents.RepeaterControl = JetEngineRepeater;
+
+export default JetEngineRepeater;

@@ -15,7 +15,8 @@ use RankMath\Helper;
 use RankMath\Paper\Paper;
 use RankMath\Traits\Hooker;
 use RankMath\Sitemap\Router;
-use MyThemeShop\Helpers\Str;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Arr;
 use RankMath\Helpers\Security;
 
 defined( 'ABSPATH' ) || exit;
@@ -45,10 +46,9 @@ class Head {
 			remove_action( 'better-amp/template/head', 'better_amp_print_rel_canonical' );
 		}
 
-		$this->action( 'wp_head', 'front_page_specific_init', 0 );
+		$this->action( 'wp_head', 'front_page_init', 0 );
 		$this->filter( 'language_attributes', 'search_results_schema' );
 
-		// The head function here calls action rank_math/head, to which we hook all our functionality.
 		$this->action( 'rank_math/head', 'metadesc', 6 );
 		$this->action( 'rank_math/head', 'robots', 10 );
 		$this->action( 'rank_math/head', 'canonical', 20 );
@@ -76,9 +76,9 @@ class Head {
 	}
 
 	/**
-	 * Initialize the functions that only need to run on the frontpage.
+	 * Initialize front page related stuff.
 	 */
-	public function front_page_specific_init() {
+	public function front_page_init() {
 		if ( ! is_front_page() ) {
 			return;
 		}
@@ -107,6 +107,29 @@ class Head {
 			}
 
 			printf( '<meta name="%1$s" content="%2$s" />' . "\n", esc_attr( $name ), esc_attr( $content ) );
+		}
+
+		$custom_webmaster_tags = Helper::get_settings( 'general.custom_webmaster_tags' );
+		if ( empty( $custom_webmaster_tags ) ) {
+			return;
+		}
+
+		$custom_webmaster_tags = Arr::from_string( $custom_webmaster_tags );
+		foreach ( $custom_webmaster_tags as $custom_webmaster_tag ) {
+			$custom_webmaster_tag = trim( $custom_webmaster_tag );
+			if ( empty( $custom_webmaster_tag ) ) {
+				continue;
+			}
+
+			echo wp_kses(
+				$custom_webmaster_tag,
+				[
+					'meta' => [
+						'name'    => [],
+						'content' => [],
+					],
+				]
+			) . "\n";
 		}
 	}
 
@@ -186,7 +209,7 @@ class Head {
 		$generated = Paper::get()->get_description();
 
 		if ( Str::is_non_empty( $generated ) ) {
-			echo '<meta name="description" content="' . $generated . '"/>', "\n";
+			echo '<meta name="description" content="' . esc_attr( $generated ) . '"/>', "\n";
 		}
 	}
 
@@ -347,7 +370,13 @@ class Head {
 		 */
 		$link = $this->do_filter( "frontend/{$rel}_rel_link", '<link rel="' . esc_attr( $rel ) . '" href="' . esc_url( $url ) . "\" />\n" );
 		if ( Str::is_non_empty( $link ) ) {
-			echo $link;
+			$allowed_tags = [
+				'link' => [
+					'href'  => [],
+					'rel'   => [],
+				],
+			];
+			echo wp_kses( $link, $allowed_tags );
 		}
 	}
 
@@ -380,9 +409,9 @@ class Head {
 
 		if ( false === $closing ) {
 			if ( ! Helper::is_whitelabel() && ! defined( 'RANK_MATH_PRO_FILE' ) ) {
-				echo "\n<!-- " . esc_html__( 'Search Engine Optimization by Rank Math - https://s.rankmath.com/home', 'rank-math' ) . " -->\n";
+				echo "\n<!-- " . esc_html__( 'Search Engine Optimization by Rank Math - https://rankmath.com/', 'rank-math' ) . " -->\n";
 			} elseif ( defined( 'RANK_MATH_PRO_FILE' ) ) {
-				echo "\n<!-- " . esc_html__( 'Search Engine Optimization by Rank Math PRO - https://s.rankmath.com/home', 'rank-math' ) . " -->\n";
+				echo "\n<!-- " . esc_html__( 'Search Engine Optimization by Rank Math PRO - https://rankmath.com/', 'rank-math' ) . " -->\n";
 			}
 			return;
 		}
@@ -417,7 +446,7 @@ class Head {
 		$content = ob_get_clean();
 		$title   = Paper::get()->get_title();
 		if ( empty( $title ) ) {
-			echo $content;
+			echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- This is the output buffer, escaping is unnecessary.
 		}
 
 		// Find all title tags, remove them, and add the new one.
@@ -427,6 +456,6 @@ class Head {
 			$GLOBALS['wp_query'] = $old_wp_query;
 		}
 
-		echo $content;
+		echo $content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- This is the output buffer, escaping is unnecessary.
 	}
 }

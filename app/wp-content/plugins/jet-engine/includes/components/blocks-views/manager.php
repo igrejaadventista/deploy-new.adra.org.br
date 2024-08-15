@@ -18,16 +18,22 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views' ) ) {
 		public $editor;
 		public $render;
 		public $block_types;
+		public $dynamic_content;
 
 		/**
 		 * Constructor for the class
 		 */
 		function __construct() {
 
+			if ( ! \Jet_Engine\Modules\Performance\Module::instance()->is_tweak_active( 'enable_blocks_views' ) ) {
+				return;
+			}
+
 			if ( ! jet_engine()->components->is_component_active( 'listings' ) ) {
 				return;
 			}
 
+			add_filter( 'jet-engine/templates/listing-views', array( $this, 'add_listing_view' ), 11 );
 			add_filter( 'upload_mimes', array( $this, 'allow_svg' ) );
 			add_filter( 'jet-engine/templates/create/data', array( $this, 'inject_listing_settings' ), 0 );
 
@@ -40,12 +46,24 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views' ) ) {
 			require $this->component_path( 'block-types.php' );
 			require $this->component_path( 'ajax-handlers.php' );
 			require $this->component_path( 'dynamic-content/manager.php' );
+			require $this->component_path( 'components/register.php' );
 
 			$this->render          = new Jet_Engine_Blocks_Views_Render();
 			$this->block_types     = new Jet_Engine_Blocks_Views_Types();
 			$this->dynamic_content = new \Jet_Engine\Blocks_Views\Dynamic_Content\Manager();
 
 			new Jet_Engine_Blocks_Views_Ajax_Handlers();
+			new \Jet_Engine\Blocks_Views\Components\Register();
+		}
+
+		/**
+		 * Register listing view
+		 * 
+		 * @param [type] $views [description]
+		 */
+		public function add_listing_view( $views ) {
+			$views['blocks'] = __( 'Blocks (Gutenberg)', 'jet-engine' );
+			return $views;
 		}
 
 		/**
@@ -83,6 +101,10 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views' ) ) {
 		 */
 		public function is_blocks_listing( $listing_id ) {
 
+			/**
+			 * Do not use get_listing_type() method here 
+			 * because this method itself used inside get_listing_type() to define what listing type was used
+			 */
 			$meta = get_post_meta( $listing_id, '_listing_type', true );
 
 			if ( ! $meta ) {

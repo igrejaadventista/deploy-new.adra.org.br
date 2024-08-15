@@ -219,4 +219,13 @@ class Elementor_Template extends Base {
 		return false;
 	}
 
+	/**
+	 * Is public endpoint.
+	 *
+	 * @return bool
+	 */
+	public function permission_callback() {
+		return true;
+	}
+
 }

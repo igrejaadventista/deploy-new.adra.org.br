@@ -14,9 +14,9 @@ use RankMath\Paper\Paper;
 use RankMath\Traits\Ajax;
 use RankMath\Traits\Meta;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Arr;
-use MyThemeShop\Helpers\Url;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Arr;
+use RankMath\Helpers\Url;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -230,7 +230,11 @@ class Admin_Bar_Menu {
 	 */
 	private function add_post_type_menu() {
 		$post_type = get_post_type();
-		$name      = get_post_type_object( $post_type )->labels->name;
+		if ( ! $post_type ) {
+			return;
+		}
+
+		$name = get_post_type_object( $post_type )->labels->name;
 
 		if ( is_home() ) {
 			$post_type = 'page';
@@ -381,12 +385,6 @@ class Admin_Bar_Menu {
 				'meta'  => [ 'title' => esc_html__( 'Google PageSpeed Insights', 'rank-math' ) ],
 			],
 
-			'google-mobilefriendly'      => [
-				'title' => esc_html__( 'Google Mobile-Friendly', 'rank-math' ),
-				'href'  => 'https://search.google.com/test/mobile-friendly?url=' . $url,
-				'meta'  => [ 'title' => esc_html__( 'Google Mobile-Friendly Test', 'rank-math' ) ],
-			],
-
 			'google-richresults-mobile'  => [
 				'title' => esc_html__( 'Google Rich Results (Mobile)', 'rank-math' ),
 				'href'  => 'https://search.google.com/test/rich-results?url=' . $url . '&user_agent=1',
@@ -485,4 +483,5 @@ class Admin_Bar_Menu {
 	private function get_icon( $width = 20 ) {
 		return '<svg viewBox="0 0 462.03 462.03" xmlns="http://www.w3.org/2000/svg" width="' . $width . '"><g><path d="m462 234.84-76.17 3.43 13.43 21-127 81.18-126-52.93-146.26 60.97 10.14 24.34 136.1-56.71 128.57 54 138.69-88.61 13.43 21z"/><path d="m54.1 312.78 92.18-38.41 4.49 1.89v-54.58h-96.67zm210.9-223.57v235.05l7.26 3 89.43-57.05v-181zm-105.44 190.79 96.67 40.62v-165.19h-96.67z"/></g></svg>';
 	}
+
 }

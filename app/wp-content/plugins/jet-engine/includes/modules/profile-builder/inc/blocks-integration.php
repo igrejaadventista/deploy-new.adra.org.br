@@ -1,16 +1,17 @@
 <?php
 namespace Jet_Engine\Modules\Profile_Builder;
 
-class Blocks_Integration {
+class Blocks_Integration extends Base_Integration {
 
 	/**
 	 * Constructor for the class
 	 */
 	public function __construct() {
 		add_filter( 'jet-engine/blocks-views/editor/config', array( $this, 'register_pages_options' ), 10 );
-		add_filter( 'jet-engine/profile-builder/template/content', array( $this, 'render_template_content' ), 10, 2 );
+		add_filter( 'jet-engine/profile-builder/template/content', array( $this, 'render_template_content' ), 10, 4 );
 		add_action( 'jet-engine/blocks-views/register-block-types', array( $this, 'register_block_types' ) );
 		add_action( 'jet-engine/blocks-views/editor-script/before', array( $this, 'enqueue_block_assets' ) );
+		add_filter( 'jet-engine/blocks-views/block-types/attributes/dynamic-image', array( $this, 'add_dynamic_image_block_attrs') );
 	}
 
 	/**
@@ -20,8 +21,15 @@ class Blocks_Integration {
 	 * @param  [type] $template_id [description]
 	 * @return [type]              [description]
 	 */
-	public function render_template_content( $content, $template_id ) {
-		return do_blocks( $content );
+	public function render_template_content( $content, $template_id, $frontend, $template ) {
+		
+		if ( jet_engine()->listings->post_type->slug() !== $template->post_type ) {
+			return $content;
+		}
+
+		jet_engine()->frontend->set_listing( $template_id );
+		return jet_engine()->frontend->get_listing_item_content( $template_id );
+
 	}
 
 	/**
@@ -67,44 +75,16 @@ class Blocks_Integration {
 	 */
 	public function register_pages_options( $config ) {
 
-		$pages    = array();
-		$settings = Module::instance()->settings->get();
+		$pages = array_map( function ( $page ) {
 
-		if ( ! empty( $settings['account_page_structure'] ) ) {
-
-			$options = array();
-
-			foreach ( $settings['account_page_structure'] as $page ) {
-				$options[] = array(
-					'value' => 'account_page::' . $page['slug'],
-					'label' => $page['title'],
-				);
+			if ( ! empty( $page['options'] ) ) {
+				$page['values'] = $page['options'];
+				unset( $page['options'] );
 			}
 
-			$pages[] = array(
-				'label'  => __( 'Account Page', 'jet-engine' ),
-				'values' => $options,
-			);
+			return $page;
 
-		}
-
-		if ( ! empty( $settings['enable_single_user_page'] ) && ! empty( $settings['user_page_structure'] ) ) {
-
-			$options = array();
-
-			foreach ( $settings['user_page_structure'] as $page ) {
-				$options[] = array(
-					'value' => 'single_user_page::' . $page['slug'],
-					'label' => $page['title'],
-				);
-			}
-
-			$pages[] = array(
-				'label'  => __( 'Single User Page', 'jet-engine' ),
-				'values' => $options,
-			);
-
-		}
+		}, $this->get_pages_for_options( 'blocks' ) );
 
 		if ( ! empty( $pages ) ) {
 			$config['profileBuilderPages'] = $pages;
@@ -112,6 +92,16 @@ class Blocks_Integration {
 
 		return $config;
 
+	}
+
+	public function add_dynamic_image_block_attrs( $attrs ) {
+
+		$attrs['dynamic_link_profile_page'] = array(
+			'type'    => 'string',
+			'default' => '',
+		);
+
+		return $attrs;
 	}
 
 }

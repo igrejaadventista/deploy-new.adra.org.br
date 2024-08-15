@@ -20,7 +20,8 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 	class Jet_Engine_Skins_Import {
 
 		public $nonce = 'jet-engine-import';
-		private $log  = array();
+		public $log  = array();
+		public $errors = array();
 
 		/**
 		 * Initialize components
@@ -36,6 +37,12 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 		 */
 		public function process_import() {
 
+			$nonce_action = jet_engine()->dashboard->get_nonce_action();
+
+			if ( empty( $_REQUEST['_nonce'] ) || ! wp_verify_nonce( $_REQUEST['_nonce'], $nonce_action ) ) {
+				wp_send_json_error( __( 'Nonce validation failed', 'jet-engine' ) );
+			}
+
 			if ( ! current_user_can( 'import' ) ) {
 				wp_send_json_error( __( 'You don\'t have permissions to do this', 'jet-engine' ) );
 			}
@@ -44,6 +51,8 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 				wp_send_json_error( __( 'File not passed', 'jet-engine' ) );
 			}
 
+			do_action( 'jet-engine/dashboard/export-import/process', 'import', $this );
+
 			$file = $_FILES['_skin'];
 
 			if ( 'application/json' !== $file['type'] ) {
@@ -51,6 +60,7 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 			}
 
 			$content = file_get_contents( $file['tmp_name'] );
+			$content = ltrim( $content, "\xEF\xBB\xBF" ); // maybe remove the bom string
 			$content = json_decode( $content, true );
 
 			if ( ! $content ) {
@@ -60,6 +70,7 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 			$post_types    = isset( $content['post_types'] ) ? $content['post_types'] : array();
 			$taxonomies    = isset( $content['taxonomies'] ) ? $content['taxonomies'] : array();
 			$listings      = isset( $content['listings'] ) ? $content['listings'] : array();
+			$components    = isset( $content['components'] ) ? $content['components'] : array();
 			$meta_boxes    = isset( $content['meta_boxes'] ) ? $content['meta_boxes'] : array();
 			$relations     = isset( $content['relations'] ) ? $content['relations'] : array();
 			$options_pages = isset( $content['options_pages'] ) ? $content['options_pages'] : array();
@@ -72,6 +83,7 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 			$this->import_post_types( $post_types );
 			$this->import_taxonomies( $taxonomies );
 			$this->import_listings( $listings );
+			$this->import_components( $components );
 			$this->import_meta_boxes( $meta_boxes );
 			$this->import_relations( $relations );
 			$this->import_options_pages( $options_pages );
@@ -81,7 +93,12 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 			$this->import_glossaries( $glossaries );
 			$this->import_options( $options );
 
-			wp_send_json_success( $this->log );
+			do_action( 'jet-engine/dashboard/import/process', $content, $this );
+
+			wp_send_json_success( array(
+				'success' => $this->log,
+				'errors'  => $this->errors,
+			) );
 
 		}
 
@@ -362,11 +379,13 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 		}
 
 		/**
-		 * Import post types
-		 *
-		 * @return [type] [description]
+		 * Import single item of listing or component
+		 * 
+		 * @param  [type] $listing    [description]
+		 * @param  string $entry_type [description]
+		 * @return [type]             [description]
 		 */
-		public function import_listings( $listings = array() ) {
+		public function import_listing_item( $listing, $entry_type = 'listing' ) {
 
 			if ( class_exists( 'Elementor\Plugin' ) ) {
 				$documents     = Elementor\Plugin::instance()->documents;
@@ -376,34 +395,63 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 				$type_meta_key = '_elementor_template_type';
 			}
 
+			$listing_type = ! empty( $listing['type'] ) ? $listing['type'] : 'elementor';
+
+			$postarr = array(
+				'post_title'  => $listing['title'],
+				'post_status' => 'publish',
+				'post_type'   => jet_engine()->post_type->slug(),
+				'post_name'   => $listing['slug'],
+				'meta_input'  => array(
+					'_listing_type' => $listing_type,
+					'_entry_type' => $entry_type,
+					'_elementor_page_settings' => $listing['settings'],
+				),
+			);
+
+			if ( 'elementor' === $listing_type ) {
+				$postarr['meta_input']['_elementor_edit_mode'] = 'builder';
+				$postarr['meta_input'][ $type_meta_key ] = jet_engine()->listings->get_id();
+				$postarr['meta_input'][ '_elementor_data' ] = wp_slash( $listing['content'] );
+			}
+
+			if ( 'blocks' === $listing_type ) {
+				$postarr['post_content'] = $listing['content'];
+			}
+
+			$listing_id = wp_insert_post( apply_filters(
+				'jet-engine/dashboard/import/listing-item',
+				$postarr,
+				$listing,
+				$this 
+			) );
+
+			$listing_doc = jet_engine()->listings->get_new_doc( [], $listing_id );
+
+			if ( ! empty( $listing['html'] ) ) {
+				$listing_doc->update_listing_html( $listing['html'] );
+			}
+
+			if ( ! empty( $listing['css'] ) ) {
+				$listing_doc->update_listing_css( $listing['css'] );
+			}
+
+			return $listing_doc;
+
+		}
+
+		/**
+		 * Import post types
+		 *
+		 * @return [type] [description]
+		 */
+		public function import_listings( $listings = array() ) {
+
 			foreach ( $listings as $listing ) {
 
-				$listing_type = ! empty( $listing['type'] ) ? $listing['type'] : 'elementor';
+				$listing_doc = $this->import_listing_item( $listing, 'listing' );
 
-				$postarr = array(
-					'post_title'  => $listing['title'],
-					'post_status' => 'publish',
-					'post_type'   => jet_engine()->post_type->slug(),
-					'post_name'   => $listing['slug'],
-					'meta_input'  => array(
-						'_listing_type' => $listing_type,
-						'_elementor_page_settings' => $listing['settings'],
-					),
-				);
-
-				if ( 'elementor' === $listing_type ) {
-					$postarr['meta_input']['_elementor_edit_mode'] = 'builder';
-					$postarr['meta_input'][ $type_meta_key ] = jet_engine()->listings->get_id();
-					$postarr['meta_input'][ '_elementor_data' ] = wp_slash( $listing['content'] );
-				}
-
-				if ( 'blocks' === $listing_type ) {
-					$postarr['post_content'] = $listing['content'];
-				}
-
-				$id = wp_insert_post( $postarr );
-
-				if ( $id ) {
+				if ( $listing_doc ) {
 
 					if ( empty( $this->log['listings'] ) ) {
 						$this->log['listings'] = array( 'items' => array() );
@@ -416,6 +464,64 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 			if ( ! empty( $this->log['listings'] ) ) {
 				$this->log['listings']['label'] = __( 'Listings', 'jet-engine' );
 			}
+		}
+
+		public function import_components( $components = array() ) {
+
+			add_filter(
+				'jet-engine/listings/document-id', 
+				[ jet_engine()->listings->components, 'get_component_base_name' ]
+			);
+
+			foreach ( $components as $component ) {
+
+				$component['title'] = ! empty( $component['name'] ) ? $component['name'] : '';
+
+				if ( ! isset( $component['settings'] ) ) {
+					$component['settings'] = array();
+				}
+
+				if ( ! empty( $component['props'] ) ) {
+					$component['settings']['component_controls_list'] = $component['props'];
+				}
+
+				if ( ! empty( $component['styles'] ) ) {
+					$component['settings']['component_style_controls_list'] = $component['styles'];
+				}
+
+				$listing_doc = $this->import_listing_item( $component, 'component' );
+
+				if ( $listing_doc ) {
+
+					$component_instance = new \Jet_Engine\Listings\Components\Component( 
+						get_post( $listing_doc->get_main_id() ) 
+					);
+
+					if ( ! empty( $component['props'] ) ) {
+						$component_instance->set_props( $component['props'] );
+					}
+
+					if ( ! empty( $component['styles'] ) ) {
+						$component_instance->set_styles( $component['styles'] );
+					}
+
+					if ( empty( $this->log['components'] ) ) {
+						$this->log['components'] = array( 'items' => array() );
+					}
+
+					$this->log['components']['items'][] = $component['title'];
+				}
+			}
+
+			remove_filter(
+				'jet-engine/listings/document-id', 
+				[ jet_engine()->listings->components, 'get_component_base_name' ]
+			);
+
+			if ( ! empty( $this->log['components'] ) ) {
+				$this->log['components']['label'] = __( 'Components', 'jet-engine' );
+			}
+
 		}
 
 		/**
@@ -490,7 +596,10 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 			foreach ( $meta_input as $key => $value ) {
 
 				if ( is_array( $value ) && isset( $value['media'] ) && isset( $value['url'] ) ) {
-					$result[ $key ] = $this->import_image( $value['url'] );
+
+					$format = isset( $value['format'] ) && ! empty( $value['format'] ) ? $value['format'] : 'id';
+
+					$result[ $key ] = $this->import_image( $value['url'], $format );
 				} else {
 					$result[ $key ] = $value;
 				}
@@ -504,7 +613,7 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 		 *
 		 * @return [type] [description]
 		 */
-		public function import_image( $url = null ) {
+		public function import_image( $url = null, $format = 'id' ) {
 
 			if ( ! $url ) {
 				return false;
@@ -546,7 +655,24 @@ if ( ! class_exists( 'Jet_Engine_Skins_Import' ) ) {
 				wp_generate_attachment_metadata( $post_id, $upload['file'] )
 			);
 
-			return $post_id;
+			switch ( $format ) {
+
+				case 'url':
+					$result = wp_get_attachment_url( $post_id );
+					break;
+
+				case 'both':
+					$result = array(
+						'id'  => $post_id,
+						'url' => wp_get_attachment_url( $post_id ),
+					);
+					break;
+
+				default:
+					$result = $post_id;
+			}
+
+			return $result;
 		}
 
 

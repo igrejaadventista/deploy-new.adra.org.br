@@ -1,6 +1,7 @@
 <?php
 namespace Jet_Engine\Modules\Maps_Listings\Compatibility;
 
+use Jet_Engine\Modules\Maps_Listings\Module;
 use BorlabsCookie\Cookie\Frontend\JavaScript;
 
 class Borlabs_Cookie {
@@ -8,8 +9,6 @@ class Borlabs_Cookie {
 	private static $js_added = false;
 
 	private $deps_scripts = array(
-		'jet-markerclustererplus',
-		'jet-engine-google-maps-api',
 		'jet-maps-listings',
 	);
 
@@ -22,9 +21,18 @@ class Borlabs_Cookie {
 		add_filter( 'script_loader_tag',                array( $this, 'block_scripts' ), 999, 2 );
 	}
 
+	public function get_deps_scripts() {
+		$provider = Module::instance()->providers->get_active_map_provider();
+		return array_merge( $this->deps_scripts, $provider->get_script_handles() );
+	}
+
 	public function add_handle_content_blocking( $html, $render_instance ) {
 
 		if ( is_admin() ) {
+			return $html;
+		}
+
+		if ( ! function_exists( 'BorlabsCookieHelper' ) ) {
 			return $html;
 		}
 
@@ -81,7 +89,7 @@ class Borlabs_Cookie {
 			return $tag;
 		}
 
-		if ( ! in_array( $handle, $this->deps_scripts ) ) {
+		if ( ! in_array( $handle, $this->get_deps_scripts() ) ) {
 			return $tag;
 		}
 

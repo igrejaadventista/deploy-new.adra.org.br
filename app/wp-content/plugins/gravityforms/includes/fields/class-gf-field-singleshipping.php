@@ -18,6 +18,19 @@ class GF_Field_SingleShipping extends GF_Field {
 	 */
 	protected $_supports_state_validation = true;
 
+	/**
+	 * Returns the field's form editor icon.
+	 *
+	 * This could be an icon url or a gform-icon class.
+	 *
+	 * @since 2.8
+	 *
+	 * @return string
+	 */
+	public function get_form_editor_field_icon() {
+		return 'gform-icon--shipping';
+	}
+
 	function get_form_editor_field_settings() {
 		return array(
 			'base_price_setting',
@@ -45,7 +58,7 @@ class GF_Field_SingleShipping extends GF_Field {
 		$price = esc_attr( GFCommon::to_money( $price ) );
 
 		return "<div class='ginput_container ginput_container_singleshipping'>
-					<input readonly class='ginput_shipping_price gform-text-input-reset' id='{$field_id}' name='input_{$id}' value='{$price}' />
+					<input type='text' readonly class='ginput_shipping_price gform-text-input-reset' id='{$field_id}' name='input_{$id}' value='{$price}' />
 				</div>";
 	}
 

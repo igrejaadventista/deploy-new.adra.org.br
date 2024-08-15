@@ -9,6 +9,8 @@ class Manager {
 	private $_blocks = array();
 	private $_dynamic_data_key = 'jetEngineDynamicData';
 
+	public $data;
+
 	public function __construct() {
 
 		add_action( 'init', array( $this, 'init_dynamic_blocks' ), 99 );
@@ -33,6 +35,9 @@ class Manager {
 		$this->register_block( new Blocks\Container() );
 
 		do_action( 'jet-engine/blocks-views/dynamic-content/init-blocks', $this );
+
+		require jet_engine()->blocks_views->component_path( 'dynamic-content/data.php' );
+		$this->data = new Data();
 
 	}
 
@@ -61,7 +66,14 @@ class Manager {
 				require jet_engine()->blocks_views->component_path( 'dynamic-content/block-parser.php' );
 			}
 
-			$parser = new Dynamic_Block_Parser( $dynamic_block, $block_data['attrs'][ $this->_dynamic_data_key ] );
+			$parser = new Dynamic_Block_Parser(
+				$dynamic_block, 
+				$block_data['attrs'][ $this->_dynamic_data_key ],
+				$this->data
+			);
+
+			$dynamic_block->set_parser( $parser );
+
 			return $parser->apply_dynamic_data( $block_content, $block_data['attrs'] );
 		}
 	}

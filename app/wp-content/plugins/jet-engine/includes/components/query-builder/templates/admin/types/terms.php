@@ -40,56 +40,19 @@
 					label="<?php _e( 'Order By', 'jet-engine' ); ?>"
 					description="<?php _e( 'Field to order terms by', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
-					:options-list="[
-						{
-							value: 'name',
-							label: 'Name',
-						},
-						{
-							value: 'slug',
-							label: 'Slug',
-						},
-						{
-							value: 'term_group',
-							label: 'Term group',
-						},
-						{
-							value: 'term_id',
-							label: 'Term ID',
-						},
-						{
-							value: 'description',
-							label: 'Description',
-						},
-						{
-							value: 'parent',
-							label: 'Parent',
-						},
-						{
-							value: 'term_order',
-							label: 'Term Order',
-						},
-						{
-							value: 'count',
-							label: 'By the number of objects associated with the term',
-						},
-						{
-							value: 'include',
-							label: 'Match the order of the `Include` param',
-						},
-						{
-							value: 'slug__in',
-							label: 'Match the order of the `Slug` param',
-						},
-						{
-							value: 'meta_clause',
-							label: 'Order by meta clause',
-						},
-					]"
+					:options-list="orderbyOptions"
 					size="fullwidth"
 					name="query_orderby"
 					v-model="query.orderby"
 				></cx-vui-select>
+				<cx-vui-input
+					label="<?php _e( 'Meta key', 'jet-engine' ); ?>"
+					description="<?php _e( 'Meta field name to order by', 'jet-engine' ); ?>"
+					v-if="'meta_value' === query.orderby || 'meta_value_num' === query.orderby"
+					:wrapper-css="[ 'equalwidth' ]"
+					size="fullwidth"
+					v-model="query.meta_key"
+				></cx-vui-input>
 				<cx-vui-f-select
 					v-if="'meta_clause' === query.orderby && metaClauses.length"
 					label="<?php _e( 'Meta Clause', 'jet-engine' ); ?>"
@@ -103,7 +66,7 @@
 				<cx-vui-component-wrapper
 					v-if="'meta_clause' === query.orderby && ! metaClauses.length"
 					label="<?php _e( 'Warning', 'jet-engine' ); ?>"
-					description="<?php _e( 'You not created any meta clauses yet. You can do this at the Meta Query tab. Note that Clause name option is required for the meta query if you want to use it for ordering', 'jet-engine' ); ?>"
+					description="<?php _e( 'You have not created any meta clauses yet. You can do this at the Meta Query tab. Note that Clause name option is required for the meta query if you want to use it for ordering', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 				></cx-vui-component-wrapper>
 				<cx-vui-select
@@ -358,6 +321,7 @@
 					v-model="query.meta_query_relation"
 				></cx-vui-select>
 			</cx-vui-tabs-panel>
+			<?php do_action( 'jet-engine/query-builder/terms/controls' ); ?>
 		</cx-vui-tabs>
 	</div>
 </div>

@@ -105,7 +105,7 @@ if ( ! class_exists( 'CX_Control_Media' ) ) {
 					$media_ids = array();
 
 					if ( '' !== $this->settings['label'] ) {
-						$html .= '<label class="cx-label" for="' . esc_attr( $this->settings['id'] ) . '">' . esc_html( $this->settings['label'] ) . '</label> ';
+						$html .= '<label class="cx-label" for="' . esc_attr( $this->settings['id'] ) . '">' . wp_kses_post( $this->settings['label'] ) . '</label> ';
 					}
 
 					$html .= '<div class="cx-ui-media-wrap">';
@@ -145,9 +145,11 @@ if ( ! class_exists( 'CX_Control_Media' ) ) {
 										case 'image/png':
 										case 'image/gif':
 										case 'image/svg+xml':
+										case 'image/webp':
 											$img_src    = wp_get_attachment_image_src( $media_id, 'thumbnail' );
 											$img_src    = $img_src[0];
-											$thumb      = '<img src="' . esc_html( $img_src ) . '" alt="">';
+											$img_alt    = get_post_meta( $media_id, '_wp_attachment_image_alt', true );
+											$thumb      = '<img src="' . esc_html( $img_src ) . '" alt="' . esc_attr( $img_alt ) . '">';
 											$thumb_type = 'image';
 											break;
 

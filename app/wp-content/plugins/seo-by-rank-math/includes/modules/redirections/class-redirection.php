@@ -11,8 +11,8 @@
 namespace RankMath\Redirections;
 
 use RankMath\Helper;
-use RankMath\Helpers\Sitepress;
-use MyThemeShop\Helpers\Url;
+use RankMath\Helpers\Url;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -144,7 +144,7 @@ class Redirection {
 	 * @return int
 	 */
 	public function get_id() {
-		return $this->id;
+		return $this->data['id'];
 	}
 
 	/**
@@ -154,6 +154,15 @@ class Redirection {
 	 */
 	public function set_id( $id ) {
 		$this->data['id'] = $id;
+	}
+
+	/**
+	 * Set item status.
+	 *
+	 * @param string $status Item status.
+	 */
+	public function set_status( $status ) {
+		$this->data['status'] = $status;
 	}
 
 	/**
@@ -198,6 +207,24 @@ class Redirection {
 		}
 
 		return $this->get_id();
+	}
+
+	/**
+	 * Check a newly added redirection for infinite loop.
+	 */
+	public function is_infinite_loop() {
+		$destination = $this->data['url_to'];
+		foreach ( $this->data['sources'] as $source ) {
+			if ( 'exact' !== $source['comparison'] ) {
+				continue;
+			}
+
+			$source_url = home_url( $source['pattern'] );
+			if ( $destination === $source_url ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -262,16 +289,19 @@ class Redirection {
 	 * @return string
 	 */
 	private function sanitize_source( $pattern, $comparison ) {
-		if ( 'regex' === $comparison ) {
+		if ( 'exact' === $comparison ) {
+			$pattern = $this->sanitize_source_url( $pattern );
+			if ( $pattern && false === $this->nocache ) {
+				$this->pre_redirection_cache( $pattern );
+			}
+
+			return $pattern;
+		} elseif ( 'regex' === $comparison ) {
 			return $this->sanitize_source_regex( $pattern );
 		}
 
-		$pattern = $this->sanitize_source_url( $pattern );
-		if ( $pattern && 'exact' === $comparison && false === $this->nocache ) {
-			$this->pre_redirection_cache( $pattern );
-		}
-
-		return $pattern;
+		// Other comparison types: "contains", "start", "end".
+		return filter_var( $pattern, FILTER_SANITIZE_SPECIAL_CHARS, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_BACKTICK );
 	}
 
 	/**
@@ -314,11 +344,12 @@ class Redirection {
 			return ltrim( $url, '/' );
 		}
 
-		$domain = $this->get_home_domain();
-		$url    = trailingslashit( $url );
-		$url    = str_replace( $domain . '#', $domain . '/#', $url ); // For website.com#URI link.
-		$domain = trailingslashit( $domain );
-		$search = [
+		$original = $url;
+		$domain   = $this->get_home_domain();
+		$url      = trailingslashit( $url );
+		$url      = str_replace( $domain . '#', $domain . '/#', $url );  // For website.com#URI link.
+		$domain   = trailingslashit( $domain );
+		$search   = [
 			'http://' . $domain,
 			'http://www.' . $domain,
 			'https://' . $domain,
@@ -334,7 +365,12 @@ class Redirection {
 			return false;
 		}
 
-		return urldecode( untrailingslashit( self::strip_subdirectory( $url ) ) );
+		// Remove trailing slash if original url doesn't have it.
+		if ( '/' !== substr( $original, -1 ) ) {
+			$url = untrailingslashit( $url );
+		}
+
+		return urldecode( self::strip_subdirectory( $url ) );
 	}
 
 	/**
@@ -428,7 +464,7 @@ class Redirection {
 			return $this->domain;
 		}
 
-		$this->domain = Url::get_domain( home_url() );
+		$this->domain = Url::get_host( home_url() );
 
 		return $this->domain;
 	}
@@ -441,10 +477,21 @@ class Redirection {
 	 * @return string
 	 */
 	public static function strip_subdirectory( $url ) {
-		Sitepress::get()->remove_home_url_filter();
-		$home_dir = ltrim( home_url( '', 'relative' ), '/' );
-		Sitepress::get()->restore_home_url_filter();
+		$home_dir = ltrim( Helper::get_home_url( '', 'relative' ), '/' );
 
 		return $home_dir ? str_replace( trailingslashit( $home_dir ), '', $url ) : $url;
+	}
+
+	/**
+	 * Get the current URI.
+	 *
+	 * @return string
+	 */
+	public static function get_full_uri() {
+		$uri = str_replace( home_url( '/' ), '', Param::server( 'REQUEST_URI' ) );
+		$uri = urldecode( $uri );
+		$uri = trim( self::strip_subdirectory( $uri ), '/' );
+
+		return $uri;
 	}
 }

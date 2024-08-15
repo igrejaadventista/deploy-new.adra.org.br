@@ -9,21 +9,20 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Block_Base class
 	 */
 	abstract class Jet_Smart_Filters_Block_Base {
 
-		protected $namespace  = 'jet-smart-filters/';
+		public $block_manager 		= null;
+		public $css_scheme    		= null;
+		public $controls_manager 	= null;
 
-		public $block_manager = null;
-
-		public $css_scheme    = null;
+		protected $namespace  		= 'jet-smart-filters/';
 
 		public function __construct() {
 
-			$attributes =$this->get_attributes();
+			$attributes = $this->get_attributes();
 
 			/**
 			 * Set default blocks attributes to avoid errors
@@ -33,7 +32,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 				'default' => '',
 			);
 
-			if( class_exists( 'JET_SM\Gutenberg\Block_Manager' ) && class_exists( 'JET_SM\Gutenberg\Block_Manager' ) ){
+			if ( class_exists( 'JET_SM\Gutenberg\Block_Manager' ) && class_exists( 'JET_SM\Gutenberg\Block_Manager' ) ) {
 				$this->set_css_scheme();
 				$this->set_style_manager_instance();
 				$this->add_style_manager_options();
@@ -70,8 +69,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 
 		/**
 		 * Return attributes array
-		 *
-		 * @return array
 		 */
 		public function get_attributes() {
 			return array(
@@ -146,7 +143,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 				),
 				'rating_icon' => array(
 					'type'    => 'string',
-					'default' => 'fa fa-star',
+					'default' => 'star',
 				),
 				'sorting_label' => array(
 					'type'    => 'string',
@@ -184,6 +181,24 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 						'type' => 'object'
 					]
 				),
+				'query_id' => array(
+					'type'    => 'string',
+					'default' => '',
+				),
+				// Additional providers
+				'additional_providers_enabled' => array(
+					'type'    => 'boolean',
+					'default' => false,
+				),
+				'additional_providers_list' => array(
+					'type'    => 'array',
+					'default' => array(
+						array(
+							'additional_provider'       => '',
+							'additional_providers_list' => '',
+						)
+					)
+				),
 				// Indexer
 				'apply_indexer' => array(
 					'type'    => 'boolean',
@@ -192,6 +207,14 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 				'show_counter' => array(
 					'type'    => 'boolean',
 					'default' => false,
+				),
+				'counter_prefix' => array(
+					'type'    => 'string',
+					'default' => '(',
+				),
+				'counter_suffix' => array(
+					'type'    => 'string',
+					'default' => ')',
 				),
 				'show_items_rule' => array(
 					'type'    => 'string',
@@ -211,6 +234,18 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 					'default' => 'full',
 				),
 				// Pagination Controls
+				'enable_items' => array(
+					'type'    => 'boolean',
+					'default' => true,
+				),
+				'pages_center_offset' => array(
+					'type'    => 'number',
+					'default' => 0,
+				),
+				'pages_end_offset' => array(
+					'type'    => 'number',
+					'default' => 0,
+				),
 				'enable_prev_next' => array(
 					'type'    => 'boolean',
 					'default' => true,
@@ -223,13 +258,21 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 					'type'    => 'string',
 					'default' => __( 'Next Text', 'jet-smart-filters' ),
 				),
-				'pages_center_offset' => array(
-					'type'    => 'number',
-					'default' => 0,
+				'hide_inactive_prev_next' => array(
+					'type'    => 'boolean',
+					'default' => true,
 				),
-				'pages_end_offset' => array(
-					'type'    => 'number',
-					'default' => 0,
+				'enable_load_more' => array(
+					'type'    => 'boolean',
+					'default' => false,
+				),
+				'load_more_text' => array(
+					'type'    => 'string',
+					'default' => __( 'Load More', 'jet-smart-filters' ),
+				),
+				'autoscroll' => array(
+					'type'    => 'boolean',
+					'default' => true,
 				),
 				'provider_top_offset' => array(
 					'type'    => 'number',
@@ -268,6 +311,26 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 					'type'    => 'string',
 					'default' => __( 'Select some options', 'jet-smart-filters' ),
 				),
+				'dropdown_n_selected_enabled' => array(
+					'type'    => 'boolean',
+					'default' => false,
+				),
+				'dropdown_n_selected_number' => array(
+					'type'    => 'number',
+					'default' => 3,
+				),
+				'dropdown_n_selected_text' => array(
+					'type'    => 'string',
+					'default' => __( 'and {number} others', 'jet-smart-filters', 'jet-smart-filters' ),
+				),
+				'dropdown_apply_button' => array(
+					'type'    => 'boolean',
+					'default' => false,
+				),
+				'dropdown_apply_button_text' => array(
+					'type'    => 'string',
+					'default' => __( 'Apply', 'jet-smart-filters' ),
+				),
 				'scroll_enabled' => array(
 					'type'    => 'boolean',
 					'default' => false,
@@ -281,10 +344,9 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 
 		/**
 		 * Set style manager class instance
-		 *
-		 * @return boolean
 		 */
-		public function  set_style_manager_instance(){
+		public function  set_style_manager_instance() {
+
 			$name              = $this->namespace . $this->get_name();
 
 			$this->block_manager = JET_SM\Gutenberg\Block_Manager::get_instance();
@@ -293,24 +355,18 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 
 		/**
 		 * Add style block options
-		 *
-		 * @return boolean
 		 */
-		public function add_style_manager_options(){}
+		public function add_style_manager_options() {}
 
 		/**
 		 * Set css classes
-		 *
-		 * @return boolean
 		 */
-		public function set_css_scheme(){
+		public function set_css_scheme() {
 			$this->css_scheme = [];
 		}
 
 		/**
 		 * Is editor context
-		 *
-		 * @return boolean
 		 */
 		public function is_editor() {
 			return isset( $_REQUEST['context'] ) && $_REQUEST['context'] === 'edit' ? true : false;
@@ -318,8 +374,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 
 		/**
 		 * Return callback
-		 *
-		 * @return html
 		 */
 		public function render_callback( $settings = array() ) {
 
@@ -345,60 +399,72 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 				$apply_type = $settings['apply_type'];
 			}
 
-			$filter_id            = $settings['filter_id'];
-			$base_class           = 'jet-smart-filters-' . $this->get_name();
-			$provider             = $settings['content_provider'];
-			$query_id             = 'default';
-			$show_label           = $settings['show_label'];
-			$show_items_label     = $settings['show_items_label'];
-			$show_decorator       = true;
-			$filter_image_size    = $settings['filter_image_size'];
-			$rating_icon          = '<i class="jet-rating-icon ' . $settings['rating_icon'] . '"></i>';
-			$apply_indexer        = $settings['apply_indexer'];
-			$indexer_class        = '';
-			$show_counter         = false;
-			$show_items_rule      = 'show';
-			$change_items_rule    = $settings['change_items_rule'];
+			$filter_id         = apply_filters( 'jet-smart-filters/render_filter_template/filter_id', $settings['filter_id'] );
+			$base_class        = 'jet-smart-filters-' . $this->get_name();
+			$provider          = $settings['content_provider'];
+			$query_id          = ! empty( $settings['query_id'] ) ? $settings['query_id'] : 'default';
+			$show_label        = $settings['show_label'];
+			$show_items_label  = $settings['show_items_label'];
+			$show_decorator    = true;
+			$filter_image_size = $settings['filter_image_size'];
+			$apply_indexer     = $settings['apply_indexer'];
+			$indexer_class     = '';
+			$show_counter      = false;
+			$show_items_rule   = 'show';
+			$change_items_rule = $settings['change_items_rule'];
+			$rating_icon       = method_exists( $this, 'get_rating_icon' )
+				? $this->get_rating_icon( $settings['rating_icon'] )
+				: '';
+
+			// additional providers
+			$additional_providers = jet_smart_filters()->utils->get_additional_providers( $settings );
+
+			/**
+			 * Additional settings
+			 */
 			// search
-			$search_enabled       = ! empty( $settings['search_enabled'] ) ? filter_var( $settings['search_enabled'], FILTER_VALIDATE_BOOLEAN ) : false;
-			$search_placeholder   = ! empty( $settings['search_placeholder'] ) && $search_enabled ? $settings['search_placeholder'] : false;
+			$search_enabled   = ! empty( $settings['search_enabled'] ) ? filter_var( $settings['search_enabled'], FILTER_VALIDATE_BOOLEAN ) : false;
 			// more/less
-			$less_items_count     = ! empty( $settings['moreless_enabled'] ) && ! empty( $settings['less_items_count'] ) ? (int)$settings['less_items_count'] : false;
-			$more_text            = ! empty( $settings['more_text'] ) ? $settings['more_text'] : false;
-			$less_text            = ! empty( $settings['less_text'] ) ? $settings['less_text'] : false;
+			$less_items_count = ! empty( $settings['moreless_enabled'] ) && ! empty( $settings['less_items_count'] ) ? (int)$settings['less_items_count'] : false;
 			// dropdown
-			$dropdown_enabled     = ! empty( $settings['dropdown_enabled'] ) ? $settings['dropdown_enabled'] : false;
-			$dropdown_placeholder = ! empty( $settings['dropdown_placeholder'] ) ? $settings['dropdown_placeholder'] : false;
+			$dropdown_enabled = ! empty( $settings['dropdown_enabled'] ) ? $settings['dropdown_enabled'] : false;
 			// scroll
-			$scroll_height        = ! empty( $settings['scroll_enabled'] ) && ! empty( $settings['scroll_height'] ) ? (int)$settings['scroll_height'] : false;
+			$scroll_height    = ! empty( $settings['scroll_enabled'] ) && ! empty( $settings['scroll_height'] ) ? (int)$settings['scroll_height'] : false;
 
 			if ( $apply_indexer ) {
 				$indexer_class   = 'jet-filter-indexed';
 				$show_counter    = $settings['show_counter'] === true ? 'yes' : false;
 				$show_items_rule = $settings['show_items_rule'];
+
+				if ( $show_counter ) {
+					$counter_prefix = ! empty( $settings['counter_prefix'] ) ? $settings['counter_prefix'] : false;
+					$counter_suffix = ! empty( $settings['counter_suffix'] ) ? $settings['counter_suffix'] : false;
+				}
 			}
 
-			jet_smart_filters()->admin_bar->register_post_item( $filter_id );
+			jet_smart_filters()->admin_bar_register_item( $filter_id );
 
 			ob_start();
 
 			printf(
-				'<div class="%1$s jet-filter %2$s" data-indexer-rule="%3$s" data-show-counter="%4$s" data-change-counter="%5$s">',
+				'<div class="%1$s jet-filter %2$s" data-is-block="jet-smart-filters/%3$s" data-indexer-rule="%4$s" data-show-counter="%5$s" data-change-counter="%6$s">',
 				apply_filters( 'jet-smart-filters/render_filter_template/base_class', $base_class, $filter_id ),
 				$indexer_class,
+				$this->get_name(),
 				$show_items_rule,
 				$show_counter,
 				$change_items_rule
 			);
 
 			$filter_template_args =  array(
-				'filter_id'        => $filter_id,
-				'content_provider' => $provider,
-				'apply_type'       => $apply_type,
-				'query_id'         => $query_id,
-				'show_label'       => $show_label,
-				'rating_icon'      => $rating_icon,
-				'display_options'  => array(
+				'filter_id'            => $filter_id,
+				'content_provider'     => $provider,
+				'additional_providers' => $additional_providers,
+				'apply_type'           => $apply_type,
+				'query_id'             => $query_id,
+				'show_label'           => $show_label,
+				'rating_icon'          => $rating_icon,
+				'display_options'      => array(
 					'show_items_label'  => $show_items_label,
 					'show_decorator'    => $show_decorator,
 					'filter_image_size' => $filter_image_size,
@@ -406,21 +472,45 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 				),
 			);
 
+			if ( ! empty( $counter_prefix ) ) {
+				$filter_template_args['display_options']['counter_prefix'] = $counter_prefix;
+			}
+
+			if ( ! empty( $counter_suffix ) ) {
+				$filter_template_args['display_options']['counter_suffix'] = $counter_suffix;
+			}
+
 			// hide main label is hierarchical select
 			if ( $this->get_name() === 'select' && filter_var( get_post_meta( $filter_id, '_is_hierarchical', true ), FILTER_VALIDATE_BOOLEAN ) ) {
 				$show_label = false;
 			}
 
 			// search
-			if ( $search_enabled ) $filter_template_args['search_enabled'] = $search_enabled;
-			if ( $search_placeholder ) $filter_template_args['search_placeholder'] = htmlspecialchars( $search_placeholder );
+			if ( $search_enabled ) {
+				$filter_template_args['search_enabled']     = $search_enabled;
+				$filter_template_args['search_placeholder'] = ! empty( $settings['search_placeholder'] ) && $search_enabled ? $settings['search_placeholder'] : false;
+			}
 			// more/less
-			if ( $less_items_count ) $filter_template_args['less_items_count'] = $less_items_count;
-			if ( $more_text ) $filter_template_args['more_text'] = htmlspecialchars( $more_text );
-			if ( $less_text ) $filter_template_args['less_text'] = htmlspecialchars( $less_text );
+			if ( $less_items_count ) {
+				$filter_template_args['less_items_count'] = $less_items_count;
+				$filter_template_args['more_text']        = ! empty( $settings['more_text'] ) ? htmlspecialchars( $settings['more_text'] ) : __( 'More', 'jet-smart-filters' );
+				$filter_template_args['less_text']        = ! empty( $settings['less_text'] ) ? htmlspecialchars( $settings['less_text'] ) : __( 'Less', 'jet-smart-filters' );
+			}
 			//dropdown
-			if ( $dropdown_enabled ) $filter_template_args['dropdown_enabled'] = $dropdown_enabled;
-			if ( $dropdown_placeholder ) $filter_template_args['dropdown_placeholder'] = $dropdown_placeholder;
+			if ( $dropdown_enabled ) {
+				$filter_template_args['dropdown_enabled']           = $dropdown_enabled;
+				$filter_template_args['dropdown_placeholder']       = ! empty( $settings['dropdown_placeholder'] ) ? $settings['dropdown_placeholder'] : __( 'Select some options', 'jet-smart-filters' );
+				$filter_template_args['dropdown_apply_button']      = ! empty( $settings['dropdown_apply_button'] ) ? $settings['dropdown_apply_button'] : false;
+				$filter_template_args['dropdown_apply_button_text'] = ! empty( $settings['dropdown_apply_button_text'] ) ? $settings['dropdown_apply_button_text'] : esc_html__( 'Apply', 'jet-smart-filters' );
+
+				// dropdown n selected
+				$dropdown_n_selected_enabled = ! empty( $settings['dropdown_n_selected_enabled'] ) ? filter_var( $settings['dropdown_n_selected_enabled'], FILTER_VALIDATE_BOOLEAN ) : false;
+				if ( $dropdown_n_selected_enabled ) {
+					$filter_template_args['dropdown_n_selected_enabled'] = $dropdown_n_selected_enabled;
+					$filter_template_args['dropdown_n_selected_number']  = isset( $settings['dropdown_n_selected_number'] ) && $settings['dropdown_n_selected_number'] >= 0 ? $settings['dropdown_n_selected_number'] : 3;
+					$filter_template_args['dropdown_n_selected_text']    = isset( $settings['dropdown_n_selected_text'] ) ? $settings['dropdown_n_selected_text'] : __( 'and {number} others', 'jet-smart-filters' );
+				}
+			}
 			// scroll
 			if ( $scroll_height ) $filter_template_args['scroll_height'] = $scroll_height;
 			//indexer
@@ -437,16 +527,11 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Base' ) ) {
 			$filter_layout = ob_get_clean();
 
 			return $filter_layout;
-
 		}
 
 		/**
 		 * Return filter name
-		 *
-		 * @return String
 		 */
 		abstract public function get_name();
-
 	}
-
 }

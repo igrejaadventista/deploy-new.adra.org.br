@@ -33,11 +33,27 @@ class Get_Map_Marker_Info extends \Jet_Engine_Base_API_Endpoint {
 			) );
 		}
 
+		$queried_id = 0;
+
+		// Set the current queried object.
+		if ( ! empty( $params['queried_id'] ) ) {
+			$queried_obj_data = explode( '|', $params['queried_id'] );
+			$queried_id       = ! empty( $queried_obj_data[0] ) ? absint( $queried_obj_data[0] ) : false;
+			$queried_class    = ! empty( $queried_obj_data[1] ) ? $queried_obj_data[1] : 'WP_Post';
+
+			if ( $queried_id ) {
+				jet_engine()->listings->data->set_current_object_by_id( $queried_id, $queried_class );
+			}
+		}
+
+		// Set the current element id.
+		$element_id = $params['element_id'] ?? '';
+
 		jet_engine()->listings->data->set_listing_by_id( $listing_id );
 
 		$post_obj = false;
 
-		$listing_source  = ! empty( $params['source'] ) ? $params['source'] : 'posts';
+		$listing_source  = ( ! empty( $params['source'] ) && 'null' !== $params['source'] ) ? $params['source'] : 'posts';
 		$source_instance = Module::instance()->sources->get_source( $listing_source );
 
 		if ( $source_instance ) {
@@ -60,12 +76,12 @@ class Get_Map_Marker_Info extends \Jet_Engine_Base_API_Endpoint {
 
 		jet_engine()->frontend->set_listing( $listing_id );
 
-		do_action( 'jet-engine/maps-listings/get-map-marker' );
+		do_action( 'jet-engine/maps-listings/get-map-marker', $listing_id, $queried_id, $element_id );
 
 		ob_start();
 
 		$content = jet_engine()->frontend->get_listing_item( $post_obj );
-		$content = sprintf( '<div class="jet-map-popup-%1$d jet-listing-dynamic-post-%1$d" data-item-object="%1$d">%2$s</div>', $post_id, $content );
+		$content = sprintf( '<div class="jet-map-popup-%1$s jet-listing-dynamic-post-%1$s" data-item-object="%1$s">%2$s</div>', $post_id, $content );
 		$content = apply_filters( 'jet-engine/maps-listings/marker-content', $content, $post_obj, $listing_id );
 
 		$content .= ob_get_clean();
@@ -90,7 +106,8 @@ class Get_Map_Marker_Info extends \Jet_Engine_Base_API_Endpoint {
 
 	/**
 	 * Check user access to current end-popint
-	 *
+	 * This is public endpoint so it always accessible
+	 * 
 	 * @return bool
 	 */
 	public function permission_callback( $request ) {
@@ -114,6 +131,10 @@ class Get_Map_Marker_Info extends \Jet_Engine_Base_API_Endpoint {
 			),
 			'source' => array(
 				'default'  => 'posts',
+				'required' => false,
+			),
+			'queried_id' => array(
+				'default'  => '',
 				'required' => false,
 			),
 		);

@@ -37,7 +37,7 @@ class Jet_Engine_Module_Post_Expiration_Period extends Jet_Engine_External_Modul
 	 * @return string
 	 */
 	public function module_name() {
-		return __( 'Post expiration period', 'jet-engine' );
+		return __( 'Post Expiration Period', 'jet-engine' );
 	}
 
 	/**
@@ -68,7 +68,12 @@ class Jet_Engine_Module_Post_Expiration_Period extends Jet_Engine_External_Modul
 	 * @return array
 	 */
 	public function get_module_links() {
-		return array();
+		return array(
+			array(
+				'label' => __( 'Post Expiration Period Overview', 'jet-engine' ),
+				'url'   => 'https://crocoblock.com/knowledge-base/articles/jetengine-devtools-post-expiration-period-add-on/',
+			),
+		);
 	}
 
 	/**

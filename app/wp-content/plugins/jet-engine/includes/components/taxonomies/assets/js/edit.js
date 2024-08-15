@@ -19,6 +19,8 @@
 			showDeleteDialog: false,
 			initialSlug: null,
 			updateTerms: false,
+			resetDialog: false,
+			isBuiltIn: false,
 			saving: false,
 			errors: {
 				name: false,
@@ -26,16 +28,29 @@
 				post_type: false,
 			},
 			errorNotices: [],
+			incorrectSlugMessage: JetEngineCPTConfig.slug_error,
+			showIncorrectSlug: false,
 		},
 		mounted: function() {
 
-			var self = this;
+			var self = this,
+				path = null;
+
+			if ( JetEngineCPTConfig.is_built_in ) {
+				self.isBuiltIn = true;
+			}
 
 			if ( JetEngineCPTConfig.item_id ) {
 
+				if ( JetEngineCPTConfig.item_id > 0 ) {
+					path = JetEngineCPTConfig.api_path_get + JetEngineCPTConfig.item_id;
+				} else {
+					path = JetEngineCPTConfig.api_path_get;
+				}
+
 				wp.apiFetch( {
 					method: 'get',
-					path: JetEngineCPTConfig.api_path_get + JetEngineCPTConfig.item_id,
+					path: path,
 				} ).then( function( response ) {
 
 					if ( response.success && response.data ) {
@@ -142,7 +157,22 @@
 					path      = JetEngineCPTConfig.api_path_edit;
 
 				if ( JetEngineCPTConfig.item_id ) {
-					path += JetEngineCPTConfig.item_id;
+					if ( self.isBuiltIn ) {
+						path += self.generalSettings.slug;
+					} else {
+						path += JetEngineCPTConfig.item_id;
+					}
+				}
+
+				if ( this.showIncorrectSlug ) {
+
+					self.$CXNotice.add( {
+						message: this.incorrectSlugMessage,
+						type: 'error',
+						duration: 7000,
+					}, 'name' );
+
+					hasErrors = true;
 				}
 
 				if ( ! self.generalSettings.name ) {
@@ -213,6 +243,7 @@
 								type: 'success',
 							} );
 
+							self.$set( self.generalSettings, 'id', response.item_id );
 							self.saving = false;
 						}
 					} else {
@@ -261,10 +292,21 @@
 					// Replace cyrillic
 					slug = window.JetEngineTools.maybeCyrToLatin( slug );
 
+					if ( 32 < slug.length ) {
+						slug = slug.substr( 0, 32 );
+
+						if ( '-' === slug.slice( -1 ) ) {
+							slug = slug.slice( 0, -1 );
+						}
+					}
+
 					this.$set( this.generalSettings, 'slug', slug );
 
 				}
 
+			},
+			checkSlug: function() {
+				this.showIncorrectSlug = ( 32 < this.generalSettings.slug.length );
 			},
 			isCollapsed: function( object ) {
 
@@ -273,6 +315,37 @@
 				} else {
 					return false;
 				}
+
+			},
+			resetToDefaults: function() {
+
+				var self = this;
+
+				self.resetDialog = false;
+
+				if ( self.errorNotices.length ) {
+					self.errorNotices.splice( 0, self.errorNotices.length );
+				}
+
+				wp.apiFetch( {
+					method: 'delete',
+					path: JetEngineCPTConfig.api_path_reset + self.generalSettings.slug,
+					data: {},
+				} ).then( function( response ) {
+
+					if ( response.success ) {
+						window.location.reload();
+					} else {
+						if ( response.notices.length ) {
+							response.notices.forEach( function( notice ) {
+								self.errorNotices.push( notice.message );
+							} );
+						}
+					}
+
+				} ).catch( function( response ) {
+					self.errorNotices.push( response.message );
+				} );
 
 			}
 		}

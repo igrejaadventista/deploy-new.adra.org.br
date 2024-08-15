@@ -7,7 +7,6 @@
 	} from "svelte";
 	import {writable} from "svelte/store";
 	import {slide} from "svelte/transition";
-	import {pop} from "svelte-spa-router";
 	import {
 		api,
 		settings,
@@ -17,6 +16,7 @@
 		urls,
 		current_settings,
 		needs_refresh,
+		revalidatingSettings,
 		state
 	} from "../js/stores";
 	import {scrollIntoView} from "../js/scrollIntoView";
@@ -157,7 +157,7 @@
 			return $strings.defined_region_invalid;
 		}
 
-		const bucketNamePattern = /[^a-z0-9.-]/;
+		const bucketNamePattern = source === "new" ? /[^a-z0-9.\-]/ : /[^a-zA-Z0-9.\-_]/;
 
 		let message = "";
 
@@ -169,7 +169,7 @@
 
 			}
 		} else if ( true === bucketNamePattern.test( bucket ) ) {
-			message = $strings.create_bucket_invalid_chars;
+			message = source === "new" ? $strings.create_bucket_invalid_chars : $strings.select_bucket_invalid_chars;
 		} else if ( bucket.length < 3 ) {
 			message = $strings.create_bucket_name_short;
 		} else if ( bucket.length > 63 ) {
@@ -229,13 +229,14 @@
 		if ( result.hasOwnProperty( "saved" ) && !result.saved ) {
 			settings.reset();
 			saving = false;
-			state.resumePeriodicFetch();
+			await state.resumePeriodicFetch();
 
 			scrollNotificationsIntoView();
 			return;
 		}
 
-		state.resumePeriodicFetch();
+		$revalidatingSettings = true;
+		const statePromise = state.resumePeriodicFetch();
 
 		result.bucketSource = bucketSource;
 		result.initialSettings = initialSettings;
@@ -245,6 +246,11 @@
 			data: result,
 			default: "/"
 		} );
+
+		// Just make sure periodic state fetch promise is done with,
+		// even though we don't really care about it.
+		await statePromise;
+		$revalidatingSettings = false;
 	}
 
 	onMount( () => {
@@ -339,6 +345,9 @@
 						<ul class="bucket-list">
 							{#if buckets.length}
 								{#each buckets as bucket}
+									<!-- TODO: Fix a11y. -->
+									<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+									<!-- svelte-ignore a11y-click-events-have-key-events -->
 									<li
 										class="row"
 										class:active={newBucket === bucket.Name}
@@ -362,7 +371,7 @@
 					{/await}
 				{/if}
 				{#if invalidBucketNameMessage}
-					<p class="input-error" transition:slide|local>{invalidBucketNameMessage}</p>
+					<p class="input-error" transition:slide>{invalidBucketNameMessage}</p>
 				{/if}
 			</PanelRow>
 		</Panel>
@@ -403,7 +412,7 @@
 					</div>
 				</div>
 				{#if invalidBucketNameMessage}
-					<p class="input-error" transition:slide|local>{invalidBucketNameMessage}</p>
+					<p class="input-error" transition:slide>{invalidBucketNameMessage}</p>
 				{/if}
 			</PanelRow>
 		</Panel>

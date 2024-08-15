@@ -116,6 +116,7 @@
 
 				if ( 'post' !== this.generalSettings.object_type ) {
 					options.push( 'quick_editable' );
+					options.push( 'revision_support' );
 				}
 
 				return options;

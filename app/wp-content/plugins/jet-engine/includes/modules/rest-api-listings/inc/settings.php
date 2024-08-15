@@ -78,11 +78,16 @@ class Settings {
 			$items = Module::instance()->request->set_endpoint( $item, true )->get_items( array(), true );
 
 			if ( false === $items ) {
-				wp_send_json_error( array( 'message' => Module::instance()->request->get_error() ) );
+				wp_send_json_error( 
+					array( 
+						'message' => Module::instance()->request->get_error(), 
+						'error_details' => Module::instance()->request->get_error_details() 
+					) 
+				);
 			}
 
 			if ( ! is_array( $items ) ) {
-				wp_send_json_error( array( 'message' => __( 'API endpoint, connected but items list has incorrect format. Please check Path option to make sure you set correct path to the items list in the response', 'jet-engine' ) ) );
+				wp_send_json_error( array( 'message' => __( 'The API endpoint is connected, but the items list has an incorrect format. Please check the Items path option to make sure you set the correct path to the items list in the response', 'jet-engine' ) ) );
 			}
 
 			$sample_item = $items[0];
@@ -115,7 +120,7 @@ class Settings {
 			$message = __( 'Endpoint settings updated', 'jet-engine' );
 
 			if ( $with_sample_request ) {
-				$message = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect x="0" fill="none" width="20" height="20"></rect><g><path d="M10 2c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm-.615 12.66h-1.34l-3.24-4.54 1.34-1.25 2.57 2.4 5.14-5.93 1.34.94-5.81 8.38z"></path></g></svg>' . __( 'Request succesfully sent. Sample item is fetched. Endpoint settings updated', 'jet-engine' );
+				$message = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><rect x="0" fill="none" width="20" height="20"></rect><g><path d="M10 2c-4.42 0-8 3.58-8 8s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm-.615 12.66h-1.34l-3.24-4.54 1.34-1.25 2.57 2.4 5.14-5.93 1.34.94-5.81 8.38z"></path></g></svg>' . __( 'Request successfully sent. The sample item is fetched. Endpoint settings updated', 'jet-engine' );
 			}
 
 			wp_send_json_success( array(
@@ -248,55 +253,65 @@ class Settings {
 	public function print_templates() {
 		?>
 		<script type="text/x-template" id="jet_engine_rest_api_listings">
-			<div class="cx-vui-inner-panel">
-				<div tabindex="0" class="cx-vui-repeater">
-					<div class="cx-vui-repeater__items">
-						<div :class="{ 'cx-vui-repeater-item': true, 'cx-vui-panel': true, 'cx-vui-repeater-item--is-collpased': editID !== item.id }" v-for="( item, index ) in items">
-							<div :class="{ 'cx-vui-repeater-item__heading': true, 'cx-vui-repeater-item__heading--is-collpased': editID !== item.id }">
-								<div class="cx-vui-repeater-item__heading-start" @click="setEdit( item.id )">
-									<svg v-if="editID !== item.id" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="cx-vui-repeater-item__collapse cx-vui-repeater-item__collapse--is-collpased"><rect width="14" height="14" transform="matrix(1 0 0 -1 0 14)" fill="white"></rect><path d="M13 5.32911L7 11L1 5.32911L2.40625 4L7 8.34177L11.5938 4L13 5.32911Z"></path></svg>
-									<svg v-else width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="cx-vui-repeater-item__collapse"><rect width="14" height="14" transform="matrix(1 0 0 -1 0 14)" fill="white"></rect><path d="M13 5.32911L7 11L1 5.32911L2.40625 4L7 8.34177L11.5938 4L13 5.32911Z"></path></svg>
-									<div class="cx-vui-repeater-item__title">{{ item.name }}</div>
-									<div class="cx-vui-repeater-item__subtitle">{{ item.url }}</div>
-								</div>
-								<div class="cx-vui-repeater-item__heading-end">
-									<div class="cx-vui-repeater-item__clean" @click="deleteID = item.id">
-										<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="16" height="16" transform="matrix(1 0 0 -1 0 16)" fill="white"></rect><path d="M2.28564 14.192V3.42847H13.7142V14.192C13.7142 14.6685 13.5208 15.0889 13.1339 15.4533C12.747 15.8177 12.3005 15.9999 11.7946 15.9999H4.20529C3.69934 15.9999 3.25291 15.8177 2.866 15.4533C2.4791 15.0889 2.28564 14.6685 2.28564 14.192Z"></path><path d="M14.8571 1.14286V2.28571H1.14282V1.14286H4.57139L5.56085 0H10.4391L11.4285 1.14286H14.8571Z"></path></svg>
-										<div class="cx-vui-tooltip" v-if="deleteID === item.id">
-											<?php _e( 'Are you sure?', 'jet-engine' ); ?>
-											<br><span class="cx-vui-repeater-item__confrim-del" @click.stop="deleteEndpoint( item.id, index )"><?php _e( 'Yes', 'jet-engine' ); ?></span>&nbsp;/&nbsp;<span class="cx-vui-repeater-item__cancel-del" @click.stop="deleteID = false"><?php _e( 'No', 'jet-engine' ); ?></span>
+			<div>
+				<div class="cx-vui-component">
+					<div class="cx-vui-component__meta">
+						<a href="https://crocoblock.com/blog/jetengine-rest-api-new-features-and-use-cases/?utm_source=jetengine&utm_medium=rest-api-listings&utm_campaign=need-help" target="_blank" class="jet-engine-dash-help-link">
+							<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.4413 7.39906C10.9421 6.89828 11.1925 6.29734 11.1925 5.59624C11.1925 4.71987 10.8795 3.9687 10.2535 3.34272C9.62754 2.71674 8.87637 2.40376 8 2.40376C7.12363 2.40376 6.37246 2.71674 5.74648 3.34272C5.1205 3.9687 4.80751 4.71987 4.80751 5.59624H6.38498C6.38498 5.17058 6.54773 4.79499 6.87324 4.46948C7.19875 4.14398 7.57434 3.98122 8 3.98122C8.42566 3.98122 8.80125 4.14398 9.12676 4.46948C9.45227 4.79499 9.61502 5.17058 9.61502 5.59624C9.61502 6.02191 9.45227 6.3975 9.12676 6.723L8.15024 7.73709C7.52426 8.41315 7.21127 9.16432 7.21127 9.99061V10.4038H8.78873C8.78873 9.57747 9.10172 8.82629 9.7277 8.15024L10.4413 7.39906ZM8.78873 13.5962V12.0188H7.21127V13.5962H8.78873ZM2.32864 2.3662C3.9061 0.788732 5.79656 0 8 0C10.2034 0 12.0814 0.788732 13.6338 2.3662C15.2113 3.91862 16 5.79656 16 8C16 10.2034 15.2113 12.0939 13.6338 13.6714C12.0814 15.2238 10.2034 16 8 16C5.79656 16 3.9061 15.2238 2.32864 13.6714C0.776213 12.0939 0 10.2034 0 8C0 5.79656 0.776213 3.91862 2.32864 2.3662Z" fill="#007CBA"></path></svg>
+							What is this and how it works?
+						</a>
+					</div>
+				</div>
+				<div class="cx-vui-inner-panel">
+					<div tabindex="0" class="cx-vui-repeater">
+						<div class="cx-vui-repeater__items">
+							<div :class="{ 'cx-vui-repeater-item': true, 'cx-vui-panel': true, 'cx-vui-repeater-item--is-collpased': editID !== item.id }" v-for="( item, index ) in items">
+								<div :class="{ 'cx-vui-repeater-item__heading': true, 'cx-vui-repeater-item__heading--is-collpased': editID !== item.id }">
+									<div class="cx-vui-repeater-item__heading-start" @click="setEdit( item.id )">
+										<svg v-if="editID !== item.id" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="cx-vui-repeater-item__collapse cx-vui-repeater-item__collapse--is-collpased"><rect width="14" height="14" transform="matrix(1 0 0 -1 0 14)" fill="white"></rect><path d="M13 5.32911L7 11L1 5.32911L2.40625 4L7 8.34177L11.5938 4L13 5.32911Z"></path></svg>
+										<svg v-else width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" class="cx-vui-repeater-item__collapse"><rect width="14" height="14" transform="matrix(1 0 0 -1 0 14)" fill="white"></rect><path d="M13 5.32911L7 11L1 5.32911L2.40625 4L7 8.34177L11.5938 4L13 5.32911Z"></path></svg>
+										<div class="cx-vui-repeater-item__title">{{ item.name }}</div>
+										<div class="cx-vui-repeater-item__subtitle">{{ item.url }}</div>
+									</div>
+									<div class="cx-vui-repeater-item__heading-end">
+										<div class="cx-vui-repeater-item__clean" @click="deleteID = item.id">
+											<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect width="16" height="16" transform="matrix(1 0 0 -1 0 16)" fill="white"></rect><path d="M2.28564 14.192V3.42847H13.7142V14.192C13.7142 14.6685 13.5208 15.0889 13.1339 15.4533C12.747 15.8177 12.3005 15.9999 11.7946 15.9999H4.20529C3.69934 15.9999 3.25291 15.8177 2.866 15.4533C2.4791 15.0889 2.28564 14.6685 2.28564 14.192Z"></path><path d="M14.8571 1.14286V2.28571H1.14282V1.14286H4.57139L5.56085 0H10.4391L11.4285 1.14286H14.8571Z"></path></svg>
+											<div class="cx-vui-tooltip" v-if="deleteID === item.id">
+												<?php _e( 'Are you sure?', 'jet-engine' ); ?>
+												<br><span class="cx-vui-repeater-item__confrim-del" @click.stop="deleteEndpoint( item.id, index )"><?php _e( 'Yes', 'jet-engine' ); ?></span>&nbsp;/&nbsp;<span class="cx-vui-repeater-item__cancel-del" @click.stop="deleteID = false"><?php _e( 'No', 'jet-engine' ); ?></span>
+											</div>
 										</div>
 									</div>
 								</div>
-							</div>
-							<div :class="{ 'cx-vui-repeater-item__content': true, 'cx-vui-repeater-item__content--is-collpased': editID !== item.id }">
-								<jet-engine-rest-api-listing-item :value="item"/>
+								<div :class="{ 'cx-vui-repeater-item__content': true, 'cx-vui-repeater-item__content--is-collpased': editID !== item.id }">
+									<jet-engine-rest-api-listing-item :value="item"/>
+								</div>
 							</div>
 						</div>
-					</div>
-					<div class="cx-vui-repeater__actions">
-						<cx-vui-button
-							button-style="accent-border"
-							size="mini"
-							:disabled="isBusy"
-							@click="newEndpoint"
-						>
-							<span
-								slot="label"
-								v-html="'<?php _e( '+ New Endpoint', 'jet-engine' ); ?>'"
-							></span>
-						</cx-vui-button>
-						<cx-vui-button
-							button-style="link-accent"
-							size="mini"
-							:disabled="isBusy"
-							@click="newEndpoint( $event, true )"
-						>
-							<span
-								slot="label"
-								v-html="'<?php _e( 'Add Sample Endpoint', 'jet-engine' ); ?>'"
-							></span>
-						</cx-vui-button>
+						<div class="cx-vui-repeater__actions">
+							<cx-vui-button
+								button-style="accent-border"
+								size="mini"
+								:disabled="isBusy"
+								@click="newEndpoint"
+							>
+								<span
+									slot="label"
+									v-html="'<?php _e( '+ New Endpoint', 'jet-engine' ); ?>'"
+								></span>
+							</cx-vui-button>
+							<cx-vui-button
+								button-style="link-accent"
+								size="mini"
+								:disabled="isBusy"
+								@click="newEndpoint( $event, true )"
+							>
+								<span
+									slot="label"
+									v-html="'<?php _e( 'Add Sample Endpoint', 'jet-engine' ); ?>'"
+								></span>
+							</cx-vui-button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -319,14 +334,14 @@ class Settings {
 				></cx-vui-input>
 				<cx-vui-input
 					label="<?php _e( 'Items path', 'jet-engine' ); ?>"
-					description="<?php _e( 'Path to the items inside APIs response. If response contain only items leave `/`, if items are nested please set path to the items separated with `/` for example `/data/items`', 'jet-engine' ); ?>"
+					description="<?php _e( 'Path to the items inside APIs response. If the response contains only items, leave `/`, if items are nested, please set the path to the items separated with `/` for example: `/data/items`. <a href=\'https://crocoblock.com/knowledge-base/troubleshooting/getting-the-right-item-path-for-rest-api/\' targer=\'blank\'>More instructions here</a>', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					size="fullwidth"
 					v-model="settings.items_path"
 				></cx-vui-input>
 				<cx-vui-switcher
 					label="<?php _e( 'Authorization', 'jet-engine' ); ?>"
-					description="<?php _e( 'API endpoints requires authorization', 'jet-engine' ); ?>"
+					description="<?php _e( 'API endpoints require authorization', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="settings.authorization"
 				></cx-vui-switcher>
@@ -348,7 +363,7 @@ class Settings {
 				<?php do_action( 'jet-engine/rest-api-listings/settings/auth-controls' ); ?>
 				<cx-vui-component-wrapper
 					label="<?php _e( 'Status', 'jet-engine' ); ?>"
-					description="<?php _e( 'Is endpoint connected or not. To make endpoint connected you need to send a sample request to test authorization and fetch sample data. Without this it may not work properly in the listing grid.', 'jet-engine' ); ?>"
+					description="<?php _e( 'Is the endpoint connected or not. To connect the endpoint, you need to send a sample request to test authorization and fetch sample data. Without this, it may not work properly in the listing grid.', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 				>
 					<div v-if="settings.connected" class="jet-rest-api-connected">

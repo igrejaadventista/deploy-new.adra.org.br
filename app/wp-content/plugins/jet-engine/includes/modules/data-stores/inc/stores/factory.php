@@ -31,6 +31,8 @@ class Factory {
 			return;
 		}
 
+		$this->get_type()->on_init();
+
 		if ( $this->get_type()->is_front_store() ) {
 			add_action( 'jet-engine/listings/frontend-scripts', array( $this, 'register_store_instatnces_js_object' ) );
 		}

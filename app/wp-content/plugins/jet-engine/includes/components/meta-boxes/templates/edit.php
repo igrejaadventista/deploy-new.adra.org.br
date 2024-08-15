@@ -36,6 +36,12 @@
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="generalSettings.show_edit_link"
 				></cx-vui-switcher>
+				<cx-vui-switcher
+					label="<?php _e( 'Hide meta field names', 'jet-engine' ); ?>"
+					description="<?php _e( 'Hide meta field names on post/term/user edit page.', 'jet-engine' ); ?>"
+					:wrapper-css="[ 'equalwidth' ]"
+					v-model="generalSettings.hide_field_names"
+				></cx-vui-switcher>
 			</div>
 		</cx-vui-collapse>
 		<cx-vui-collapse
@@ -169,6 +175,18 @@
 							:key="'notice_' + index"
 						>{{ notice }}</div>
 					</div>
+				</div>
+			</div>
+			<div class="jet-engine-edit-page__actions-extra-settings cx-vui-panel">
+				<div class="jet-engine-reverse-switcher cx-vui-component">
+					<div class="cx-vui-component__control">
+						<cx-vui-switcher
+							:prevent-wrap="true"
+							v-model="generalSettings.delete_metadata"
+						></cx-vui-switcher>
+						<div class="cx-vui-component__label"><?php _e( 'Delete metadata', 'jet-engine' ); ?></div>
+					</div>
+					<div class="cx-vui-component__desc"><?php _e( 'Toggle this option to delete metadata from the database for the deleted meta fields or when deleting the Meta Box.', 'jet-engine' ); ?></div>
 				</div>
 			</div>
 			<div class="cx-vui-hr"></div>

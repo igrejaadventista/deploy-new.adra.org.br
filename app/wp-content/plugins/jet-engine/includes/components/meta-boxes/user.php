@@ -29,6 +29,27 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 		 */
 		public function __construct( $args, $meta_box ) {
 
+			$this->args     = $args;
+			$this->meta_box = $meta_box;
+
+			if ( ! empty( $args['hide_field_names'] ) ) {
+				$this->hide_field_names = $args['hide_field_names'];
+			}
+
+			$fields = $this->prepare_meta_fields( $meta_box );
+			$this->fields = $fields;
+
+			if ( ! empty( $this->show_in_rest ) ) {
+				
+				if ( ! class_exists( 'Jet_Engine_Rest_User_Meta' ) ) {
+					require jet_engine()->meta_boxes->component_path( 'rest-api/fields/user-meta.php' );
+				}
+				
+				foreach ( $this->show_in_rest as $field ) {
+					new Jet_Engine_Rest_User_Meta( $field, null );
+				}
+			}
+
 			if ( ! is_admin() ) {
 				return;
 			}
@@ -36,10 +57,6 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 			if ( ! jet_engine()->meta_boxes->conditions->check_conditions( $this->get_box_id(), $args ) ) {
 				return;
 			}
-
-			$this->args     = $args;
-			$this->fields   = $meta_box;
-			$this->meta_box = $meta_box;
 
 			add_action( 'current_screen', array( $this, 'init_on_allowed_screens' ) );
 
@@ -101,8 +118,6 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 		 */
 		public function register_fields( $profile = false ) {
 
-			$this->fields = $this->prepare_meta_fields( $this->fields );
-
 			add_action( 'edit_user_profile', array( $this, 'render_fields' ), 20 );
 			add_action( 'edit_user_profile_update', array( $this, 'edit_user_update' ) );
 
@@ -112,6 +127,8 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 			}
 
 			add_action( 'admin_enqueue_scripts', array( $this, 'init_builder' ), 0 );
+			add_action( 'admin_enqueue_scripts', array( $this, 'maybe_enqueue_custom_css' ), 0 );
+			add_action( 'admin_enqueue_scripts', array( $this, 'maybe_enqueue_inline_js' ), 20 );
 
 		}
 
@@ -121,13 +138,6 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 		 * @return [type] [description]
 		 */
 		public function init_builder() {
-
-			wp_enqueue_style(
-				'jet-engine-meta-boxes',
-				jet_engine()->plugin_url( 'assets/css/admin/meta-boxes.css' ),
-				array(),
-				jet_engine()->get_version()
-			);
 
 			$this->builder = $this->get_builder_for_meta();
 
@@ -209,6 +219,7 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 		 * @return array
 		 */
 		public function prepare_field_value( $field, $value ) {
+
 			switch ( $field['type'] ) {
 				case 'repeater':
 
@@ -249,9 +260,35 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 					}
 
 					break;
+
+				case 'text':
+
+					if ( ! empty( $value ) && $this->to_timestamp( $field ) && is_numeric( $value ) ) {
+
+						switch ( $field['input_type'] ) {
+							case 'date':
+								$value = $this->get_date( 'Y-m-d', $value );
+								break;
+
+							case 'datetime-local':
+								$value = $this->get_date( 'Y-m-d\TH:i', $value );
+								break;
+						}
+					}
+
+					break;
 			}
 
 			return $value;
+		}
+
+		/**
+		 * Returns date converted from timestamp
+		 * 
+		 * @return [type] [description]
+		 */
+		public function get_date( $format, $time ) {
+			return apply_filters( 'cx_user_meta/date', date( $format, $time ), $time, $format );
 		}
 
 		/**
@@ -300,18 +337,6 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 
 			$meta = get_user_meta( $user_id, $key, false );
 
-			if ( ! empty( $meta[0] ) && $this->to_timestamp( $field ) && is_numeric( $meta[0] ) ) {
-
-				switch ( $field['input_type'] ) {
-					case 'date':
-						return date( 'Y-m-d', $meta[0] );
-
-					case 'datetime-local':
-						return date( 'Y-m-d\TH:i', $meta[0] );
-				}
-
-			}
-
 			return ( empty( $meta ) ) ? $default : $meta[0];
 
 		}
@@ -346,7 +371,26 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 		 * @return [type] [description]
 		 */
 		public function render_fields() {
+			$this->open_meta_wrap();
 			$this->builder->render();
+			$this->close_meta_wrap();
+		}
+
+		/**
+		 * Open meta wrap
+		 * @return void
+		 */
+		public function open_meta_wrap() {
+			echo '<div class="jet-engine-user-meta-wrap">';
+		}
+
+		/**
+		 * Get CSS wrapper selector.
+		 *
+		 * @return string
+		 */
+		public function get_css_wrapper_selector() {
+			return '.jet-engine-user-meta-wrap ';
 		}
 
 		/**
@@ -415,18 +459,24 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 					 */
 					do_action( 'jet-engine/user-meta/before-delete/' . $key, $user_id, false, $this );
 
+					// Delete all separate fields of repeater.
+					if ( 'repeater' === $field['type'] && ! empty( $field['save_separate'] ) ) {
+						$this->delete_repeater_separate_fields( $user_id, $key, $field );
+					}
+
 					update_user_meta( $user_id, $key, false );
 
 					continue;
 				}
 
-				if ( $this->to_timestamp( $field ) ) {
-					$value = strtotime( $_POST[ $key ] );
-				} else {
-					$value = $this->sanitize_meta( $field, $_POST[ $key ] );
-				}
+				$value = $this->sanitize_meta( $field, $_POST[ $key ] );
 
-				do_action( 'jet-engine/user-meta/before-save/' . $key, $user_id, $value, $this );
+				do_action( 'jet-engine/user-meta/before-save/' . $key, $user_id, $value, $key, $this );
+
+				// Save the value of each repeater field as a separate field.
+				if ( 'repeater' === $field['type'] && ! empty( $field['save_separate'] ) ) {
+					$this->save_repeater_separate_fields( $user_id, $key, $value, $field );
+				}
 
 				update_user_meta( $user_id, $key, $value );
 
@@ -473,6 +523,10 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 				}
 
 				return $result;
+			}
+
+			if ( $this->to_timestamp( $field ) ) {
+				return apply_filters( 'cx_user_meta/strtotime', strtotime( $value ), $value );
 			}
 
 			if ( empty( $field['sanitize_callback'] ) ) {
@@ -522,6 +576,73 @@ if ( ! class_exists( 'Jet_Engine_CPT_User_Meta' ) ) {
 
 			$this->is_allowed_on_admin_hook = true;
 			return $this->is_allowed_on_admin_hook;
+		}
+
+		/**
+		 * Returns the repeater separate field key.
+		 *
+		 * @param $repeater_key
+		 * @param $field_key
+		 *
+		 * @return string
+		 */
+		public function get_repeater_separate_field_key( $repeater_key, $field_key ) {
+			return apply_filters(
+				'jet-engine/user-meta/repeater/separate_field_key',
+				$repeater_key . '_' . $field_key,
+				$repeater_key,
+				$field_key
+			);
+		}
+
+		/**
+		 * Delete all separate fields of repeater.
+		 *
+		 * @param $user_id
+		 * @param $key
+		 * @param $field
+		 */
+		public function delete_repeater_separate_fields( $user_id, $key, $field ) {
+
+			if ( empty( $field['fields'] ) ) {
+				return;
+			}
+
+			foreach ( $field['fields'] as $repeater_field_key => $repeater_field ) {
+				delete_user_meta( $user_id, $this->get_repeater_separate_field_key( $key, $repeater_field_key ) );
+			}
+		}
+
+		/**
+		 * Save the value of each repeater field as a separate field.
+		 *
+		 * @param $user_id
+		 * @param $key
+		 * @param $value
+		 * @param $field
+		 */
+		public function save_repeater_separate_fields( $user_id, $key, $value, $field ) {
+
+			$this->delete_repeater_separate_fields( $user_id, $key, $field );
+
+			if ( empty( $value ) || ! is_array( $value ) ) {
+				return;
+			}
+
+			foreach ( $value as $repeater_item_value ) {
+
+				if ( empty( $repeater_item_value ) ) {
+					continue;
+				}
+
+				foreach ( $repeater_item_value as $repeater_field_key => $repeater_field_value ) {
+					add_user_meta(
+						$user_id,
+						$this->get_repeater_separate_field_key( $key, $repeater_field_key ),
+						$repeater_field_value
+					);
+				}
+			}
 		}
 
 	}

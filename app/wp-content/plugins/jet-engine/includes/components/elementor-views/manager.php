@@ -28,12 +28,15 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 		function __construct() {
 
 			if ( ! jet_engine()->has_elementor() ) {
+				add_filter( 'jet-engine/data/listing-type', array( $this, 'reset_listing_types' ) );
 				return;
 			}
 
 			if ( ! jet_engine()->components->is_component_active( 'listings' ) ) {
 				return;
 			}
+
+			add_filter( 'get_post_metadata', [ $this, 'ensure_listing_doct_type' ], 10, 3 );
 
 			add_filter( 'jet-engine/templates/listing-views', array( $this, 'add_elementor_listing_view' ) );
 
@@ -42,7 +45,12 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 			add_action( 'elementor/documents/register', array( $this, 'register_document_type' ) );
 
 			add_action( 'elementor/elements/categories_registered', array( $this, 'register_category' ) );
-			add_action( 'elementor/widgets/widgets_registered', array( $this, 'register_widgets' ), 10 );
+
+			if ( defined( 'ELEMENTOR_VERSION' ) && version_compare( ELEMENTOR_VERSION, '3.5.0', '>=' ) ) {
+				add_action( 'elementor/widgets/register', array( $this, 'register_widgets' ), 10 );
+			} else {
+				add_action( 'elementor/widgets/widgets_registered', array( $this, 'register_widgets' ), 10 );
+			}
 
 			add_filter( 'body_class', array( $this, 'add_body_classes' ) );
 
@@ -62,6 +70,9 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 			jet_engine()->dynamic_tags = new Jet_Engine_Dynamic_Tags_Manager();
 			$this->frontend            = new Jet_Engine_Elementor_Frontend();
 
+			require jet_engine()->plugin_path( 'includes/components/elementor-views/icons.php' );
+			new Jet_Engine_Elementor_Icons();
+
 			// Fix listing while widgets config set up
 			add_action( 'elementor/ajax/register_actions', array( $this, 'set_listing_on_ajax' ), -1 );
 
@@ -75,6 +86,60 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 				)
 			);
 
+
+			add_filter( 'jet-engine/listings/dynamic-image/size',      array( $this, 'prepare_custom_image_size' ), 10, 3 );
+			add_filter( 'jet-engine/listings/dynamic-image/link-attr', array( $this, 'add_lightbox_attr' ), 10, 2 );
+
+			add_filter( 'jet-engine/gallery/lightbox-attr', array( $this, 'add_lightbox_attr_for_gallery' ), 10, 3 );
+
+			require jet_engine()->plugin_path( 'includes/components/elementor-views/components/register.php' );
+
+			new \Jet_Engine\Elementor_Views\Components\Register();
+
+		}
+
+		/**
+		 * Ensure listing document type is always set.
+		 * In some cases Elementor\Core\Base\Document::TYPE_META_KEY was empty for listing, 
+		 * this caused conflicts between Listing Items and Components
+		 * 
+		 * Fix for https://github.com/Crocoblock/issues-tracker/issues/10125
+		 * 
+		 * @param  [type] $result   [description]
+		 * @param  [type] $post_id  [description]
+		 * @param  [type] $meta_key [description]
+		 * @return [type]           [description]
+		 */
+		public function ensure_listing_doct_type( $result, $post_id, $meta_key ) {
+
+			if ( \Elementor\Core\Base\Document::TYPE_META_KEY !== $meta_key ) {
+				return $result;
+			}
+
+			if ( jet_engine()->post_type->slug() !== get_post_type( $post_id ) ) {
+				return $result;
+			}
+
+			if ( jet_engine()->listings->components->is_component( $post_id ) ) {
+				$result = jet_engine()->listings->components->get_component_base_name();
+			} else {
+				$result = jet_engine()->listings->get_id();
+			}
+
+			return $result;
+
+		}
+
+		/**
+		 * Reset given listing type if Elementor is not installed
+		 */
+		public function reset_listing_types( $listing_type ) {
+			
+			if ( 'elementor' === $listing_type ) {
+				$listing_type = 'blocks';
+			}
+			
+			return $listing_type;
 		}
 
 		/**
@@ -85,6 +150,20 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 			$post_id = \Elementor\Plugin::instance()->editor->get_post_id();
 			$this->setup_listing_doc( $post_id );
 
+			jet_engine()->listings->post_type->listing_form_assets( true, array(
+				'isAjax'   => true,
+				'exclude'  => array( 'listing_view_type' ),
+				'button'   => array(
+					'css_class' => 'elementor-button elementor-button-default elementor-button-success',
+				),
+				'defaults' => array(
+					'listing_view_type' => 'elementor',
+				)
+			) );
+
+			// Removed the click event on `.page-title-action` selector in the Elementor editor to prevent conflicts.
+			$inline_script = "jQuery( document ).off( 'click.JetListings', '.page-title-action', window.JetListings.openPopup );";
+			wp_add_inline_script( 'jet-listings-form', $inline_script );
 		}
 
 		/**
@@ -214,7 +293,7 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 				'jet-engine-icons',
 				jet_engine()->plugin_url( 'assets/lib/jetengine-icons/icons.css' ),
 				array(),
-				jet_engine()->get_version()
+				jet_engine()->get_version() . '-icons'
 			);
 
 		}
@@ -286,6 +365,18 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 			);
 		}
 
+		public function include_base_widget() {
+		
+			if ( ! class_exists( '\Jet_Elementor_Widgets_Storage' ) ) {
+				require jet_engine()->plugin_path( 'includes/components/elementor-views/widgets-storage.php' );
+			}
+
+			if ( ! class_exists( '\Jet_Listing_Dynamic_Widget' ) ) {
+				require jet_engine()->plugin_path( 'includes/components/elementor-views/dynamic-widgets/dynamic-widget.php' );
+			}
+			
+		}
+
 		/**
 		 * Register listing widgets
 		 *
@@ -293,18 +384,19 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 		 */
 		public function register_widgets( $widgets_manager ) {
 
-			$base      = jet_engine()->plugin_path( 'includes/components/elementor-views/' );
-			$post_type = get_post_type();
+			$base = jet_engine()->plugin_path( 'includes/components/elementor-views/' );
+
+			$this->include_base_widget();
 
 			foreach ( glob( $base . 'dynamic-widgets/*.php' ) as $file ) {
-				$slug = basename( $file, '.php' );
 				$this->register_widget( $file, $widgets_manager );
 			}
 
 			foreach ( glob( $base . 'static-widgets/*.php' ) as $file ) {
-				$slug = basename( $file, '.php' );
 				$this->register_widget( $file, $widgets_manager );
 			}
+
+			do_action( 'jet-engine/elementor-views/widgets/register', $widgets_manager, $this );
 
 		}
 
@@ -326,7 +418,12 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 			require_once $file;
 
 			if ( class_exists( $class ) ) {
-				$widgets_manager->register_widget_type( new $class );
+
+				if ( method_exists( $widgets_manager, 'register' ) ) {
+					$widgets_manager->register( new $class );
+				} else {
+					$widgets_manager->register_widget_type( new $class );
+				}
 			}
 
 		}
@@ -353,6 +450,8 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 				'Jet_Engine_Not_Supported'
 			);
 
+			do_action( 'jet-engine/elementor-views/documents-registered', $documents_manager );
+
 		}
 
 		/**
@@ -361,10 +460,15 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 		 */
 		public function get_redirect_url( $template_id ) {
 
+			if ( ! defined( 'ELEMENTOR_VERSION' ) ) {
+				return '';
+			}
+
 			if ( version_compare( ELEMENTOR_VERSION, '2.6.0', '<' ) ) {
 				$redirect = Elementor\Utils::get_edit_link( $template_id );
 			} else {
-				$redirect = Elementor\Plugin::$instance->documents->get( $template_id )->get_edit_url();
+				$document = Elementor\Plugin::$instance->documents->get( $template_id );
+				$redirect = $document ? $document->get_edit_url() : false;
 			}
 
 			return $redirect;
@@ -427,6 +531,128 @@ if ( ! class_exists( 'Jet_Engine_Elementor_Views' ) ) {
 		 */
 		public function is_editor_ajax() {
 			return is_admin() && isset( $_REQUEST['action'] ) && 'elementor_ajax' === $_REQUEST['action'];
+		}
+
+		/**
+		 * Prepare custom image size.
+		 *
+		 * @param string $size
+		 * @param string $img_size_key
+		 * @param array  $settings
+		 *
+		 * @return array|string
+		 */
+		public function prepare_custom_image_size( $size, $img_size_key, $settings ) {
+
+			if ( 'custom' !== $size ) {
+				return $size;
+			}
+
+			if ( empty( $settings[ $img_size_key . '_custom_dimension' ] ) ) {
+				return $size;
+			}
+
+			// Use BFI_Thumb script
+			require_once ELEMENTOR_PATH . 'includes/libraries/bfi-thumb/bfi-thumb.php';
+
+			$custom_dimension = $settings[ $img_size_key . '_custom_dimension' ];
+
+			$attachment_size = array(
+				// Defaults sizes
+				0 => null, // Width.
+				1 => null, // Height.
+
+				'bfi_thumb' => true,
+				'crop'      => true,
+			);
+
+			$has_custom_size = false;
+
+			if ( ! empty( $custom_dimension['width'] ) ) {
+				$has_custom_size = true;
+				$attachment_size[0] = $custom_dimension['width'];
+			}
+
+			if ( ! empty( $custom_dimension['height'] ) ) {
+				$has_custom_size = true;
+				$attachment_size[1] = $custom_dimension['height'];
+			}
+
+			if ( ! $has_custom_size ) {
+				$attachment_size = 'full';
+			}
+
+			return $attachment_size;
+		}
+
+		/**
+		 * Add lightbox attr for Dynamic Image Link.
+		 *
+		 * @param $attr
+		 * @param $settings
+		 *
+		 * @return mixed
+		 */
+		public function add_lightbox_attr( $attr, $settings ) {
+
+			if ( empty( $settings['image_link_source'] ) ) {
+				return $attr;
+			}
+
+			if ( '_file' !== $settings['image_link_source'] ) {
+				return $attr;
+			}
+
+			if ( ! isset( $settings['lightbox'] ) ) {
+				return $attr;
+			}
+
+			$lightbox = filter_var( $settings['lightbox'], FILTER_VALIDATE_BOOLEAN );
+
+			$attr['data-elementor-open-lightbox'] = $lightbox ? 'yes' : 'no';
+
+			return $attr;
+		}
+
+		public function add_custom_size_unit( $units ) {
+
+			if ( version_compare( ELEMENTOR_VERSION, '3.10.0', '>=' ) ) {
+				$units[] = 'custom';
+			}
+
+			return $units;
+		}
+
+		/**
+		 * Add lightbox attr for Slider and Grid Gallery.
+		 *
+		 * @param array  $attr
+		 * @param array  $img_data
+		 * @param string $gallery_id
+		 *
+		 * @return mixed
+		 */
+		public function add_lightbox_attr_for_gallery( $attr, $img_data, $gallery_id ) {
+
+			$attr['data-elementor-open-lightbox'] = 'yes';
+
+			if ( ! empty( $gallery_id ) ) {
+				$attr['data-elementor-lightbox-slideshow='] = $gallery_id;
+			}
+
+			if ( ! empty( $img_data['id'] ) ) {
+				$lightbox_image_attr = \Elementor\Plugin::instance()->images_manager->get_lightbox_image_attributes( $img_data['id'] );
+
+				if ( isset( $lightbox_image_attr['title'] ) ) {
+					$attr['data-elementor-lightbox-title'] = $lightbox_image_attr['title'];
+				}
+
+				if ( isset( $lightbox_image_attr['description'] ) ) {
+					$attr['data-elementor-lightbox-description'] = $lightbox_image_attr['description'];
+				}
+			}
+
+			return $attr;
 		}
 
 	}

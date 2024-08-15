@@ -9,7 +9,6 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Filter_Manager class
 	 */
@@ -40,10 +39,9 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 				return;
 			}
 
-			$dependencies = array( 'jquery' );
+			$dependencies = array( 'jquery', 'jet-plugins' );
 
 			foreach ( $this->get_filter_types() as $filter ) {
-
 				if ( ! method_exists( $filter, 'get_scripts' ) ) {
 					continue;
 				}
@@ -53,7 +51,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 				if ( $assets ) {
 					$dependencies = array_merge( $dependencies, $assets );
 				}
-
 			}
 
 			wp_enqueue_script(
@@ -65,35 +62,100 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 			);
 
 			$localized_data = apply_filters( 'jet-smart-filters/filters/localized-data', array(
-				'ajaxurl'     => admin_url( 'admin-ajax.php' ),
-				'siteurl'     => get_site_url(),
-				'selectors'   => jet_smart_filters()->data->get_provider_selectors(),
-				'queries'     => jet_smart_filters()->query->get_default_queries(),
-				'settings'    => jet_smart_filters()->providers->get_provider_settings(),
-				'misc'        => array(
-					'week_start' => get_option( 'start_of_week' ),
-					'url_type'   => jet_smart_filters()->settings->get( 'url_structure_type' ),
+				'ajaxurl'         => admin_url( 'admin-ajax.php' ),
+				'siteurl'         => get_site_url(),
+				'sitepath'        => jet_smart_filters()->data->get_sitepath(),
+				'baseurl'         => jet_smart_filters()->data->get_baseurl(),
+				'selectors'       => jet_smart_filters()->data->get_provider_selectors(),
+				'queries'         => jet_smart_filters()->query->get_default_queries(),
+				'settings'        => jet_smart_filters()->providers->get_provider_settings(),
+				'misc'            => array(
+					'week_start'       => get_option( 'start_of_week' ),
+					'url_type'         => jet_smart_filters()->settings->get( 'url_structure_type' ),
+					'valid_url_params' => $this->get_valid_url_params(),
 				),
-				'props'       => jet_smart_filters()->query->get_query_props(),
-				'extra_props' => array(),
-				'templates'   => $this->get_localization_templates(),
+				'props'           => jet_smart_filters()->query->get_query_props(),
+				'extra_props'     => array(),
+				'templates'       => $this->get_localization_templates(),
+				'plugin_settings' => array(
+					'use_tabindex'       => jet_smart_filters()->settings->get( 'use_tabindex', false ),
+					'use_url_aliases'    => jet_smart_filters()->settings->get( 'use_url_aliases', false ),
+					'url_aliases'        => jet_smart_filters()->settings->get( 'url_aliases', array() ),
+					'provider_preloader' => array(
+						'template' => jet_smart_filters()->provider_preloader->is_enabled
+							? jet_smart_filters()->provider_preloader->get_template()
+							: '',
+						'fixed_position' => jet_smart_filters()->provider_preloader->fixed_position,
+						'fixed_edge_gap' => jet_smart_filters()->provider_preloader->fixed_edge_gap
+					)
+				)
 			) );
 
-			wp_localize_script( 'jet-smart-filters', 'JetSmartFilterSettings', $localized_data );
+			if ( jet_smart_filters()->render->use_signature_verification && ! empty( $localized_data['settings'] ) ) {
+				foreach( $localized_data['settings'] as $provider => $provider_queries ) {
+					foreach( $provider_queries as $query_id => $query_settings ) {
+						
+						if ( ! empty( $query_settings['jsf_signature'] ) ) {
+							unset( $query_settings['jsf_signature'] );
+						}
 
+						$signature = jet_smart_filters()->render->create_signature( $query_settings );
+						$query_settings['jsf_signature'] = $signature;
+
+						$localized_data['settings'][ $provider ][ $query_id ] = $query_settings;
+
+					}
+				}
+			}
+
+			wp_localize_script( 'jet-smart-filters', 'JetSmartFilterSettings', $localized_data );
 		}
 
 		public function get_localization_templates() {
 
 			$templates = [];
 
-			$templates['active_filter'] = jet_smart_filters()->utils->get_template_html( 'for-js/active-filter.php' );
-			$templates['active_tag'] = jet_smart_filters()->utils->get_template_html( 'for-js/active-tag.php' );
-			$templates['pagination_item'] = jet_smart_filters()->utils->get_template_html( 'for-js/pagination-item.php' );
-			$templates['pagination_item_dots'] = jet_smart_filters()->utils->get_template_html( 'for-js/pagination-item-dots.php' );
+			$templates['active_tag'] = array(
+				'label'  => jet_smart_filters()->utils->get_template_html( 'for-js/active-tag/label.php' ),
+				'value'  => jet_smart_filters()->utils->get_template_html( 'for-js/active-tag/value.php' ),
+				'remove' => jet_smart_filters()->utils->get_template_html( 'for-js/active-tag/remove.php' )
+			);
+			$templates['active_filter'] = array(
+				'label'  => jet_smart_filters()->utils->get_template_html( 'for-js/active-filter/label.php' ),
+				'value'  => jet_smart_filters()->utils->get_template_html( 'for-js/active-filter/value.php' ),
+				'remove' => jet_smart_filters()->utils->get_template_html( 'for-js/active-filter/remove.php' )
+			);
+			$templates['pagination'] = array(
+				'item'      => jet_smart_filters()->utils->get_template_html( 'for-js/pagination/item.php' ),
+				'dots'      => jet_smart_filters()->utils->get_template_html( 'for-js/pagination/dots.php' ),
+				'load_more' => jet_smart_filters()->utils->get_template_html( 'for-js/pagination/load-more.php' )
+			);
 
 			return $templates;
+		}
 
+		public function get_valid_url_params() {
+
+			return apply_filters( 'jet-smart-filters/filters/valid-url-params', array(
+				'jsf',
+				'tax',
+				'meta',
+				'date',
+				'sort',
+				'alphabet',
+				'_s',
+				'pagenum',
+				'plain_query',
+				// backward compatibility
+				'jet-smart-filters',
+				'jet_paged',
+				'search',
+				'_tax_query_',
+				'_meta_query_',
+				'_date_query_',
+				'_sort_',
+				'__s_',
+			) );
 		}
 
 		/**
@@ -105,20 +167,28 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 				return;
 			}
 
-			wp_register_style(
-				'font-awesome',
-				jet_smart_filters()->plugin_url( 'assets/lib/font-awesome/font-awesome.min.css' ),
-				array(),
-				'4.7.0'
-			);
-
 			wp_enqueue_style(
 				'jet-smart-filters',
 				jet_smart_filters()->plugin_url( 'assets/css/public.css' ),
-				array('font-awesome'),
+				array(),
 				jet_smart_filters()->get_version()
 			);
 
+			// Filter inline styles
+			$tabindex_color = jet_smart_filters()->settings->get( 'tabindex_color', '#0085f2' );
+
+			$filter_inline_styles = "
+				.jet-filter {
+					--tabindex-color: $tabindex_color;
+					--tabindex-shadow-color: " . jet_smart_filters()->utils->hex2rgba( $tabindex_color, 0.4 ) . ";
+				}
+			";
+
+			if ( jet_smart_filters()->provider_preloader->is_enabled ) {
+				$filter_inline_styles .= jet_smart_filters()->provider_preloader->css;
+			}
+
+			wp_add_inline_style( 'jet-smart-filters', $filter_inline_styles );
 		}
 
 		/**
@@ -132,7 +202,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 				array(),
 				jet_smart_filters()->get_version()
 			);
-
 		}
 
 		/**
@@ -171,16 +240,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 			 * Register custom filter types on this hook
 			 */
 			do_action( 'jet-smart-filters/filter-types/register', $this );
-
 		}
 
 		/**
 		 * Register new filter.
-		 *
-		 * @param  string $filter_class Filter class name.
-		 * @param  string $filter_file Path to file with filter class.
-		 *
-		 * @return void
 		 */
 		public function register_filter_type( $filter_class, $filter_file ) {
 
@@ -194,15 +257,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 				$instance                                   = new $filter_class();
 				$this->_filter_types[ $instance->get_id() ] = $instance;
 			}
-
 		}
 
 		/**
 		 * Return all filter types list or specific filter by ID
-		 *
-		 * @param  string $filter optional, filter ID.
-		 *
-		 * @return array|filter object|false
 		 */
 		public function get_filter_types( $filter = null ) {
 
@@ -211,15 +269,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 			}
 
 			return $this->_filter_types;
-
 		}
 
 		/**
 		 * Return suffix for query modify
-		 *
-		 * @param  string $filter, filter ID.
-		 *
-		 * @return string query_var_suffix for filter
 		 */
 		public function get_filter_query_var_suffix( $filter ) {
 
@@ -247,7 +300,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 			}
 
 			if ( in_array( $type, ['date-range', 'date-period'] ) ) {
-				$query_var_suffix[] = 'date';
+				$date_type = get_post_meta( $filter, '_date_type', true );
+				$query_var_suffix[] = $date_type
+					? $date_type
+					: 'date';
 			}
 
 			if ( $is_custom_checkbox ) {
@@ -273,14 +329,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 			}
 
 			return $query_var_suffix ? implode( ',', $query_var_suffix ) : false;
-
 		}
 
 		/**
 		 * Returns filter instance by filter post ID
-		 *
-		 * @param  [type] $filter_id [description]
-		 * @return [type]            [description]
 		 */
 		public function get_filter_instance( $filter_id, $type = null, $args = array() ) {
 
@@ -297,24 +349,15 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Manager' ) ) {
 			}
 
 			return new Jet_Smart_Filters_Filter_Instance( $filter_id, $type, $args );
-
 		}
 
 		/**
 		 * Render fiter type template
-		 *
-		 * @param  int $filter_id filter ID.
-		 * @param  array $args arguments.
-		 *
-		 * @return void
 		 */
 		public function render_filter_template( $filter_type, $args = array() ) {
 
 			$filter = $this->get_filter_instance( $args['filter_id'], $filter_type, $args );
 			$filter->render();
-
 		}
-
 	}
-
 }

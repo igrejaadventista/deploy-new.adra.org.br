@@ -1774,12 +1774,13 @@ class Jet_Elements_Instagram_Gallery extends Jet_Elements_Base {
 	 * @return string
 	 */
 	public function get_transient_key() {
-		return sprintf( 'jet_elements_instagram_%s_%s%s_posts_count_%s_caption_%s',
+		return sprintf( 'jet_elements_instagram_%s_%s%s_posts_count_%s_caption_%s_widget_id_%s',
 			$this->config['endpoint'],
 			$this->config['target'],
 			$this->config['use_graph_api'] ? '_order_' . $this->config['order_by'] : '',
 			$this->config['posts_counter'],
-			$this->config['post_caption_length']
+			$this->config['post_caption_length'],
+			$this->get_id()
 		);
 	}
 

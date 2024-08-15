@@ -47,10 +47,18 @@ const convertOptionsList = function( optionsList, result ) {
 	}
 
 	Object.keys( optionsList ).map( ( optionKey ) => {
-		result.push( {
-			value: optionKey,
-			label: optionsList[ optionKey ],
-		} );
+		if ( '' === optionKey ) {
+			// Move placeholder to the top of the list
+			result.unshift( {
+				value: '',
+				label: optionsList[ optionKey ],
+			} );
+		} else {
+			result.push( {
+				value: optionKey,
+				label: optionsList[ optionKey ],
+			} );
+		}
 	} );
 }
 
@@ -126,6 +134,7 @@ class MacrosControl extends wp.element.Component {
 					setAttributes={ setAttributes }
 					supports={ supports }
 					control={ control }
+					condition={ control.condition }
 				/>
 
 			} ) }

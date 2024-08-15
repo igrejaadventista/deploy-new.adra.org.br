@@ -13,8 +13,8 @@ namespace RankMath\WooCommerce;
 use RankMath\Helper;
 use RankMath\Traits\Hooker;
 use RankMath\Helpers\Sitepress;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -38,6 +38,27 @@ class Permalink_Watcher {
 	 * @var array
 	 */
 	private $categories;
+
+	/**
+	 * Remove product base.
+	 *
+	 * @var bool
+	 */
+	private $remove_product_base;
+
+	/**
+	 * Remove category base.
+	 *
+	 * @var bool
+	 */
+	private $remove_category_base;
+
+	/**
+	 * Remove parent slugs.
+	 *
+	 * @var bool
+	 */
+	private $remove_parent_slugs;
 
 	/**
 	 * The Constructor.

@@ -128,6 +128,11 @@ class Zip extends Base {
 			$filename = $zip->getNameIndex( $i );
 			$extension = pathinfo( $filename, PATHINFO_EXTENSION );
 
+			// Skip files with transversal paths.
+			if ( strpos( $filename, '..' ) !== false ) {
+				continue;
+			}
+
 			if ( in_array( $extension, $allowed_file_types, true ) ) {
 				$allowed_files[] = $filename;
 			}
@@ -160,7 +165,7 @@ class Zip extends Base {
 
 		$possible_file_names = array_diff( scandir( $temp_path ), [ '.', '..' ] );
 
-		// Find nested files in the unzipped path. This happens for example when the user imports a Template Kit.
+		// Find nested files in the unzipped path. This happens for example when the user imports a Website Kit.
 		foreach ( $possible_file_names as $possible_file_name ) {
 			$full_possible_file_name = $temp_path . $possible_file_name;
 			if ( is_dir( $full_possible_file_name ) ) {

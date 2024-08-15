@@ -11,10 +11,11 @@
 namespace RankMath\Admin;
 
 use RankMath\Helper;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Param;
 use RankMath\Runner;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Param;
+use RankMath\Admin\Database\Database;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -24,6 +25,13 @@ defined( 'ABSPATH' ) || exit;
 class Post_Columns implements Runner {
 
 	use Hooker;
+
+	/**
+	 * SEO data.
+	 *
+	 * @var array
+	 */
+	private $data = [];
 
 	/**
 	 * Register hooks.
@@ -42,7 +50,6 @@ class Post_Columns implements Runner {
 
 		$this->register_post_columns();
 		$this->register_media_columns();
-		$this->action( 'admin_enqueue_scripts', 'enqueue' );
 
 		// Column Content.
 		$this->filter( 'rank_math_title', 'get_column_title', 5 );
@@ -54,7 +61,8 @@ class Post_Columns implements Runner {
 	 * Register post column hooks.
 	 */
 	private function register_post_columns() {
-		foreach ( Helper::get_allowed_post_types() as $post_type ) {
+		$post_types = Helper::get_allowed_post_types();
+		foreach ( $post_types as $post_type ) {
 			$this->filter( 'edd_download_columns', 'add_columns', 11 );
 			$this->filter( "manage_{$post_type}_posts_columns", 'add_columns', 11 );
 			$this->action( "manage_{$post_type}_posts_custom_column", 'columns_contents', 11, 2 );
@@ -87,31 +95,6 @@ class Post_Columns implements Runner {
 
 		$this->filter( 'manage_media_columns', 'add_media_columns', 11 );
 		$this->action( 'manage_media_custom_column', 'media_contents', 11, 2 );
-	}
-
-	/**
-	 * Enqueue styles and scripts.
-	 */
-	public function enqueue() {
-		$screen = get_current_screen();
-
-		$allowed_post_types   = Helper::get_allowed_post_types();
-		$allowed_post_types[] = 'attachment';
-		if ( ! in_array( $screen->post_type, $allowed_post_types, true ) ) {
-			return;
-		}
-
-		wp_enqueue_style( 'rank-math-post-bulk-edit', rank_math()->plugin_url() . 'assets/admin/css/post-list.css', null, rank_math()->version );
-
-		$allow_editing = Helper::get_settings( 'titles.pt_' . $screen->post_type . '_bulk_editing', true );
-		if ( ! $allow_editing || 'readonly' === $allow_editing ) {
-			return;
-		}
-
-		wp_enqueue_script( 'rank-math-post-bulk-edit', rank_math()->plugin_url() . 'assets/admin/js/post-list.js', null, rank_math()->version, true );
-		Helper::add_json( 'bulkEditTitle', esc_attr__( 'Bulk Edit This Field', 'rank-math' ) );
-		Helper::add_json( 'buttonSaveAll', esc_attr__( 'Save All Edits', 'rank-math' ) );
-		Helper::add_json( 'buttonCancel', esc_attr__( 'Cancel', 'rank-math' ) );
 	}
 
 	/**
@@ -183,15 +166,14 @@ class Post_Columns implements Runner {
 	 * @param int $post_id The current post ID.
 	 */
 	public function get_column_title( $post_id ) {
-		$title     = get_post_meta( $post_id, 'rank_math_title', true );
-		$post_type = get_post_type( $post_id );
-
+		$title = ! empty( $this->data[ $post_id ]['rank_math_title'] ) ? $this->data[ $post_id ]['rank_math_title'] : '';
 		if ( ! $title ) {
-			$title = Helper::get_settings( "titles.pt_{$post_type}_title" );
+			$post_type = get_post_type( $post_id );
+			$title     = Helper::get_settings( "titles.pt_{$post_type}_title" );
 		}
 		?>
 		<span class="rank-math-column-display"><?php echo esc_html( $title ); ?></span>
-		<span class="rank-math-column-value" data-field="title" contenteditable="true" tabindex="11"><?php echo esc_html( $title ); ?></span>
+		<textarea class="rank-math-column-value" data-field="title" tabindex="11"><?php echo esc_attr( $title ); ?></textarea>
 		<div class="rank-math-column-edit">
 			<a href="#" class="rank-math-column-save"><?php esc_html_e( 'Save', 'rank-math' ); ?></a>
 			<a href="#" class="button-link-delete rank-math-column-cancel"><?php esc_html_e( 'Cancel', 'rank-math' ); ?></a>
@@ -205,15 +187,14 @@ class Post_Columns implements Runner {
 	 * @param int $post_id The current post ID.
 	 */
 	public function get_column_description( $post_id ) {
-		$post_type   = get_post_type( $post_id );
-		$description = get_post_meta( $post_id, 'rank_math_description', true );
-
+		$description = ! empty( $this->data[ $post_id ]['rank_math_description'] ) ? $this->data[ $post_id ]['rank_math_description'] : '';
 		if ( ! $description ) {
+			$post_type   = get_post_type( $post_id );
 			$description = has_excerpt( $post_id ) ? '%excerpt%' : Helper::get_settings( "titles.pt_{$post_type}_description" );
 		}
 		?>
 		<span class="rank-math-column-display"><?php echo esc_html( $description ); ?></span>
-		<span class="rank-math-column-value" data-field="description" contenteditable="true" tabindex="11"><?php echo esc_html( $description ); ?></span>
+		<textarea class="rank-math-column-value" data-field="description" tabindex="11"><?php echo esc_attr( $description ); ?></textarea>
 		<div class="rank-math-column-edit">
 			<a href="#" class="rank-math-column-save"><?php esc_html_e( 'Save', 'rank-math' ); ?></a>
 			<a href="#" class="button-link-delete rank-math-column-cancel"><?php esc_html_e( 'Cancel', 'rank-math' ); ?></a>
@@ -227,25 +208,30 @@ class Post_Columns implements Runner {
 	 * @param int $post_id The current post ID.
 	 */
 	public function get_column_seo_details( $post_id ) {
-		if ( ! Helper::is_post_indexable( $post_id ) ) {
+		if ( empty( $this->data ) ) {
+			$this->get_seo_data();
+		}
+
+		$data = isset( $this->data[ $post_id ] ) ? $this->data[ $post_id ] : [];
+		if ( ! self::is_post_indexable( $post_id ) ) {
 			echo '<span class="rank-math-column-display seo-score no-score "><strong>N/A</strong></span>';
 			echo '<strong>' . esc_html__( 'No Index', 'rank-math' ) . '</strong>';
-			$this->do_action( 'post/column/seo_details', $post_id );
+			$this->do_action( 'post/column/seo_details', $post_id, $data, $this->data );
 			return;
 		}
 
-		$keyword   = get_post_meta( $post_id, 'rank_math_focus_keyword', true );
+		$keyword   = ! empty( $data['rank_math_focus_keyword'] ) ? $data['rank_math_focus_keyword'] : '';
 		$keyword   = explode( ',', $keyword )[0];
-		$is_pillar = get_post_meta( $post_id, 'rank_math_pillar_content', true );
+		$is_pillar = ! empty( $data['rank_math_pillar_content'] ) && 'on' === $data['rank_math_pillar_content'] ? true : false;
 
-		$score = empty( $keyword ) ? false : $this->get_seo_score( $post_id );
+		$score = empty( $keyword ) ? false : $this->get_seo_score( $data );
 		$class = ! $score ? 'no-score' : $this->get_seo_score_class( $score );
 		$score = $score ? $score . ' / 100' : 'N/A';
 
 		?>
 		<span class="rank-math-column-display seo-score <?php echo esc_attr( $class ); ?> <?php echo ! $score ? 'disabled' : ''; ?>">
 			<strong><?php echo esc_html( $score ); ?></strong>
-			<?php if ( 'on' === $is_pillar ) { ?>
+			<?php if ( $is_pillar ) { ?>
 				<img class="is-pillar" src="<?php echo esc_url( rank_math()->plugin_url() . 'assets/admin/img/pillar.svg' ); ?>" alt="<?php esc_html_e( 'Is Pillar', 'rank-math' ); ?>" title="<?php esc_html_e( 'Is Pillar', 'rank-math' ); ?>" width="25" />
 			<?php } ?>
 		</span>
@@ -256,11 +242,9 @@ class Post_Columns implements Runner {
 				<span><?php echo $keyword ? esc_html( $keyword ) : esc_html__( 'Not Set', 'rank-math' ); ?></span>
 			</span>
 
-			<span class="rank-math-column-value" data-field="focus_keyword" contenteditable="true" tabindex="11">
-				<span><?php echo esc_html( $keyword ); ?></span>
-			</span>
+			<input class="rank-math-column-value" data-field="focus_keyword" tabindex="11" value="<?php echo esc_attr( $keyword ); ?>" />
 
-			<?php $this->do_action( 'post/column/seo_details', $post_id ); ?>
+			<?php $this->do_action( 'post/column/seo_details', $post_id, $data, $this->data ); ?>
 
 			<div class="rank-math-column-edit">
 				<a href="#" class="rank-math-column-save"><?php esc_html_e( 'Save', 'rank-math' ); ?></a>
@@ -281,7 +265,7 @@ class Post_Columns implements Runner {
 			$title = get_the_title( $post_id );
 			?>
 			<span class="rank-math-column-display"><?php echo esc_html( $title ); ?></span>
-			<span class="rank-math-column-value" data-field="image_title" contenteditable="true" tabindex="11"><?php echo esc_html( $title ); ?></span>
+			<input class="rank-math-column-value" data-field="image_title" tabindex="11" value="<?php echo esc_attr( $title ); ?>" />
 			<div class="rank-math-column-edit">
 				<a href="#" class="rank-math-column-save"><?php esc_html_e( 'Save', 'rank-math' ); ?></a>
 				<a href="#" class="button-link-delete rank-math-column-cancel"><?php esc_html_e( 'Cancel', 'rank-math' ); ?></a>
@@ -294,7 +278,7 @@ class Post_Columns implements Runner {
 			$alt = get_post_meta( $post_id, '_wp_attachment_image_alt', true );
 			?>
 			<span class="rank-math-column-display"><?php echo esc_html( $alt ); ?></span>
-			<span class="rank-math-column-value" data-field="image_alt" contenteditable="true" tabindex="11"><?php echo esc_html( $alt ); ?></span>
+			<input class="rank-math-column-value" data-field="image_alt" tabindex="11" value="<?php echo esc_attr( $alt ); ?>" />
 			<div class="rank-math-column-edit">
 				<a href="#" class="rank-math-column-save"><?php esc_html_e( 'Save', 'rank-math' ); ?></a>
 				<a href="#" class="button-link-delete rank-math-column-cancel"><?php esc_html_e( 'Cancel', 'rank-math' ); ?></a>
@@ -305,14 +289,105 @@ class Post_Columns implements Runner {
 	}
 
 	/**
+	 * Get SEO data.
+	 */
+	private function get_seo_data() {
+		$post_ids = [];
+
+		$post_ids = array_filter( $this->get_post_ids() );
+		$post_id  = (int) Param::post( 'post_ID' );
+		if ( $post_id ) {
+			$post_ids[] = $post_id;
+		}
+
+		if ( empty( $post_ids ) ) {
+			return false;
+		}
+
+		$results = Database::table( 'postmeta' )->select( [ 'post_id', 'meta_key', 'meta_value' ] )->whereIn( 'post_id', $post_ids )->whereLike( 'meta_key', 'rank_math' )->get( ARRAY_A );
+		if ( empty( $results ) ) {
+			return false;
+		}
+
+		foreach ( $results as $result ) {
+			$this->data[ $result['post_id'] ][ $result['meta_key'] ] = $result['meta_value'];
+		}
+	}
+
+	/**
+	 * Get Post IDs dispalyed on the Post lists page.
+	 */
+	private function get_post_ids() {
+		global $wp_query, $per_page;
+		if ( empty( $wp_query->posts ) ) {
+			return [];
+		}
+
+		$pages = $wp_query->posts;
+		if (
+			! is_post_type_hierarchical( Param::get( 'post_type' ) ) ||
+			'menu_order title' !== $wp_query->query['orderby']
+		) {
+			return array_map(
+				function( $post ) {
+					return isset( $post->ID ) ? $post->ID : '';
+				},
+				$pages
+			);
+		}
+
+		if ( empty( Param::request( 's' ) ) ) {
+			$top_level_pages = [];
+			$children_pages  = [];
+
+			foreach ( $pages as $page ) {
+				if ( $page->post_parent > 0 ) {
+					$children_pages[ $page->post_parent ][] = $page;
+				} else {
+					$top_level_pages[] = $page;
+				}
+			}
+
+			$pages = &$top_level_pages;
+		}
+
+		$pagenum = max( 1, Param::request( 'paged', 0 ) );
+		$count   = 0;
+		$start   = ( $pagenum - 1 ) * $per_page;
+		$end     = $start + $per_page;
+		$ids     = [];
+
+		foreach ( $pages as $page ) {
+			if ( $count >= $end ) {
+				break;
+			}
+
+			if ( $count >= $start ) {
+				$ids[] = $page->ID;
+			}
+
+			++$count;
+
+			if ( isset( $children_pages ) && ! empty( $children_pages[ $page->ID ] ) ) {
+				foreach ( $children_pages[ $page->ID ] as $child_page ) {
+					$ids[] = $child_page->ID;
+					++$count;
+				}
+			}
+		}
+
+		return $ids;
+	}
+
+	/**
 	 * Get SEO score.
 	 *
-	 * @param int $post_id Post ID.
+	 * @param array $data SEO data of current post.
 	 *
 	 * @return string
 	 */
-	private function get_seo_score( $post_id ) {
-		if ( ! metadata_exists( 'post', $post_id, 'rank_math_seo_score' ) ) {
+	private function get_seo_score( $data ) {
+		if ( ! isset( $data['rank_math_seo_score'] ) ) {
 			return false;
 		}
 
@@ -320,8 +395,7 @@ class Post_Columns implements Runner {
 			return false;
 		}
 
-		$score = get_post_meta( $post_id, 'rank_math_seo_score', true );
-		return $score ? $score : 0;
+		return $data['rank_math_seo_score'] ? $data['rank_math_seo_score'] : 0;
 	}
 
 	/**
@@ -341,5 +415,21 @@ class Post_Columns implements Runner {
 		}
 
 		return 'bad';
+	}
+
+	/**
+	 * Check post indexable status.
+	 *
+	 * @param int $post_id Post ID.
+	 */
+	public static function is_post_indexable( $post_id ) {
+		$robots = Param::post( 'rank_math_robots', false, FILTER_DEFAULT, FILTER_REQUIRE_ARRAY );
+
+		$robots = apply_filters( 'rank_math/admin/robots', $robots, $post_id );
+		if ( ! empty( $robots ) ) {
+			return in_array( 'index', $robots, true ) ? true : false;
+		}
+
+		return Helper::is_post_indexable( $post_id );
 	}
 }

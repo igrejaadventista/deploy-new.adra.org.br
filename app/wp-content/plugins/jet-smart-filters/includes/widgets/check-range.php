@@ -3,23 +3,30 @@ namespace Elementor;
 
 use Elementor\Group_Control_Border;
 
-if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+// Exit if accessed directly
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 class Jet_Smart_Filters_Check_Range_Widget extends Jet_Smart_Filters_Base_Widget {
 
 	public function get_name() {
+
 		return 'jet-smart-filters-check-range';
 	}
 
 	public function get_title() {
-		return __( 'Check Range', 'jet-smart-filters' );
+
+		return __( 'Check Range Filter', 'jet-smart-filters' );
 	}
 
 	public function get_icon() {
+
 		return 'jet-smart-filters-icon-check-range-filter';
 	}
 
 	public function get_help_url() {
+
 		return jet_smart_filters()->widgets->prepare_help_url(
 			'https://crocoblock.com/knowledge-base/articles/jetsmartfilters-how-to-use-the-check-range-filter-to-filter-the-publications-or-products/',
 			$this->get_name()
@@ -27,10 +34,8 @@ class Jet_Smart_Filters_Check_Range_Widget extends Jet_Smart_Filters_Base_Widget
 	}
 
 	public function register_filter_settings_controls() {
-
 		// Include Additional Filter Settings
 		include jet_smart_filters()->plugin_path( 'includes/widgets/common-controls/additional-filter-settings.php' );
-
 	}
 
 	public function register_filter_style_controls() {
@@ -79,8 +84,7 @@ class Jet_Smart_Filters_Check_Range_Widget extends Jet_Smart_Filters_Base_Widget
 					'unit' => 'px',
 				),
 				'selectors'  => array(
-					'{{WRAPPER}} ' . $css_scheme['item'] . ':not(:last-child)'         => 'margin-bottom: calc({{SIZE}}{{UNIT}}/2);',
-					'{{WRAPPER}} ' . $css_scheme['item'] . ':not(:first-child)'        => 'padding-top: calc({{SIZE}}{{UNIT}}/2);',
+					'{{WRAPPER}} ' . $css_scheme['item'] . ':not(:last-child)' => 'margin-bottom: {{SIZE}}{{UNIT}};'
 				),
 			)
 		);
@@ -144,6 +148,48 @@ class Jet_Smart_Filters_Check_Range_Widget extends Jet_Smart_Filters_Base_Widget
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => array(
 					'{{WRAPPER}} ' . $css_scheme['button'] => 'background-color: {{VALUE}}',
+				),
+			)
+		);
+
+		$this->end_controls_tab();
+
+		$this->start_controls_tab(
+			'item_hover_styles',
+			array(
+				'label' => esc_html__( 'Hover', 'jet-smart-filters' ),
+			)
+		);
+
+		$this->add_control(
+			'item_hover_color',
+			array(
+				'label'     => esc_html__( 'Color', 'jet-smart-filters' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => array(
+					'{{WRAPPER}} ' . $css_scheme['button'] . ':hover' => 'color: {{VALUE}}',
+				),
+			)
+		);
+
+		$this->add_control(
+			'item_hover_background_color',
+			array(
+				'label'     => esc_html__( 'Background Color', 'jet-smart-filters' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => array(
+					'{{WRAPPER}} ' . $css_scheme['button'] . ':hover' => 'background-color: {{VALUE}}',
+				),
+			)
+		);
+
+		$this->add_control(
+			'item_hover_border_color',
+			array(
+				'label'     => esc_html__( 'Border Color', 'jet-smart-filters' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => array(
+					'{{WRAPPER}} ' . $css_scheme['button'] . ':hover' => 'border-color: {{VALUE}}',
 				),
 			)
 		);
@@ -265,7 +311,7 @@ class Jet_Smart_Filters_Check_Range_Widget extends Jet_Smart_Filters_Base_Widget
 					),
 				),
 				'default'    => array(
-					'size' => 15,
+					'size' => 16,
 					'unit' => 'px',
 				),
 				'selectors'  => array(
@@ -449,7 +495,5 @@ class Jet_Smart_Filters_Check_Range_Widget extends Jet_Smart_Filters_Base_Widget
 
 		// Include Additional Filter Settings Style
 		include jet_smart_filters()->plugin_path( 'includes/widgets/common-controls/additional-filter-style.php' );
-
 	}
-
 }

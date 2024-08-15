@@ -35,7 +35,7 @@ if ( ! class_exists( 'Jet_Engine_Meta_Box_Package' ) ) {
 			add_action( 'jet-engine/listings/dynamic-image/source-controls', array( $this, 'image_controls' ) );
 			add_action( 'jet-engine/listings/dynamic-image/link-source-controls', array( $this, 'linked_image_controls' ) );
 
-			add_filter( 'jet-engine/listings/dynamic-image/custom-image', array( $this, 'image_render' ), 10, 2 );
+			add_filter( 'jet-engine/listings/dynamic-image/custom-image', array( $this, 'image_render' ), 10, 4 );
 			add_filter( 'jet-engine/listings/dynamic-image/custom-url', array( $this, 'image_url_render' ), 10, 2 );
 			add_filter( 'jet-engine/listings/dynamic-link/custom-url', array( $this, 'link_render' ), 10, 2 );
 			add_filter( 'jet-engine/listings/dynamic-field/field-value', array( $this, 'field_render' ), 10, 2 );
@@ -107,6 +107,11 @@ if ( ! class_exists( 'Jet_Engine_Meta_Box_Package' ) ) {
 
 				if ( ! empty( $meta_box['fields'] ) ) {
 					foreach ( $meta_box['fields'] as $field ) {
+
+						if ( empty( $field['id'] ) ) {
+							continue;
+						}
+
 						$fields[ $field['id'] ] = $field;
 					}
 				}
@@ -152,9 +157,10 @@ if ( ! class_exists( 'Jet_Engine_Meta_Box_Package' ) ) {
 		 *
 		 * @param  [type] $result   [description]
 		 * @param  [type] $settings [description]
+		 * @param  [type] $size     [description]
 		 * @return [type]           [description]
 		 */
-		public function image_render( $result, $settings ) {
+		public function image_render( $result, $settings, $size, $render ) {
 
 			if ( 'mb_field_groups' !== $settings['dynamic_image_source'] ) {
 				return $result;
@@ -172,12 +178,12 @@ if ( ! class_exists( 'Jet_Engine_Meta_Box_Package' ) ) {
 				return $result;
 			}
 
-			$size = isset( $settings['dynamic_image_size'] ) ? $settings['dynamic_image_size'] : 'full';
-
 			if ( filter_var( $image, FILTER_VALIDATE_URL ) ) {
-				return sprintf( '<img src="%1$s" alt="%2$s">', $image, '' );
+				ob_start();
+				$render->print_image_html_by_src( $image );
+				return ob_get_clean();
 			} else {
-				return wp_get_attachment_image( $image, $size, false );
+				return wp_get_attachment_image( $image, $size, false, array( 'alt' => $render->get_image_alt( $image, $settings ) ) );
 			}
 
 		}
@@ -310,7 +316,7 @@ if ( ! class_exists( 'Jet_Engine_Meta_Box_Package' ) ) {
 				$id,
 				array(
 					'label'     => __( 'Meta Box Field', 'jet-engine' ),
-					'type'      => Elementor\Controls_Manager::SELECT,
+					'type'      => 'select',
 					'default'   => '',
 					'groups'    => $this->get_fields_goups( $group ),
 					'condition' => $condition,
@@ -369,7 +375,7 @@ if ( ! class_exists( 'Jet_Engine_Meta_Box_Package' ) ) {
 			if ( ! in_array( 'image', $whitelisted[ $type ] ) ) {
 				return false;
 			} else {
-				return $field['name'];
+				return $this->get_field_name( $field );
 			}
 
 		}
@@ -392,7 +398,7 @@ if ( ! class_exists( 'Jet_Engine_Meta_Box_Package' ) ) {
 			if ( ! in_array( 'link', $whitelisted[ $type ] ) ) {
 				return false;
 			} else {
-				return $field['name'];
+				return $this->get_field_name( $field );
 			}
 
 		}
@@ -415,9 +421,26 @@ if ( ! class_exists( 'Jet_Engine_Meta_Box_Package' ) ) {
 			if ( ! in_array( 'field', $whitelisted[ $type ] ) ) {
 				return false;
 			} else {
-				return $field['name'];
+				return $this->get_field_name( $field );
 			}
 
+		}
+
+		/**
+		 * Returns the field name.
+		 *
+		 * @param array $field Field arguments
+		 *
+		 * @return false|string
+		 */
+		public function get_field_name( $field = array() ) {
+			$name = ! empty( $field['name'] ) ? $field['name'] : false;
+
+			if ( ! $name ) {
+				$name = ! empty( $field['id'] ) ? $field['id'] : false;
+			}
+
+			return $name;
 		}
 
 		/**

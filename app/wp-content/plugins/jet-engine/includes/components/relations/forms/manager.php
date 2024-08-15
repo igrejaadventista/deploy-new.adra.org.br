@@ -66,23 +66,42 @@ class Manager {
 	 */
 	public function update_related_items( $args = array() ) {
 
-		$relation  = ! empty( $args['relation'] ) ? $args['relation'] : false;
-		$parent_id = ! empty( $args['parent_id'] ) ? $args['parent_id'] : false;
-		$child_id  = ! empty( $args['child_id'] ) ? $args['child_id'] : false;
-		$context   = ! empty( $args['context'] ) ? $args['context'] : 'child';
+		$relation         = ! empty( $args['relation'] ) ? $args['relation'] : false;
+		$parent_id        = ! empty( $args['parent_id'] ) ? $args['parent_id'] : false;
+		$child_id         = ! empty( $args['child_id'] ) ? $args['child_id'] : false;
+		$context          = ! empty( $args['context'] ) ? $args['context'] : 'child';
+		$store_items_type = ! empty( $args['store_items_type'] ) ? $args['store_items_type'] : 'replace';
 
 		if ( ! $relation ) {
 			return new \WP_Error( 'rel_empty', __( 'Relation ID is not set. Please check your form settings', 'jet-engine' ) );
-		}
-
-		if ( ! $parent_id ) {
-			return new \WP_Error( 'parent_empty', __( 'Parent Item ID is not set. Please check your form settings', 'jet-engine' ) );
 		}
 
 		$relation_instance = jet_engine()->relations->get_active_relations( $relation );
 
 		if ( ! $relation_instance ) {
 			return new \WP_Error( 'rel_not_found', __( 'Relation instance not found by ID. Please check your form settings', 'jet-engine' ) );
+		}
+
+		$allow_update  = apply_filters(
+			'jet-engine/relation/forms/allow_update',
+			[
+				'allowed'       => true,
+				'error_message' => 'Relation update not allowed',
+			],
+			$args,
+			$relation_instance
+		);
+
+		if ( ! $allow_update['allowed'] ) {
+			return new \WP_Error( 'cannot_update_relation', $allow_update['error_message'] );
+		}
+
+		if ( empty( $parent_id ) ) {
+			$parent_id = array();
+		}
+
+		if ( empty( $child_id ) ) {
+			$child_id = array();
 		}
 
 		if ( ! is_array( $parent_id ) ) {
@@ -93,21 +112,46 @@ class Manager {
 			$child_id = array( $child_id );
 		}
 
+		// If we disconnect given items - just do it and return
+		if ( 'disconnect' === $store_items_type ) {
+			
+			if ( empty( $parent_id ) ) {
+				return new \WP_Error( 'disconnect_error', __( 'Parent is empty. To disconnect items you need both parent and child items provided.', 'jet-engine' ) );
+			}
+
+			if ( empty( $child_id ) ) {
+				return new \WP_Error( 'disconnect_error', __( 'Child is empty. To disconnect items you need both parent and child items provided.', 'jet-engine' ) );
+			}
+
+			foreach ( $parent_id as $par_id ) {
+				foreach ( $child_id as $c_id ) {
+					$relation_instance->delete_rows( $par_id, $c_id );
+				}
+			}
+
+			return true;
+
+		}
+
 		$relation_instance->set_update_context( $context );
 
 		if ( 'child' === $context ) {
+			
 			/**
 			 * We updating children items from the parent object,
 			 * this mean we need to delete all existing children for the parent and set up new
 			 */
 			foreach ( $parent_id as $par_id ) {
 
-				// First of all completely delete all existing rows for the current parent
-				$relation_instance->delete_rows( $par_id );
+				if ( 'replace' === $store_items_type ) {
+					// If we replacing data - first of all completely delete all existing rows for the current parent
+					$relation_instance->delete_rows( $par_id );
+				}
 
 				foreach ( $child_id as $c_id ) {
 					$relation_instance->update( $par_id, $c_id );
 				}
+
 			}
 		} else {
 			/**
@@ -116,8 +160,10 @@ class Manager {
 			 */
 			foreach ( $child_id as $c_id ) {
 
-				// First of all completely delete all existing rows for the current child
-				$relation_instance->delete_rows( false, $c_id );
+				if ( 'replace' === $store_items_type ) {
+					// If we replacing data - first of all completely delete all existing rows for the current child
+					$relation_instance->delete_rows( false, $c_id );
+				}
 
 				foreach ( $parent_id as $par_id ) {
 					$relation_instance->update( $par_id, $c_id );

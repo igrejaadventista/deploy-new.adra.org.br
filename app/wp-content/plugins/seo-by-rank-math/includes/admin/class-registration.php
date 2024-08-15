@@ -14,7 +14,7 @@ use RankMath\KB;
 use RankMath\Helper;
 use RankMath\Traits\Hooker;
 use RankMath\Admin\Admin_Helper;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Param;
 use RankMath\Helpers\Security;
 use RankMath\Google\Authentication;
 
@@ -34,6 +34,19 @@ class Registration {
 	 */
 	private $slug = 'rank-math-registration';
 
+	/**
+	 * Hold current step.
+	 *
+	 * @var string
+	 */
+	protected $step = '';
+
+	/**
+	 * Current step slug.
+	 *
+	 * @var string
+	 */
+	protected $step_slug = '';
 	/**
 	 * The text string array.
 	 *
@@ -125,6 +138,7 @@ class Registration {
 					'api_key'   => $auth_data['api_key'],
 					'plan'      => $auth_data['plan'],
 					'connected' => true,
+					'site_url'  => Helper::get_home_url(),
 				]
 			);
 
@@ -196,7 +210,7 @@ class Registration {
 	public function admin_menu() {
 		add_menu_page(
 			esc_html__( 'Rank Math', 'rank-math' ),
-			esc_html__( 'Rank Math', 'rank-math' ),
+			esc_html__( 'Rank Math SEO', 'rank-math' ),
 			'manage_options',
 			$this->slug,
 			[ $this, 'render_page' ]
@@ -230,7 +244,7 @@ class Registration {
 		// Wizard.
 		wp_enqueue_style( 'rank-math-wizard', rank_math()->plugin_url() . 'assets/admin/css/setup-wizard.css', [ 'wp-admin', 'buttons', 'cmb2-styles', 'rank-math-common', 'rank-math-cmb2' ], rank_math()->version );
 
-		$logo_url = '<a href="' . KB::get( 'logo' ) . '" target="_blank"><img src="' . esc_url( rank_math()->plugin_url() . 'assets/admin/img/logo.svg' ) . '"></a>';
+		$logo_url = '<a href="' . KB::get( 'logo', 'SW Logo' ) . '" target="_blank"><img src="' . esc_url( rank_math()->plugin_url() . 'assets/admin/img/logo.svg' ) . '"></a>';
 
 		ob_start();
 
@@ -268,9 +282,10 @@ class Registration {
 	 * Output connect button (instead of the old connect form).
 	 */
 	private function show_connect_button() {
+		Admin_Helper::maybe_show_invalid_siteurl_notice();
 		?>
 		<div class="text-center wp-core-ui rank-math-ui" style="margin-top: 30px;">
-			<button type="submit" class="button button-primary button-animated" name="rank_math_activate"><?php echo esc_attr__( 'Connect Your Account', 'rank-math' ); ?></button>
+			<button type="submit" class="button button-primary button-connect <?php echo Admin_Helper::is_site_url_valid() ? 'button-animated' : 'disabled'; ?>" name="rank_math_activate"><?php echo esc_attr__( 'Connect Your Account', 'rank-math' ); ?></button>
 		</div>
 		<?php
 	}
@@ -284,8 +299,11 @@ class Registration {
 			<h1><?php esc_html_e( 'Connect FREE Account', 'rank-math' ); ?></h1>
 			<p class="rank-math-gray-box">
 				<?php
-				/* translators: Link to Free Account Benefits KB article */
-				printf( esc_html__( 'By connecting your free account, you get keyword suggestions directly from Google when entering the focus keywords. Not only that, get access to our revolutionary SEO Analyzer inside WordPress that scans your website for SEO errors and suggest improvements. %s', 'rank-math' ), '<a href="' . KB::get( 'free-account-benefits' ) . '" target="_blank">' . esc_html__( 'Read more by following this link.', 'rank-math' ) . '</a>' );
+				printf(
+					/* translators: Link to Free Account Benefits KB article */
+					esc_html__( 'By connecting your free account, you get keyword suggestions directly from Google when entering the focus keywords. Not only that, get access to our revolutionary Content AI, SEO Analyzer inside WordPress that scans your website for SEO errors and suggest improvements. %s', 'rank-math' ),
+					'<a href="' . esc_url( KB::get( 'free-account-benefits', 'SW Connect Free Account' ) ) . '" target="_blank">' . esc_html__( 'Read more by following this link.', 'rank-math' ) . '</a>'
+				);
 				?>
 			</p>
 			<?php

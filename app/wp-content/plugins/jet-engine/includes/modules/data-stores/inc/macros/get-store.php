@@ -49,7 +49,17 @@ class Get_Store extends \Jet_Engine_Base_Macros {
 			return null;
 		}
 
-		$store_items = $store_instance->get_store();
+		if ( $store_instance->get_type()->is_front_store() ) {
+
+			$store_items = array(
+				'is-front',
+				$store_instance->get_type()->type_id(),
+				$store_instance->get_slug(),
+			);
+
+		} else {
+			$store_items = $store_instance->get_store();
+		}
 
 		if ( empty( $store_items ) ) {
 			$store_items = array( 'not-found' );

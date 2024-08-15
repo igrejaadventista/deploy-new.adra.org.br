@@ -188,7 +188,7 @@ if ( ! class_exists( 'Jet_Elements_Templates_Manager' ) ) {
 
 			$templates = $this->get_templates();
 
-			if ( ! empty( $templates ) ) {
+			if ( ! empty( $templates ) && is_array( $remote_templates ) ) {
 				$remote_templates = array_merge( $remote_templates, $templates );
 			}
 

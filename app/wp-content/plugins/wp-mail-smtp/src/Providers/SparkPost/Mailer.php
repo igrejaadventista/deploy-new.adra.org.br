@@ -2,6 +2,7 @@
 
 namespace WPMailSMTP\Providers\SparkPost;
 
+use WPMailSMTP\ConnectionInterface;
 use WPMailSMTP\Helpers\Helpers;
 use WPMailSMTP\WP;
 use WPMailSMTP\MailCatcherInterface;
@@ -37,25 +38,26 @@ class Mailer extends MailerAbstract {
 	 *
 	 * @since 3.2.0
 	 *
-	 * @param MailCatcherInterface $phpmailer The MailCatcher object.
+	 * @param MailCatcherInterface $phpmailer  The MailCatcher object.
+	 * @param ConnectionInterface  $connection The Connection object.
 	 */
-	public function __construct( $phpmailer ) {
+	public function __construct( $phpmailer, $connection = null ) {
 
 		// Default value should be defined before the parent class constructor fires.
 		$this->url = self::API_BASE_US;
 
 		// We want to prefill everything from MailCatcher class, which extends PHPMailer.
-		parent::__construct( $phpmailer );
+		parent::__construct( $phpmailer, $connection );
 
 		// We have a special API URL to query in case of EU region.
-		if ( $this->options->get( $this->mailer, 'region' ) === 'EU' ) {
+		if ( $this->connection_options->get( $this->mailer, 'region' ) === 'EU' ) {
 			$this->url = self::API_BASE_EU;
 		}
 
 		$this->url .= '/transmissions';
 
 		// Set mailer specific headers.
-		$this->set_header( 'Authorization', $this->options->get( $this->mailer, 'api_key' ) );
+		$this->set_header( 'Authorization', $this->connection_options->get( $this->mailer, 'api_key' ) );
 		$this->set_header( 'Content-Type', 'application/json' );
 
 		// Set default body params.
@@ -129,10 +131,7 @@ class Mailer extends MailerAbstract {
 		}
 
 		$headers = isset( $this->body['content']['headers'] ) ? (array) $this->body['content']['headers'] : [];
-
-		if ( ! in_array( $name, [ 'Message-ID', 'CC' ], true ) ) {
-			$value = WP::sanitize_value( $value );
-		}
+		$value   = $this->sanitize_header_value( $name, $value );
 
 		$headers[ $name ] = $value;
 
@@ -480,7 +479,7 @@ class Mailer extends MailerAbstract {
 	 */
 	public function get_debug_info() {
 
-		$options = $this->options->get_group( $this->mailer );
+		$options = $this->connection_options->get_group( $this->mailer );
 
 		$text[] = '<strong>' . esc_html__( 'API Key:', 'wp-mail-smtp' ) . '</strong> ' .
 							( ! empty( $options['api_key'] ) ? 'Yes' : 'No' );
@@ -501,7 +500,7 @@ class Mailer extends MailerAbstract {
 	 */
 	public function is_mailer_complete() {
 
-		$options = $this->options->get_group( $this->mailer );
+		$options = $this->connection_options->get_group( $this->mailer );
 
 		if ( ! empty( $options['api_key'] ) ) {
 			return true;
@@ -536,5 +535,31 @@ class Mailer extends MailerAbstract {
 		}
 
 		return $holder;
+	}
+
+	/**
+	 * Sanitize email header values.
+	 *
+	 * @param string $name  Name of the header.
+	 * @param string $value Value of the header.
+	 *
+	 * @since 3.11.1
+	 */
+	public function sanitize_header_value( $name, $value ) {
+
+		if (
+			in_array(
+				strtolower( $name ),
+				[
+					'message-id',
+					'cc',
+				],
+				true
+			)
+		) {
+			return $value;
+		}
+
+		return parent::sanitize_header_value( $name, $value );
 	}
 }

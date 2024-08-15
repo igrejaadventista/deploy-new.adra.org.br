@@ -15,8 +15,8 @@ namespace RankMath\Sitemap;
 
 use RankMath\Helper;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Url;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Url;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -48,7 +48,7 @@ class Router {
 		$wp->add_query_var( 'sitemap_n' );
 		$wp->add_query_var( 'xsl' );
 
-		add_rewrite_rule( $base . 'sitemap_index\.xml$', 'index.php?sitemap=1', 'top' );
+		add_rewrite_rule( $base . Sitemap::get_sitemap_index_slug() . '\\.xml$', 'index.php?sitemap=1', 'top' );
 		add_rewrite_rule( $base . '([^/]+?)-sitemap([0-9]+)?\.xml$', 'index.php?sitemap=$matches[1]&sitemap_n=$matches[2]', 'top' );
 		add_rewrite_rule( $base . '([a-z]+)?-?sitemap\.xsl$', 'index.php?xsl=$matches[1]', 'top' );
 	}
@@ -63,7 +63,7 @@ class Router {
 			return;
 		}
 
-		$xsl = get_query_var( 'xsl' );
+		$xsl = self::get_sitemap_slug( get_query_var( 'xsl' ) );
 		if ( ! empty( $xsl ) ) {
 			$this->filter( 'user_has_cap', 'filter_user_has_cap' );
 			$stylesheet = new Stylesheet();
@@ -101,7 +101,7 @@ class Router {
 			return;
 		}
 
-		Helper::redirect( home_url( '/sitemap_index.xml' ), 301 );
+		Helper::redirect( home_url( '/' . Sitemap::get_sitemap_index_slug() . '.xml' ), 301 );
 		exit;
 	}
 
@@ -150,6 +150,21 @@ class Router {
 	}
 
 	/**
+	 * Get sitemap slug.
+	 *
+	 * @param string $type Sitemap type.
+	 * @return string
+	 */
+	public static function get_sitemap_slug( $type ) {
+		/**
+		 * Filter the slug of the sitemap.
+		 *
+		 * @param string $slug Slug of the sitemap.
+		 */
+		return apply_filters( "rank_math/sitemap/{$type}/slug", $type );
+	}
+
+	/**
 	 * Get page URL for the sitemap.
 	 *
 	 * @param string $page Page to append to the base URL.
@@ -163,7 +178,7 @@ class Router {
 			return $page;
 		}
 
-		if ( 'sitemap_index.xml' === $page ) {
+		if ( Sitemap::get_sitemap_index_slug() . '.xml' === $page ) {
 			return '?sitemap=1';
 		}
 

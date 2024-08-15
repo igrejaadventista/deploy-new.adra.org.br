@@ -26,7 +26,7 @@ class Query {
 		);
 
 		add_filter(
-			'jet-engine/elementor-views/frontend/custom-listing-url',
+			'jet-engine/listings/frontend/custom-listing-url',
 			[ $this, 'set_wc_product_custom_listing_url' ]
 		);
 
@@ -35,6 +35,53 @@ class Query {
 			[ $this, 'set_wc_product_object' ]
 		);
 
+		add_action(
+			'jet-engine/listings/data/reset-current-object',
+			[ $this, 'restore_wc_product_object' ]
+		);
+
+		add_action( 'jet-engine/listings/frontend/setup-data', function ( $obj ) {
+			if ( is_a( $obj, 'WC_Product' ) ) {
+				global $post;
+
+				$post = get_post( $obj->get_id() );
+
+				setup_postdata( $post );
+			}
+		} );
+
+		add_action( 'jet-engine/listings/frontend/reset-data', function( $data ) {
+			if ( 'query' === $data->get_listing_source() && is_a( $data->get_current_object(), 'WC_Product' ) ) {
+				wp_reset_postdata();
+			}
+		} );
+
+		// Added for correctly setup and reset global $post in nested listings.
+		add_action( 'jet-engine/query-builder/listings/on-query', function ( $query, $settings, $widget ) {
+
+			if ( 'wc-product-query' === $query->query_type ) {
+				$widget->posts_query = $query->get_current_wp_query();
+			}
+
+		}, 10, 3 );
+
+	}
+	
+	/**
+	 * Maybe reset global $product object after listing
+	 *
+	 *
+	 * @return void
+	 */
+	public function restore_wc_product_object() {
+	
+		$object = jet_engine()->listings->objects_stack->get_restored_object();
+
+		if ( $object && is_a( $object, 'WC_Product' ) ) {
+			global $product;
+			$product = $object;
+		}
+		
 	}
 
 	/**

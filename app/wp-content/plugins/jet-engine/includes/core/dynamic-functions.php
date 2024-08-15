@@ -337,7 +337,8 @@ if ( ! class_exists( 'Jet_Engine_Dynamic_Functions' ) ) {
 					'term_meta' => __( 'Term Meta', 'jet-engine' ),
 					'user_meta' => __( 'User Meta', 'jet-engine' ),
 				),
-				'condition' => array(
+				'description'     => __( '<b>Please note:</b> if you used <b>Custom Meta Storage</b> feature for meta data you want to get with Dynamic Functions, you need to use <b>SQL Query Results</b> function type', 'jet-engine' ),
+				'condition'       => array(
 					'function_name!' => 'query_var',
 				),
 			);
@@ -380,6 +381,21 @@ if ( ! class_exists( 'Jet_Engine_Dynamic_Functions' ) ) {
 				),
 			);
 
+			$controls['data_context_relation_object'] = array(
+				'label'     => __( 'From Object (what to show)', 'jet-engine' ),
+				'type'      => 'select',
+				'options' => array(
+					'parent_object' => __( 'Parent Object', 'jet-engine' ),
+					'child_object'  => __( 'Child Object', 'jet-engine' ),
+				),
+				'default' => 'child_object',
+				'condition' => array(
+					'data_source'    => 'post_meta',
+					'data_context'   => 'related_posts',
+					'function_name!' => 'query_var',
+				),
+			);
+
 			$controls['data_context_tax'] = array(
 				'label'           => __( 'Taxonomy', 'jet-engine' ),
 				'type'            => 'select',
@@ -397,6 +413,7 @@ if ( ! class_exists( 'Jet_Engine_Dynamic_Functions' ) ) {
 				'type'   => 'text',
 				'label_block' => true,
 				'description' => __( 'Leave empty to get term dynamically. Use prefix <b>slug::</b> to set term by slug instead of ID, for example - slug::term-slug', 'jet-engine' ),
+				'has_html'    => true,
 				'condition' => array(
 					'data_source'    => 'post_meta',
 					'data_context'   => 'current_term',
@@ -409,6 +426,7 @@ if ( ! class_exists( 'Jet_Engine_Dynamic_Functions' ) ) {
 				'type'   => 'text',
 				'label_block' => true,
 				'description' => __( 'Leave empty to get user ID dynamically. Use prefixes <b>login::</b> or <b>email::</b> to set user by login or email instead of ID, for example - email::admin@demolink.org', 'jet-engine' ),
+				'has_html'    => true,
 				'condition' => array(
 					'data_source'    => 'post_meta',
 					'data_context'   => 'queried_user',
@@ -488,43 +506,7 @@ if ( ! class_exists( 'Jet_Engine_Dynamic_Functions' ) ) {
 			}
 
 			if ( 'blocks' === $for ) {
-
-				$result = array();
-
-				foreach ( $controls as $key => $data ) {
-
-					$data['name'] = $key;
-
-					if ( ! empty( $data['options'] ) ) {
-
-						if ( ! empty( $data['add_placeholder'] ) ) {
-							$data['options'] = array_merge( array( '' => $data['add_placeholder'] ), $data['options'] );
-						}
-
-						$data['options'] = \Jet_Engine_Tools::prepare_list_for_js( $data['options'], ARRAY_A );
-
-					}
-
-					if ( ! empty( $data['groups'] ) ) {
-
-						$groups = array();
-
-						foreach ( $data['groups'] as $group ) {
-							$groups[] = array(
-								'label'  => $group['label'],
-								'values' => \Jet_Engine_Tools::prepare_list_for_js( $group['options'], ARRAY_A ),
-							);
-						}
-
-						$data['groups'] = $groups;
-
-					}
-
-					$result[] = $data;
-				}
-
-				$controls = $result;
-
+				$controls = \Jet_Engine_Tools::prepare_controls_for_js( $controls );
 			}
 
 			return $controls;
@@ -567,11 +549,18 @@ if ( ! class_exists( 'Jet_Engine_Dynamic_Functions' ) ) {
 				return $settings;
 			}
 
+			$required_sql_settings = array( 'decimal_count' );
+
 			foreach ( $custom_settings as $setting_key => $setting_data ) {
 				if ( $tag ) {
 					$settings[ $setting_key ] = $tag->get_settings( $setting_key );
 				} else {
 					$settings[ $setting_key ] = isset( $all_settings[ $setting_key ] ) ? $all_settings[ $setting_key ] : false;
+				}
+
+				// Added to prevent SQL error if required sql setting is empty.
+				if ( in_array( $setting_key, $required_sql_settings ) && Jet_Engine_Tools::is_empty( $settings[ $setting_key ] ) && isset( $setting_data['default'] ) ) {
+					$settings[ $setting_key ] = $setting_data['default'];
 				}
 			}
 
@@ -628,7 +617,17 @@ if ( ! class_exists( 'Jet_Engine_Dynamic_Functions' ) ) {
 			$func          = ! empty( $func_data['custom_settings']['_additional_function'] ) ? $func_data['custom_settings']['_additional_function'] : false;
 			$decimal_count = isset( $func_data['custom_settings']['decimal_count'] ) ? $func_data['custom_settings']['decimal_count'] : 0;
 
-			return $query->get_var( $column, $func, $decimal_count );
+			$callback = ! empty( $func_data['cb'] ) ? $func_data['cb'] : false;
+			$result   = $query->get_var( $column, $func, $decimal_count );
+
+			if ( $callback && is_callable( $callback ) ) {
+				return call_user_func( 
+					$callback, 
+					array( 'result' => $result, 'custom_settings' => $func_data['custom_settings'] ) 
+				);
+			} else {
+				return $result;
+			}
 
 		}
 
@@ -780,6 +779,7 @@ if ( ! class_exists( 'Jet_Engine_Dynamic_Functions' ) ) {
 
 						$relation = ! empty( $data_source['context_relation'] ) ? $data_source['context_relation'] : false;
 						$post     = get_post();
+						$posts    = false;
 
 						if ( $relation && $post ) {
 
@@ -796,16 +796,38 @@ if ( ! class_exists( 'Jet_Engine_Dynamic_Functions' ) ) {
 									'from'        => $from,
 								) );
 
-								if ( ! empty( $posts ) ) {
-									$posts = implode( ', ', $posts );
-								} else {
-									// If related posts not found - return null to avoid incorrect calculations
+							} else {
+								
+								$from = ! empty( $data_source['data_context_relation_object'] ) ? $data_source['data_context_relation_object'] : 'child_object';
+								$object_id = jet_engine()->listings->data->get_current_object_id();
+
+								$relation_instance = jet_engine()->relations->get_active_relations( $relation );
+
+								if ( ! $relation_instance ) {
 									return null;
 								}
 
-								$final_query = str_replace( ";", " AND $table.post_id IN ( $posts );", $final_query );
+								switch ( $from ) {
+									case 'parent_object':
+										$posts = $relation_instance->get_parents( $object_id, 'ids' );
+										break;
+
+									default:
+										$posts = $relation_instance->get_children( $object_id, 'ids' );
+										break;
+
+								}
 
 							}
+
+							if ( ! empty( $posts ) ) {
+								$posts = implode( ', ', $posts );
+							} else {
+								// If related posts not found - return null to avoid incorrect calculations
+								return null;
+							}
+
+							$final_query = str_replace( ";", " AND $table.post_id IN ( $posts );", $final_query );
 
 						}
 

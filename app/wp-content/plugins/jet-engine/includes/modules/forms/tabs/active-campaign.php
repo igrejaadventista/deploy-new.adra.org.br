@@ -11,6 +11,8 @@ class Active_Campaign extends Base_Form_Tab {
 	}
 
 	public function on_get_request() {
+		$this->verify_request();
+
 		$key = sanitize_text_field( $_POST['api_key'] );
 		$url = sanitize_text_field( $_POST['api_url'] );
 

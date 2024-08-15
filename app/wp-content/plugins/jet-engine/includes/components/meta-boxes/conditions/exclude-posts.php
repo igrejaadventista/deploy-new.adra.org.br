@@ -35,7 +35,7 @@ class Exclude_Posts extends Include_Posts {
 	 * @return [type] [description]
 	 */
 	public function check( $post_id, $posts ) {
-		return ( $post_id && ! in_array( $post_id, $posts ) );
+		return ( empty( $post_id ) || ! in_array( $post_id, $posts ) );
 	}
 
 	/**

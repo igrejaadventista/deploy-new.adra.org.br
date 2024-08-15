@@ -22,7 +22,7 @@ if ( ! class_exists( 'Jet_Engine_Accessibility' ) ) {
 				return;
 			}
 
-			wp_add_inline_style( $handle, $this->get_cotrast_css() );
+			wp_add_inline_style( $handle, $this->get_contrast_css() );
 
 		}
 
@@ -31,7 +31,7 @@ if ( ! class_exists( 'Jet_Engine_Accessibility' ) ) {
 		 *
 		 * @return [type] [description]
 		 */
-		public function get_cotrast_css() {
+		public function get_contrast_css() {
 			ob_start();
 			include jet_engine()->plugin_path( 'assets/css/admin/cotrast-ui.css' );
 			return ob_get_clean();

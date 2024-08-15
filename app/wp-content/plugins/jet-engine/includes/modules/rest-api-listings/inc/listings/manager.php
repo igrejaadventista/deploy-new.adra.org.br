@@ -28,8 +28,8 @@ class Manager {
 			require_once Module::instance()->module_path( 'listings/elementor.php' );
 			new Elementor( $this );
 		}
+		
 		add_filter(
-
 			'jet-engine/templates/listing-sources',
 			array( $this, 'register_listing_source' )
 		);
@@ -53,7 +53,7 @@ class Manager {
 		add_filter(
 			'jet-engine/listings/dynamic-image/custom-image',
 			array( $this, 'custom_image_renderer' ),
-			10, 2
+			10, 4
 		);
 
 		add_filter(
@@ -85,12 +85,36 @@ class Manager {
 			return $settings;
 		} );
 
+		add_filter(
+			'jet-engine/listings/dynamic-image/fields',
+			array( $this, 'add_image_source_fields' ),
+			10, 2
+		);
+
+		add_filter(
+			'jet-engine/listings/dynamic-link/fields',
+			array( $this, 'add_source_fields' ),
+			10, 2
+		);
+
+		add_action(
+			'jet-engine/listings/document/get-preview/' . $this->source,
+			array( $this, 'setup_preview' )
+		);
+
+		add_action(
+			'jet-engine/maps-listing/sources/register',
+			array( $this, 'register_map_source' )
+		);
+
 	}
 
 	public function set_item_id( $id, $object ) {
 
 		if ( isset( $object->is_rest_api_endpoint ) ) {
-			if ( isset( $object->ID ) ) {
+			if ( isset( $object->_rest_api_item_id ) ) {
+				$id = $object->_rest_api_item_id;
+			} elseif ( isset( $object->ID ) ) {
 				$id = $object->ID;
 			} elseif ( isset( $object->_ID ) ) {
 				$id = $object->_ID;
@@ -242,10 +266,9 @@ class Manager {
 	 *
 	 * @return [type] [description]
 	 */
-	public function custom_image_renderer( $result = false, $settings = array() ) {
+	public function custom_image_renderer( $result = false, $settings = array(), $size = 'full', $render = null ) {
 
 		$image = $this->get_custom_value_by_setting( 'dynamic_image_source', $settings );
-		$size  = isset( $settings['dynamic_image_size'] ) ? $settings['dynamic_image_size'] : 'full';
 
 		if ( is_array( $image ) && isset( $image['url'] ) ) {
 
@@ -266,18 +289,17 @@ class Manager {
 
 		ob_start();
 
+		$current_object = jet_engine()->listings->data->get_current_object();
+
+		$alt = apply_filters(
+			'jet-engine/rest-api-listings/image-alt/',
+			false,
+			$current_object
+		);
+
 		if ( filter_var( $image, FILTER_VALIDATE_URL ) ) {
-			printf( '<img src="%1$s" alt="%2$s">', $image, '' );
+			$render->print_image_html_by_src( $image, $alt );
 		} else {
-
-			$current_object = jet_engine()->listings->data->get_current_object();
-
-			$alt = apply_filters(
-				'jet-engine/rest-api-listings/image-alt/',
-				false,
-				$current_object
-			);
-
 			echo wp_get_attachment_image( $image, $size, false, array( 'alt' => $alt ) );
 		}
 
@@ -301,20 +323,27 @@ class Manager {
 	 *
 	 * @return [type] [description]
 	 */
-	public function register_listing_popup_options() {
+	public function register_listing_popup_options( $data ) {
+
 		?>
 		<div class="jet-listings-popup__form-row jet-template-listing jet-template-<?php echo $this->source; ?>">
 			<label for="listing_rest_endpoint"><?php esc_html_e( 'From API endpoint:', 'jet-engine' ); ?></label>
-			<select id="listing_rest_endpoint" name="listing_rest_endpoint">
+			<select id="listing_rest_endpoint" name="rest_api_endpoint" class="jet-listings-popup__control">
 				<option value=""><?php _e( 'Select endpoint...', 'jet-engine' ); ?></option>
 				<?php
 				foreach ( Module::instance()->settings->get() as $endpoint ) {
 					$url = jet_engine_trim_string( $endpoint['url'], 55, '...' );
-					printf( '<option value="%1$s">%2$s</option>', $endpoint['id'], $endpoint['name'] . ', ' . $url );
+					printf( 
+						'<option value="%1$s" %3$s>%2$s</option>',
+						$endpoint['id'],
+						$endpoint['name'] . ', ' . $url,
+						( ! empty( $data['rest_api_endpoint'] ) ? selected( $data['rest_api_endpoint'], $endpoint['id'], false ) : '' )
+					);
 				}
 			?></select>
 		</div>
 		<?php
+
 	}
 
 	/**
@@ -329,7 +358,7 @@ class Manager {
 			return $template_data;
 		}
 
-		if ( empty( $_REQUEST['listing_rest_endpoint'] ) ) {
+		if ( empty( $_REQUEST['rest_api_endpoint'] ) ) {
 			return $template_data;
 		}
 
@@ -337,7 +366,7 @@ class Manager {
 			return $template_data;
 		}
 
-		$rest_endpoint = esc_attr( $_REQUEST['listing_rest_endpoint'] );
+		$rest_endpoint = esc_attr( $_REQUEST['rest_api_endpoint'] );
 
 		$template_data['meta_input']['_listing_data']['post_type']                    = $rest_endpoint;
 		$template_data['meta_input']['_elementor_page_settings']['listing_post_type'] = $rest_endpoint;
@@ -406,6 +435,25 @@ class Manager {
 			return false;
 		}
 
+	}
+
+	/**
+	 * Register content types media fields
+	 *
+	 * @param [type] $groups [description]
+	 */
+	public function add_image_source_fields( $groups, $for ) {
+		return $this->add_source_fields( $groups );
+	}
+
+	/**
+	 * Register source for maps listings.
+	 *
+	 * @param object $sources_manager
+	 */
+	public function register_map_source( $sources_manager ) {
+		require_once Module::instance()->module_path( 'listings/maps-source.php' );
+		$sources_manager->register_source( new Rest_API_Maps_Source() );
 	}
 
 }

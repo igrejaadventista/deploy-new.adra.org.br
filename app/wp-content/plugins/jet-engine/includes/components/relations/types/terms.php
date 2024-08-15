@@ -123,7 +123,7 @@ class Terms extends Base {
 	 * @return [type]          [description]
 	 */
 	public function get_type_item_view_url( $item_id, $object_name, $relation ) {
-		return get_term_link( $item_id, $object_name );
+		return get_term_link( intval( $item_id ), $object_name );
 	}
 
 	/**

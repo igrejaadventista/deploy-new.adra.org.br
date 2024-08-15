@@ -42,15 +42,15 @@ class Item_Handler {
 		switch ( $_REQUEST[ $action_key ] ) {
 
 			case $actions_list['save']:
-				$this->save_item();
+				add_action( 'admin_init', array( $this, 'save_item' ) );
 				break;
 
 			case $actions_list['delete']:
-				$this->delete_item();
+				add_action( 'admin_init', array( $this, 'delete_item' ) );
 				break;
 
 			case $actions_list['clone']:
-				$this->clone_item();
+				add_action( 'admin_init', array( $this, 'clone_item' ) );
 				break;
 
 		}
@@ -86,8 +86,30 @@ class Item_Handler {
 		}
 
 		if ( ! $this->factory->user_has_access() ) {
-			wp_die( 'You don`t have permissions to fo this', 'Error' );
+			wp_die( 'You don`t have permissions to do this', 'Error' );
 		}
+
+		$this->raw_delete_item( $item_id );
+
+		if ( $redirect ) {
+			if ( $this->factory->admin_pages ) {
+				wp_redirect( $this->factory->admin_pages->page_url( false ) );
+				die();
+			}
+		}
+
+	}
+
+	/**
+	 * Delete CCT item without additional access checks.
+	 * Used to delete CCT items programatically from anywhere.
+	 * 
+	 * All user access checks must be implemented before calling of this method!
+	 * 
+	 * @param  int $item_id Item ID to delete
+	 * @return void
+	 */
+	public function raw_delete_item( $item_id ) {
 
 		$item = $this->factory->db->get_item( $item_id );
 
@@ -99,13 +121,6 @@ class Item_Handler {
 
 		do_action( 'jet-engine/custom-content-types/delete-item/' . $this->factory->get_arg( 'slug' ), $item_id, $item, $this );
 
-		if ( $redirect ) {
-			if ( $this->factory->admin_pages ) {
-				wp_redirect( $this->factory->admin_pages->page_url( false ) );
-				die();
-			}
-		}
-
 	}
 
 	public function clone_item( $item_id = false ) {
@@ -115,7 +130,7 @@ class Item_Handler {
 		}
 
 		if ( ! $this->factory->user_has_access() ) {
-			wp_die( 'You don`t have permissions to fo this', 'Error' );
+			wp_die( 'You don`t have permissions to do this', 'Error' );
 		}
 
 		if ( empty( $_REQUEST['_nonce'] ) || ! wp_verify_nonce( $_REQUEST['_nonce'], 'jet-cct-nonce' ) ) {
@@ -136,6 +151,10 @@ class Item_Handler {
 
 		if ( isset( $itemarr['_ID'] ) ) {
 			unset( $itemarr['_ID'] );
+		}
+
+		if ( isset( $itemarr['cct_single_post_id'] ) ) {
+			unset( $itemarr['cct_single_post_id'] );
 		}
 
 		$new_id = $this->update_item( $itemarr );
@@ -167,7 +186,7 @@ class Item_Handler {
 		}
 
 		if ( ! $this->factory->user_has_access() ) {
-			wp_send_json_error( 'You don`t have permissions to fo this' );
+			wp_send_json_error( 'You don`t have permissions to do this' );
 		}
 
 		if ( empty( $_POST['nonce'] ) || ! wp_verify_nonce( $_POST['nonce'], 'jet-cct-nonce' ) ) {
@@ -232,7 +251,7 @@ class Item_Handler {
 		}
 
 		if ( ! $this->factory->user_has_access() ) {
-			wp_die( 'You don`t have permissions to fo this', 'Error' );
+			wp_die( 'You don`t have permissions to do this', 'Error' );
 		}
 
 		if ( empty( $_POST['cct_nonce'] ) || ! wp_verify_nonce( $_POST['cct_nonce'], 'jet-cct-nonce' ) ) {
@@ -314,54 +333,9 @@ class Item_Handler {
 				$value = ! empty( $field['default_val'] ) ? $field['default_val'] : '';
 			}
 
-			$value = $this->factory->maybe_to_timestamp( $value, $field_data );
 			$type  = isset( $field_data['type'] ) ? $field_data['type'] : false;
-
-			switch ( $type ) {
-				case 'checkbox':
-				case 'checkbox-raw':
-
-					if ( ! empty( $field_data['is_array'] ) ) {
-
-						$raw    = ! empty( $value ) ? $value : array();
-						$result = array();
-
-						if ( ! is_array( $raw ) ) {
-							$raw = array( $raw => 'true' );
-						}
-
-						if ( in_array( 'true', $raw ) || in_array( 'false', $raw ) ) {
-
-							foreach ( $raw as $raw_key => $raw_value ) {
-								$bool_value = filter_var( $raw_value, FILTER_VALIDATE_BOOLEAN );
-								if ( $bool_value ) {
-									$result[] = $raw_key;
-								}
-							}
-
-							$value = $result;
-
-						}
-
-					} else {
-						if ( ! is_array( $value ) ) {
-							$value = array( $value => 'true' );
-						}
-					}
-
-					break;
-
-				case 'media':
-				case 'gallery':
-
-					if ( empty( $value ) ) {
-						$value = null;
-					} elseif ( ! empty( $field_data['value_format'] ) && 'both' === $field_data['value_format'] ) {
-						$value = jet_engine_sanitize_media_json( $value );
-					}
-
-					break;
-			}
+			$value = $this->sanitize_field_value( $value, $field_data );
+			$value = apply_filters( 'jet-engine/custom-content-types/update-item/sanitize-field-value', $value, $field_name, $field_data );
 
 			$item[ $field_name ] = $value;
 		}
@@ -393,6 +367,8 @@ class Item_Handler {
 				$single_post_id = isset( $prev_item['cct_single_post_id'] ) ? $prev_item['cct_single_post_id'] : false;
 			}
 
+			$update_single_post = ! ! $single_post_id;
+
 			if ( ! $single_post_id ) {
 				$single_post_id = $this->process_single_post( $item );
 			}
@@ -401,7 +377,14 @@ class Item_Handler {
 				$item['cct_single_post_id'] = $single_post_id;
 			}
 
+			// Update single post.
+			if ( $single_post_id && $update_single_post ) {
+				$this->process_single_post( $item );
+			}
+
 		}
+
+		$item = apply_filters( 'jet-engine/custom-content-types/item-to-update', $item, $fields, $this );
 
 		if ( $item_id ) {
 
@@ -409,13 +392,26 @@ class Item_Handler {
 
 			if ( empty( $item['cct_created'] ) ) {
 				unset( $item['cct_created'] );
+			} else {
+				$created_time = strtotime( $item['cct_created'] );
+
+				if ( \Jet_Engine_Tools::is_valid_timestamp( $created_time ) ) {
+					$item['cct_created'] = date( 'Y-m-d H:i:s', $created_time );
+				} else {
+					unset( $item['cct_created'] );
+				}
 			}
 
 			do_action( 'jet-engine/custom-content-types/update-item/' . $this->factory->get_arg( 'slug' ), $item, $prev_item, $this );
 
 			$this->factory->db->update( $item, array( '_ID' => $item_id ) );
 
-			do_action( 'jet-engine/custom-content-types/updated-item/' . $this->factory->get_arg( 'slug' ), $item, $prev_item, $this );
+			do_action( 
+				'jet-engine/custom-content-types/updated-item/' . $this->factory->get_arg( 'slug' ), 
+				$item, 
+				$prev_item, 
+				$this 
+			);
 
 			$error               = $this->factory->db->get_errors();
 			$this->update_status = 'updated';
@@ -436,7 +432,21 @@ class Item_Handler {
 			$item_id = $this->factory->db->insert( $item );
 			$error   = $this->factory->db->get_errors();
 
-			do_action( 'jet-engine/custom-content-types/created-item/' . $this->factory->get_arg( 'slug' ), $item, $item_id, $this );
+			do_action(
+				'jet-engine/custom-content-types/created-item/' . $this->factory->get_arg( 'slug' ),
+				$item,
+				$item_id,
+				$this
+			);
+
+			$item['_ID'] = $item_id;
+
+			do_action(
+				'jet-engine/custom-content-types/updated-item/' . $this->factory->get_arg( 'slug' ), 
+				$item, 
+				array(), 
+				$this 
+			);
 
 			if ( ! $item_id ) {
 				if ( ! $error ) {
@@ -454,6 +464,92 @@ class Item_Handler {
 
 		return $item_id;
 
+	}
+
+	/**
+	 * Sanitize field value.
+	 *
+	 * @param mixed $value
+	 * @param array $field
+	 *
+	 * @return array|mixed
+	 */
+	public function sanitize_field_value( $value, $field ) {
+
+		$type = isset( $field['type'] ) ? $field['type'] : false;
+
+		switch ( $type ) {
+
+			case 'repeater':
+
+				if ( is_array( $value ) && ! empty( $field['repeater-fields'] ) ) {
+
+					$repeater_names  = wp_list_pluck( $field['repeater-fields'], 'name' );
+					$repeater_fields = array_combine( $repeater_names, $field['repeater-fields'] );
+
+					foreach ( $value as $item_id => $item ) {
+						foreach ( $item as $sub_item_id => $sub_item_value ) {
+							$value[ $item_id ][ $sub_item_id ] = $this->sanitize_field_value( $sub_item_value, $repeater_fields[ $sub_item_id ] );
+						}
+					}
+				}
+
+				break;
+
+			case 'checkbox':
+			case 'checkbox-raw':
+
+				if ( ! empty( $field['is_array'] ) ) {
+
+					$raw    = ! empty( $value ) ? $value : array();
+					$result = array();
+
+					if ( ! is_array( $raw ) ) {
+						$raw = array( $raw => 'true' );
+					}
+
+					if ( in_array( 'true', $raw ) || in_array( 'false', $raw ) ) {
+
+						foreach ( $raw as $raw_key => $raw_value ) {
+							$bool_value = filter_var( $raw_value, FILTER_VALIDATE_BOOLEAN );
+							if ( $bool_value ) {
+								$result[] = $raw_key;
+							}
+						}
+
+						$value = $result;
+
+					}
+
+				} else {
+					if ( ! is_array( $value ) ) {
+						$value = array( $value => 'true' );
+					}
+				}
+
+				break;
+
+			case 'media':
+			case 'gallery':
+
+				if ( empty( $value ) ) {
+					$value = null;
+				} elseif ( ! empty( $field['value_format'] ) && 'both' === $field['value_format'] ) {
+					$value = jet_engine_sanitize_media_json( $value );
+				}
+
+				break;
+
+			case 'wysiwyg':
+				$value = jet_engine_sanitize_wysiwyg( $value );
+
+				break;
+
+			default:
+				$value = $this->factory->maybe_to_timestamp( $value, $field );
+		}
+
+		return $value;
 	}
 
 	/**

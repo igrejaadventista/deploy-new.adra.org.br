@@ -16,6 +16,7 @@
 			prefix: JetEngineCCTConfig.db_prefix,
 			icons: JetEngineCCTConfig.icons,
 			availablePositions: JetEngineCCTConfig.positions,
+			defaultMenuPosition: JetEngineCCTConfig.default_position,
 			restBase: JetEngineCCTConfig.rest_base,
 			saving: false,
 			showAPIParamsInfo: false,
@@ -74,6 +75,12 @@
 					console.log( e );
 				} );
 
+			} else {
+				self.$set(
+					self.generalSettings,
+					'position',
+					parseInt( self.defaultMenuPosition, 10 )
+				);
 			}
 		},
 		watch: {
@@ -127,6 +134,38 @@
 					result.push( {
 						value: this.metaFields[ i ].name,
 						label: this.metaFields[ i ].title,
+					} );
+				}
+
+				return result;
+
+			},
+			fieldsForRelatedSettings: function() {
+				var result = [
+						{
+							value: '',
+							label: '--',
+						}
+					],
+					allowedTypes = [ 'text', 'textarea', 'wysiwyg', 'radio', 'select' ];
+
+				for ( var i = 0; i < this.metaFields.length; i++ ) {
+
+					if ( 'field' !== this.metaFields[i].object_type ) {
+						continue;
+					}
+
+					if ( -1 === allowedTypes.indexOf( this.metaFields[i].type ) ) {
+						continue;
+					}
+
+					if ( 'select' === this.metaFields[i].type && this.metaFields[i].is_multiple ) {
+						continue;
+					}
+
+					result.push( {
+						value: this.metaFields[i].name,
+						label: this.metaFields[i].title,
 					} );
 				}
 

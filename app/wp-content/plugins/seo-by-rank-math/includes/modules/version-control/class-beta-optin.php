@@ -9,8 +9,8 @@
 namespace RankMath;
 
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -284,7 +284,7 @@ class Beta_Optin {
 			'plugins-network',
 		];
 
-		if ( ! in_array( $screen->base, $applicable_screens, true ) ) {
+		if ( empty( $screen->base ) || ! in_array( $screen->base, $applicable_screens, true ) ) {
 			return;
 		}
 

@@ -30,6 +30,10 @@ class FetchAuthTokenCache implements FetchAuthTokenInterface, GetQuotaProjectInt
      */
     private $fetcher;
     /**
+     * @var int
+     */
+    private $eagerRefreshThresholdSeconds = 10;
+    /**
      * @param FetchAuthTokenInterface $fetcher A credentials fetcher
      * @param array<mixed> $cacheConfig Configuration for the cache
      * @param CacheItemPoolInterface $cache
@@ -39,6 +43,13 @@ class FetchAuthTokenCache implements FetchAuthTokenInterface, GetQuotaProjectInt
         $this->fetcher = $fetcher;
         $this->cache = $cache;
         $this->cacheConfig = \array_merge(['lifetime' => 1500, 'prefix' => ''], (array) $cacheConfig);
+    }
+    /**
+     * @return FetchAuthTokenInterface
+     */
+    public function getFetcher()
+    {
+        return $this->fetcher;
     }
     /**
      * Implements FetchAuthTokenInterface#fetchAuthToken.
@@ -106,7 +117,7 @@ class FetchAuthTokenCache implements FetchAuthTokenInterface, GetQuotaProjectInt
         // This saves a call to the metadata server when a cached token exists.
         if ($this->fetcher instanceof Credentials\GCECredentials) {
             $cached = $this->fetchAuthTokenFromCache();
-            $accessToken = isset($cached['access_token']) ? $cached['access_token'] : null;
+            $accessToken = $cached['access_token'] ?? null;
             return $this->fetcher->signBlob($stringToSign, $forceOpenSsl, $accessToken);
         }
         return $this->fetcher->signBlob($stringToSign, $forceOpenSsl);
@@ -190,7 +201,7 @@ class FetchAuthTokenCache implements FetchAuthTokenInterface, GetQuotaProjectInt
                 // (for JwtAccess and ID tokens)
                 return $cached;
             }
-            if (\time() < $cached['expires_at']) {
+            if (\time() + $this->eagerRefreshThresholdSeconds < $cached['expires_at']) {
                 // access token is not expired
                 return $cached;
             }

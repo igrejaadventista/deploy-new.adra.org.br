@@ -23,7 +23,7 @@ if ( ! class_exists( 'Jet_Engine_Compatibility' ) ) {
 		 * Constructor for the class
 		 */
 		function __construct() {
-			add_action( 'init', array( $this, 'load_compat_packages' ) );
+			add_action( 'init', array( $this, 'load_compat_packages' ), -1 );
 		}
 
 		/**
@@ -46,7 +46,7 @@ if ( ! class_exists( 'Jet_Engine_Compatibility' ) ) {
 					'cb'   => 'function_exists',
 					'args' => 'jet_advanced_list_block_init',
 				),
-				'acf.php' => array(
+				'acf/acf.php' => array(
 					'cb'   => 'class_exists',
 					'args' => 'acf',
 				),
@@ -59,12 +59,12 @@ if ( ! class_exists( 'Jet_Engine_Compatibility' ) ) {
 					'args' => 'ELEMENTOR_PRO_VERSION',
 				),
 				'jet-theme-core.php' => array(
-					'cb'   => 'class_exists',
-					'args' => 'Jet_Theme_Core',
+					'cb'   => 'function_exists',
+					'args' => 'jet_theme_core',
 				),
 				'wpml.php' => array(
 					'cb'   => 'defined',
-					'args' => 'WPML_ST_VERSION',
+					'args' => 'ICL_SITEPRESS_VERSION',
 				),
 				'jet-popup.php' => array(
 					'cb'   => 'class_exists',
@@ -89,6 +89,26 @@ if ( ! class_exists( 'Jet_Engine_Compatibility' ) ) {
 				'seo.php' => array(
 					'cb'   => array( $this, 'defined_seo_plugins' ),
 					'args' => false,
+				),
+				'jet-form-builder/jet-form-builder.php' => array(
+					'cb'   => 'defined',
+					'args' => 'JET_FORM_BUILDER_VERSION',
+				),
+				'search-exclude.php' => array(
+					'cb'   => 'class_exists',
+					'args' => 'SearchExclude',
+				),
+				'kadence-block.php' => array(
+					'cb'   => 'defined',
+					'args' => 'KADENCE_BLOCKS_VERSION',
+				),
+				'relevanssi.php' => array(
+					'cb'   => 'function_exists',
+					'args' => 'relevanssi_do_query',
+				),
+				'generateblocks.php' => array(
+					'cb'   => 'defined',
+					'args' => 'GENERATEBLOCKS_VERSION',
 				),
 			);
 

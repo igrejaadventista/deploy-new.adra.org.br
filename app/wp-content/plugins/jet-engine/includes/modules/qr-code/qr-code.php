@@ -140,7 +140,10 @@ if ( ! class_exists( 'Jet_Engine_Module_QR_Code' ) ) {
 			}
 
 			// Convert object ID to object link.
-			if ( ! empty( $args[0] ) && 'object' === $settings['dynamic_field_source'] ) {
+			if ( ! empty( $args[0] ) 
+				&& isset( $settings['dynamic_field_source'] ) 
+				&& 'object' === $settings['dynamic_field_source'] 
+			) {
 
 				switch ( $settings['dynamic_field_post_object'] ) {
 					case 'post_id':
@@ -174,10 +177,13 @@ if ( ! class_exists( 'Jet_Engine_Module_QR_Code' ) ) {
 				return $cached;
 			}
 
+			// Fixed '&' double-encoding bug
+			$value = str_replace( '&amp;', '&', $value );
+
 			$request = add_query_arg(
 				array(
 					'size'   => $size . 'x' . $size,
-					'data'   => $value,
+					'data'   => urlencode( $value ),
 					'format' => 'svg',
 				),
 				$this->qr_code_api

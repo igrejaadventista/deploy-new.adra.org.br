@@ -43,7 +43,11 @@ class Jet_Engine_Module_Dynamic_Charts extends Jet_Engine_External_Module_Base {
 				'label' => __( 'Go to Charts Builder', 'jet-engine' ),
 				'style' => 'accent',
 				'url'   => admin_url( 'admin.php?page=jet-engine-charts' ),
-			)
+			),
+			array(
+				'label' => __( 'Charts Builder Overview', 'jet-engine' ),
+				'url'   => 'https://crocoblock.com/knowledge-base/articles/jetengine-charts-builder-overview/',
+			),
 		);
 	}
 
@@ -86,6 +90,10 @@ class Jet_Engine_Module_Dynamic_Charts extends Jet_Engine_External_Module_Base {
 				'label'    => __( 'Go to Tables Builder', 'jet-engine' ),
 				'url'      => admin_url( 'admin.php?page=jet-engine-tables' ),
 				'is_local' => true,
+			),
+			array(
+				'label' => __( 'Charts Builder Overview', 'jet-engine' ),
+				'url'   => 'https://crocoblock.com/knowledge-base/articles/jetengine-charts-builder-overview/',
 			),
 		);
 	}

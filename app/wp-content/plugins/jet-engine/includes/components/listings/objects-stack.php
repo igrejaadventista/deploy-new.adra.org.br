@@ -30,9 +30,13 @@ class Jet_Engine_Objects_Stack {
 
 	public function __construct() {
 		add_action( 'wp', array( $this, 'save_root' ) );
+		add_action( 'jet-smart-filters/referrer/request', array( $this, 'save_root' ) );
+		add_action( 'jet-engine/ajax-handlers/referrer/request', array( $this, 'save_root' ) );
 		add_action( 'jet-engine/listings/data/set-current-object', array( $this, 'ensure_root' ) );
 		add_action( 'jet-engine/listings/frontend/setup-data', array( $this, 'increase_stack' ) );
 		add_action( 'jet-engine/listings/frontend/object-done', array( $this, 'decrease_stack' ) );
+		add_action( 'jet-engine/object-stack/increase', array( $this, 'increase_stack' ) );
+		add_action( 'jet-engine/object-stack/decrease', array( $this, 'decrease_stack' ) );
 	}
 
 	/**
@@ -61,7 +65,22 @@ class Jet_Engine_Objects_Stack {
 	 * @return [type] [description]
 	 */
 	public function save_root() {
-		$this->root = get_queried_object();
+		$this->set_root_object( get_queried_object() );
+	}
+
+	public function set_root_object( $object = null ) {
+		if ( is_object( $object ) ) {
+			$this->root = $object;
+		}
+	}
+
+	/**
+	 * Returns root object of current page
+	 * 
+	 * @return [type] [description]
+	 */
+	public function get_root_object() {
+		return $this->root;
 	}
 
 	/**
@@ -80,7 +99,11 @@ class Jet_Engine_Objects_Stack {
 	 * @return [type]         [description]
 	 */
 	public function increase_stack( $object ) {
-		$this->stack[]  = $object;
+
+		if ( ! in_array( $object, $this->stack ) ) {
+			$this->stack[] = $object;
+		}
+
 		$this->in_stack = true;
 	}
 
@@ -117,6 +140,33 @@ class Jet_Engine_Objects_Stack {
 		$this->stack = array_merge( array(), $this->stack );
 
 		$this->in_stack = false;
+	}
+
+	/**
+	 * returns object we restored to (last object in stack)
+	 *
+	 * @return [type] [description]
+	 */
+	public function get_restored_object() {
+		
+		if ( empty( $this->stack ) ) {
+			return false;
+		}
+		
+		return end( $this->stack );
+	}
+
+	public function get_parent_object_from_stack() {
+		
+		$full_stack = $this->get_full_stack();
+		$length = count( $full_stack );
+
+		if ( 1 === $length ) {
+			return false;
+		} else {
+			return $full_stack[ $length - 2 ];
+		}
+
 	}
 
 	/**

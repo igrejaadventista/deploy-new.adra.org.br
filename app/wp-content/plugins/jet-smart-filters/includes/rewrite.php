@@ -6,7 +6,6 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Rewrite_Rules' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Rewrite_Rules class
 	 */
@@ -14,15 +13,11 @@ if ( ! class_exists( 'Jet_Smart_Filters_Rewrite_Rules' ) ) {
 
 		/**
 		 * Jet Smart Filters query pattern
-		 *
-		 * @var string
 		 */
 		private $pattern = 'jsf/(.*)/?$';
 
 		/**
 		 * Jet Smart Filters query variable
-		 *
-		 * @var string
 		 */
 		private $query_var = 'jsf';
 
@@ -50,16 +45,14 @@ if ( ! class_exists( 'Jet_Smart_Filters_Rewrite_Rules' ) ) {
 			add_action( 'updated_option', array( $this, 'rewrite_rules_after_updated_option' ), 10, 3 );
 			add_action( 'parse_request', array( $this, 'store_queried_filter' ), 9999 );
 			add_action( 'parse_query', array( $this, 'restore_queried_filter_var' ), -1 );
-
 		}
 
 		/**
 		 * Save qurrently quried filter.
 		 * Also unset filters query variable from $wp object to avoid static front page and custom permalinks bugs
-		 *
-		 * @param [type] &$wp [description]
 		 */
 		public function store_queried_filter( &$wp ) {
+
 			if ( ! empty( $wp->query_vars[ $this->query_var ] ) ) {
 				$this->queried_filter = $wp->query_vars[ $this->query_var ];
 				unset( $wp->query_vars[ $this->query_var ] );
@@ -69,11 +62,9 @@ if ( ! class_exists( 'Jet_Smart_Filters_Rewrite_Rules' ) ) {
 		/**
 		 * Restore queried filters variable
 		 * This hook is required to fix front page redirect bug
-		 *
-		 * @param  [type] &$wp_query [description]
-		 * @return [type]            [description]
 		 */
 		public function restore_queried_filter_var( &$wp_query ) {
+
 			if ( null !== $this->queried_filter ) {
 				remove_action( 'template_redirect', 'redirect_canonical' );
 				remove_action( 'parse_query', array( $this, 'restore_queried_filter_var' ) );
@@ -87,17 +78,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Rewrite_Rules' ) ) {
 			$rewrites = array(
 				$this->pattern => 'index.php?' . $this->query_var . '=$matches[1]'
 			);
-
-			if ( class_exists( 'WooCommerce' ) ) {
-				$shop_page_id = wc_get_page_id( 'shop' );
-
-				if ( current_theme_supports( 'woocommerce' ) ) {
-					$shop_page_slug = $shop_page_id && get_post( $shop_page_id ) ? urldecode( get_page_uri( $shop_page_id ) ) : 'shop';
-					$rewrites[$shop_page_slug . '/' . $this->pattern] = 'index.php?post_type=product&' . $this->query_var . '=$matches[1]';
-				}
-			}
-
-			$rewrites['(.?.+?)/' . $this->pattern] = 'index.php?pagename=$matches[1]&' . $this->query_var . '=$matches[2]';
 
 			$rewritable_post_types = jet_smart_filters()->settings->get( 'rewritable_post_types' );
 			if ( is_array( $rewritable_post_types ) ) {
@@ -113,7 +93,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Rewrite_Rules' ) ) {
 						$taxonomies   = get_object_taxonomies( $post_type_object->name, 'objects ' );
 
 						if ( $rewrite_slug ) {
-							$rewrites["$rewrite_slug/$this->pattern"] = 'index.php?post_type=' . $rewrite_slug . '&jsf=$matches[1]';
+							$rewrites["$rewrite_slug/$this->pattern"] = 'index.php?post_type=' . $post_type . '&jsf=$matches[1]';
 						}
 
 						foreach ( $taxonomies as $taxonomy ) {
@@ -130,15 +110,31 @@ if ( ! class_exists( 'Jet_Smart_Filters_Rewrite_Rules' ) ) {
 								}
 
 								// custom taxonomy
-								$rewrites["$tax_rewrite_slug/(.+?)/$this->pattern"] =  'index.php?taxonomy=' . $tax_rewrite_slug . '&term=$matches[1]&jsf=$matches[2]';
+								$rewrites["$tax_rewrite_slug/(.+?)/$this->pattern"] =  'index.php?taxonomy=' . $taxonomy->name . '&term=$matches[1]&jsf=$matches[2]';
 							}
 						}
 					}
 				}
 			}
 
-			return array_merge( $rewrites, $rules );
+			if ( class_exists( 'WooCommerce' ) ) {
+				$shop_page_id   = wc_get_page_id( 'shop' );
+				$shop_page_slug = $shop_page_id && get_post( $shop_page_id ) ? urldecode( get_page_uri( $shop_page_id ) ) : 'shop';
 
+				$rewrites[$shop_page_slug . '/' . $this->pattern]                 = 'index.php?post_type=product&' . $this->query_var . '=$matches[1]';
+				$rewrites['product/([^/]*)/' . $this->pattern]                    = 'index.php?product=$matches[1]&' . $this->query_var . '=$matches[2]';
+				$rewrites[$shop_page_slug . '/([^/]*)/' . $this->pattern]         = 'index.php?product=$matches[1]&' . $this->query_var . '=$matches[2]';
+				$rewrites[$shop_page_slug . '/([^/]*)/([^/]*)/' . $this->pattern] = 'index.php?product_cat=$matches[1]&product=$matches[2]&' . $this->query_var . '=$matches[3]';
+			}
+
+			$rewrites['([0-9]{4})/([0-9]{2})/([0-9]{2})/([^/]+)/' . $this->pattern] = 'index.php?year=$matches[1]&monthnum=$matches[2]&day=$matches[3]&name=$matches[4]&' . $this->query_var . '=$matches[5]';
+			$rewrites['([0-9]{4})/([0-9]{2})/([^/]+)/' . $this->pattern]            = 'index.php?year=$matches[1]&monthnum=$matches[2]&name=$matches[3]&' . $this->query_var . '=$matches[4]';
+			$rewrites['archives/([0-9]+)/' . $this->pattern]                        = 'index.php?p=$matches[1]&' . $this->query_var . '=$matches[2]';
+			$rewrites['([0-9]+)/' . $this->pattern]                                 = 'index.php?p=$matches[1]&' . $this->query_var . '=$matches[2]';
+			$rewrites['(.?.+?)/' . $this->pattern]                                  = 'index.php?pagename=$matches[1]&' . $this->query_var . '=$matches[2]';
+			$rewrites['([^/]+)/' . $this->pattern]                                  = 'index.php?name=$matches[1]&' . $this->query_var . '=$matches[2]';
+
+			return array_merge( $rewrites, $rules );
 		}
 
 		public function register_variables( $vars ) {
@@ -146,7 +142,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Rewrite_Rules' ) ) {
 			$vars[] = $this->query_var;
 
 			return $vars;
-
 		}
 
 		public function rewrite_rules_after_updated_option( $option, $old_value, $value ) {
@@ -167,8 +162,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Rewrite_Rules' ) ) {
 			if ( $update_permalinks ) {
 				flush_rewrite_rules();
 			}
-
 		}
-
 	}
 }

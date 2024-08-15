@@ -46,6 +46,28 @@
 					name="query_s"
 					v-model="query.s"
 				><jet-query-dynamic-args v-model="dynamicQuery.s"></jet-query-dynamic-args></cx-vui-input>
+				<cx-vui-switcher
+					label="<?php _e( 'Sentence Search', 'jet-engine' ); ?>"
+					description="<?php _e( 'Whether to search by phrase.', 'jet-engine' ); ?>"
+					:wrapper-css="[ 'equalwidth' ]"
+					name="query_sentence"
+					v-model="query.sentence"
+					:conditions="[
+						{
+							operator: 'OR',
+						},
+						{
+							input: query.s,
+							compare: 'not_in',
+							value: [ '', undefined ],
+						},
+						{
+							input: dynamicQuery.s,
+							compare: 'not_in',
+							value: [ '', undefined ],
+						}
+					]"
+				></cx-vui-switcher>
 				<cx-vui-component-wrapper
 					:wrapper-css="[ 'query-fullwidth' ]"
 				>
@@ -72,84 +94,7 @@
 									label="<?php _e( 'Order By', 'jet-engine' ); ?>"
 									description="<?php _e( 'Sort retrieved posts by selected parameter', 'jet-engine' ); ?>"
 									:wrapper-css="[ 'equalwidth' ]"
-									:options-list="[
-										{
-											value: 'ID',
-											label: 'Order by post id',
-										},
-										{
-											value: 'author',
-											label: 'By author',
-										},
-										{
-											value: 'title',
-											label: 'By title',
-										},
-										{
-											value: 'name',
-											label: 'By post name (post slug)',
-										},
-										{
-											value: 'type',
-											label: 'By post type (available since version 4.0)',
-										},
-										{
-											value: 'date',
-											label: 'By date',
-										},
-										{
-											value: 'modified',
-											label: 'By last modified date',
-										},
-										{
-											value: 'parent',
-											label: 'By post/page parent id',
-										},
-										{
-											value: 'rand',
-											label: 'Random order',
-										},
-										{
-											value: 'comment_count',
-											label: 'By number of comments',
-										},
-										{
-											value: 'relevance',
-											label: 'By search terms relevance',
-										},
-										{
-											value: 'menu_order',
-											label: 'By Page Order',
-										},
-										{
-											value: 'meta_value',
-											label: 'Order by string meta value',
-										},
-										{
-											value: 'meta_value_num',
-											label: 'Order by numeric meta value',
-										},
-										{
-											value: 'meta_clause',
-											label: 'Order by meta clause',
-										},
-										{
-											value: 'post__in',
-											label: 'Preserve post ID order given in the `Post in` option',
-										},
-										{
-											value: 'post_name__in',
-											label: 'Preserve post slug order given in the `Post Name in` option',
-										},
-										{
-											value: 'post_parent__in',
-											label: 'Preserve post parent order given in the `Post Parent in` option',
-										},
-										{
-											value: 'none',
-											label: 'No order',
-										}
-									]"
+									:options-list="orderbyOptions"
 									size="fullwidth"
 									:value="query.orderby[ index ].orderby"
 									@input="setFieldProp( order._id, 'orderby', $event, query.orderby )"
@@ -176,7 +121,7 @@
 								<cx-vui-component-wrapper
 									v-if="'meta_clause' === query.orderby[ index ].orderby && ! metaClauses.length"
 									label="<?php _e( 'Warning', 'jet-engine' ); ?>"
-									description="<?php _e( 'You not created any meta clauses yet. You can do this at the Meta Query tab. Note that Clause name option is required for the meta query if you want to use it for ordering', 'jet-engine' ); ?>"
+									description="<?php _e( 'You have not created any meta clauses yet. You can do this at the Meta Query tab. Note that Clause name option is required for the meta query if you want to use it for ordering', 'jet-engine' ); ?>"
 									:wrapper-css="[ 'equalwidth' ]"
 								></cx-vui-component-wrapper>
 								<cx-vui-select
@@ -490,7 +435,7 @@
 									size="fullwidth"
 									:value="query.date_query[ index ].after"
 									@input="setFieldProp( dateClause._id, 'after', $event, query.date_query )"
-								><jet-query-dynamic-args v-model="dynamicQuery.date_query[ dateClause._id ].day"></jet-query-dynamic-args></cx-vui-input>
+								><jet-query-dynamic-args v-model="dynamicQuery.date_query[ dateClause._id ].after"></jet-query-dynamic-args></cx-vui-input>
 								<cx-vui-input
 									label="<?php _e( 'Before', 'jet-engine' ); ?>"
 									description="<?php _e( 'Date to retrieve posts before. Eg. January 1st 2020, Today, Tomorrow etc.', 'jet-engine' ); ?>"
@@ -755,6 +700,7 @@
 					v-model="query.author__not_in"
 				><jet-query-dynamic-args v-model="dynamicQuery.author__not_in"></jet-query-dynamic-args></cx-vui-input>
 			</cx-vui-tabs-panel>
+			<?php do_action( 'jet-engine/query-builder/posts/controls' ); ?>
 		</cx-vui-tabs>
 	</div>
 </div>

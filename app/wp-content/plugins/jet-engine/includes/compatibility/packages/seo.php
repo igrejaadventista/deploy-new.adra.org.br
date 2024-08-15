@@ -34,6 +34,11 @@ if ( ! class_exists( 'Jet_Engine_Seo_Package' ) ) {
 			// SEOPress Content Analysis.
 			add_filter( 'seopress_content_analysis_content', array( $this, 'seopress_analysis_content' ), 10, 2 );
 
+			// RankMath Snippets
+			add_action( 'rank_math/vars/register_extra_replacements', array( $this, 'register_rank_math_cct_field_snippet' ) );
+
+			// Set the primary term the first
+			add_filter( 'jet-engine/listings/dynamic-terms/items', array( $this, 'set_primary_term_first' ), 10, 3 );
 		}
 
 		/**
@@ -194,6 +199,8 @@ if ( ! class_exists( 'Jet_Engine_Seo_Package' ) ) {
 				'textarea',
 				'wysiwyg',
 				'repeater',
+				'media',
+				'gallery',
 			) );
 
 			foreach ( $fields as $object => $obj_fields ) {
@@ -433,6 +440,10 @@ if ( ! class_exists( 'Jet_Engine_Seo_Package' ) ) {
 				return $content;
 			}
 
+			$all_fields_args  = jet_engine()->meta_boxes->get_fields_for_context( 'post_type', $post_type );
+			$all_fields_names = wp_list_pluck( $all_fields_args, 'name' );
+			$fields_args      = array_combine( $all_fields_names, $all_fields_args );
+
 			$fields_content = '';
 
 			foreach ( $current_obj_fields as $field_key ) {
@@ -456,10 +467,22 @@ if ( ! class_exists( 'Jet_Engine_Seo_Package' ) ) {
 						continue;
 					}
 
+					$field_args       = ! empty( $fields_args[ $repeater_key ] ) ? $fields_args[ $repeater_key ] : array();
+					$sub_fields       = ! empty( $field_args['repeater-fields'] ) ? $field_args['repeater-fields'] : array();
+					$sub_fields_names = wp_list_pluck( $sub_fields, 'name' );
+					$sub_fields_args  = array_combine( $sub_fields_names, $sub_fields );
+
+					$sub_field_args = ! empty( $sub_fields_args[ $repeater_field_key ] ) ? $sub_fields_args[ $repeater_field_key ] : array();
+					$sub_field_type = ! empty( $sub_field_args['type'] ) ? $sub_field_args['type'] : 'text';
+
 					foreach ( $repeater_items as $repeater_item ) {
 
 						if ( ! empty( $repeater_item[ $repeater_field_key ] ) ) {
-							$fields_content .= "\n" . $repeater_item[ $repeater_field_key ];
+							if ( in_array( $sub_field_type, array( 'media', 'gallery' ) ) ) {
+								$fields_content .= "\n" . $this->get_media_content( $repeater_item[ $repeater_field_key ], $sub_field_type );
+							} else {
+								$fields_content .= "\n" . $repeater_item[ $repeater_field_key ];
+							}
 						}
 
 					}
@@ -468,16 +491,144 @@ if ( ! class_exists( 'Jet_Engine_Seo_Package' ) ) {
 					$field_content = get_post_meta( $id, $field_key, true );
 
 					if ( ! empty( $field_content ) ) {
-						$fields_content .= "\n" . $field_content;
+						$field_args = ! empty( $fields_args[ $field_key ] ) ? $fields_args[ $field_key ] : array();
+						$field_type = ! empty( $field_args['type'] ) ? $field_args['type'] : 'text';
+
+						if ( in_array( $field_type, array( 'media', 'gallery' ) ) ) {
+							$fields_content .= "\n" . $this->get_media_content( $field_content, $field_type );
+						} else {
+							$fields_content .= "\n" . $field_content;
+						}
 					}
 				}
 			}
 
 			if ( ! empty( $fields_content ) ) {
-				$content = $content . strip_tags( $fields_content );
+				$content = $content . wp_kses_post( $fields_content );
 			}
 
 			return $content;
+		}
+
+		public function get_media_content( $value = null, $type = 'media' ) {
+			$result = '';
+
+			if ( 'media' === $type ) {
+				$value = array( $value );
+			} elseif ( 'gallery' === $type && ! is_array( $value ) ) {
+				$value = explode( ',', $value );
+			}
+
+			foreach ( $value as $img ) {
+				$img_data = Jet_Engine_Tools::get_attachment_image_data_array( $img );
+
+				if ( ! empty( $img_data['url'] ) ) {
+					$alt    = ! empty( $img_data['id'] ) ? get_post_meta( $img_data['id'], '_wp_attachment_image_alt', true ) : '';
+					$result .= "\n" . '<img src="' . esc_url( $img_data['url'] ) . '" alt="' . esc_attr( $alt ) . '">';
+				}
+			}
+
+			return $result;
+		}
+
+		public function register_rank_math_cct_field_snippet() {
+
+			if ( ! class_exists( '\Jet_Engine\Modules\Custom_Content_Types\Module' ) ) {
+				return;
+			}
+
+			if ( ! function_exists( 'rank_math_register_var_replacement' ) ) {
+				return;
+			}
+
+			rank_math_register_var_replacement(
+				'jet_cct_field',
+				array(
+					'name'        => esc_html__( 'Custom Content Type Field', 'jet-engine' ),
+					'description' => esc_html__( 'Custom Content Type Field value. Separate cct slug and field name with ::', 'jet-engine' ),
+					'variable'    => 'jet_cct_field(cct-slug::field-name)',
+					'example'     => esc_html__( 'Custom Content Type Field value', 'jet-engine' ),
+				),
+				array( $this, 'get_cct_field_value' )
+			);
+		}
+
+		public function get_cct_field_value( $field ) {
+
+			if ( empty( $field ) ) {
+				return null;
+			}
+
+			$field = str_replace( '::', '__', $field );
+			$value = jet_engine()->listings->data->get_prop( $field );
+
+			if ( is_array( $value ) ) {
+				return jet_engine_render_checkbox_values( $value );
+			}
+
+			return wp_kses_post( $value );
+		}
+
+		public function set_primary_term_first( $terms, $post_id, $settings ) {
+
+			if ( empty( $terms ) || is_wp_error( $terms ) ) {
+				return $terms;
+			}
+
+			$primary_term_id = null;
+			$tax = ! empty( $settings['from_tax'] ) ? $settings['from_tax'] : false;
+
+			if ( ! $tax ) {
+				return $terms;
+			}
+
+			if ( $this->is_rank_math_activated() ) {
+
+				$post_type = get_post_type( $post_id );
+
+				if ( ! $post_type ) {
+					return $terms;
+				}
+
+				$titles_options  = get_option( 'rank-math-options-titles' );
+				$primary_tax_key = 'pt_' . $post_type . '_primary_taxonomy';
+				$primary_tax     = ! empty( $titles_options[ $primary_tax_key ] ) ? $titles_options[ $primary_tax_key ] : false;
+
+				if ( ! $primary_tax || 'off' === $primary_tax || $primary_tax !== $tax ) {
+					return $terms;
+				}
+
+				$primary_term_id = get_post_meta( $post_id, 'rank_math_primary_' . $primary_tax, true );
+
+			} else if ( $this->is_yoast_activated() ) {
+
+				$primary_term_helper = new \Yoast\WP\SEO\Helpers\Primary_Term_Helper();
+				$primary_taxonomies  = $primary_term_helper->get_primary_term_taxonomies( $post_id );
+
+				if ( empty( $primary_taxonomies ) || ! in_array( $tax, array_keys( $primary_taxonomies ) ) ) {
+					return $terms;
+				}
+
+				$primary_term_id = get_post_meta( $post_id, '_yoast_wpseo_primary_' . $tax, true );
+			}
+
+			if ( empty( $primary_term_id ) ) {
+				return $terms;
+			}
+
+			$terms_ids  = wp_list_pluck( $terms, 'term_id' );
+			$find_index = array_search( $primary_term_id, $terms_ids );
+
+			if ( false === $find_index ) {
+				return $terms;
+			}
+
+			$primary_term = $terms[ $find_index ];
+
+			unset( $terms[ $find_index ] );
+			array_unshift( $terms, $primary_term );
+
+			return $terms;
 		}
 
 	}

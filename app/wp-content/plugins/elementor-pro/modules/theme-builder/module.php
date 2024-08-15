@@ -153,6 +153,7 @@ class Module extends Module_Base {
 
 	public function register_controls( Controls_Manager $controls_manager ) {
 		$controls_manager->register( new Classes\Conditions_Repeater() );
+		$controls_manager->register( new Classes\Control_Media_Preview() );
 	}
 
 	public function create_new_dialog_types( $types ) {
@@ -355,7 +356,7 @@ class Module extends Module_Base {
 				'description' => esc_html__( 'With the new Theme Builder you can visually manage every part of your site intuitively, making the task of designing a complete website that much easier', 'elementor-pro' ),
 				'button' => [
 					'text' => esc_html__( 'Try it Now', 'elementor-pro' ),
-					'class' => 'elementor-button elementor-button-success',
+					'class' => 'elementor-button e-accent',
 					'url' => Plugin::elementor()->app->get_settings( 'menu_url' ),
 				],
 			] );
@@ -374,6 +375,44 @@ class Module extends Module_Base {
 		return add_query_arg( 'tabs_group', self::ADMIN_LIBRARY_TAB_GROUP, $base_url );
 	}
 
+	/**
+	 * Get the conflicts between the active templates' conditions and new templates.
+	 *
+	 * @since 3.8.0
+	 *
+	 * @param array $templates
+	 * @return array
+	 */
+	public function get_conditions_conflicts( array $templates ) : array {
+		$conflicts = [];
+
+		foreach ( $templates as $template_id => $template ) {
+			if ( empty( $template['conditions'] ) ) {
+				continue;
+			}
+
+			foreach ( $template['conditions'] as $condition ) {
+				$condition = rtrim( implode( '/', $condition ), '/' );
+				$condition_conflicts = $this->get_conditions_manager()->get_conditions_conflicts_by_location( $condition, $template['location'] );
+
+				if ( $condition_conflicts ) {
+					$conflicts[ $template_id ] = $condition_conflicts;
+				}
+			}
+		}
+
+		return $conflicts;
+	}
+
+	/**
+	 * TODO: BC - remove in 3.11.0|4.1.0
+	 * Add conflicts to import result.
+	 *
+	 * @since 3.7.0
+	 *
+	 * @param array $result
+	 * @return array
+	 */
 	private function add_conflicts_to_import_result( array $result ) {
 		$manifest_data = $result['manifest'];
 
@@ -381,22 +420,23 @@ class Module extends Module_Base {
 			return $result;
 		}
 
-		foreach ( $manifest_data['templates'] as $template_id => $template ) {
-			if ( empty( $template['conditions'] ) ) {
-				continue;
-			}
-
-			foreach ( $template['conditions'] as $condition ) {
-				$condition = rtrim( implode( '/', $condition ), '/' );
-				$conflicts = $this->get_conditions_manager()->get_conditions_conflicts_by_location( $condition, $template['location'] );
-
-				if ( $conflicts ) {
-					$result['conflicts'][ $template_id ] = $conflicts;
-				}
-			}
-		}
+		$result['conflicts'] = $this->get_conditions_conflicts( $manifest_data['templates'] );
 
 		return $result;
+	}
+
+	/**
+	 * Add attributes to the document wrapper element.
+	 *
+	 * @param array $attributes - The document's wrapper element attributes.
+	 * @param Document $document
+	 *
+	 * @return array
+	 */
+	public function add_document_attributes( array $attributes, Document $document ): array {
+		$attributes['data-elementor-post-type'] = $document->get_post()->post_type;
+
+		return $attributes;
 	}
 
 	public function __construct() {
@@ -415,6 +455,7 @@ class Module extends Module_Base {
 		// Editor
 		add_action( 'elementor/editor/init', [ $this, 'on_elementor_editor_init' ] );
 		add_filter( 'elementor/document/config', [ $this, 'document_config' ], 10, 2 );
+		add_filter( 'elementor/document/wrapper_attributes', [ $this, 'add_document_attributes' ], 10, 2 );
 
 		// Admin
 		add_action( 'admin_head', [ $this, 'admin_head' ] );
@@ -450,9 +491,12 @@ class Module extends Module_Base {
 
 		add_filter( 'elementor/template-library/create_new_dialog_types', [ $this, 'create_new_dialog_types' ] );
 		add_filter( 'views_edit-' . Source_Local::CPT, [ $this, 'print_new_theme_builder_promotion' ], 9 );
-		add_filter( 'elementor/import/stage_1/result', function( array $result ) {
+
+		// Moved into the IE module \ElementorPro\Core\App\Modules\ImportExport\Module::add_actions
+		// TODO: remove in 3.10.0
+		add_filter( 'elementor/import/stage_1/result', function ( array $result ) {
 			return $this->add_conflicts_to_import_result( $result );
-		} );
+		});
 
 		// Common
 		add_filter( 'elementor/finder/categories', [ $this, 'add_finder_items' ] );

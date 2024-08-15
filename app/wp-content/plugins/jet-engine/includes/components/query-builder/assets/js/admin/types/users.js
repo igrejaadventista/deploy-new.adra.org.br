@@ -17,6 +17,7 @@
 				operators: window.JetEngineQueryConfig.operators_list,
 				dataTypes: window.JetEngineQueryConfig.data_types,
 				rolesList: window.jet_query_component_users.roles,
+				orderbyOptions: window.JetEngineQueryConfig.orderby_options.users,
 				query: {},
 				dynamicQuery: {},
 			};

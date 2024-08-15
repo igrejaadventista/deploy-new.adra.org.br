@@ -73,11 +73,17 @@ class Module extends Module_Base {
 		'print' => [
 			'title' => 'Print',
 		],
+		'x-twitter' => [
+			'title' => 'X',
+		],
+		'threads' => [
+			'title' => 'Threads',
+		],
 	];
 
 	public static function get_networks( $network_name = null ) {
 		if ( $network_name ) {
-			return isset( self::$networks[ $network_name ] ) ? self::$networks[ $network_name ] : null;
+			return self::$networks[ $network_name ] ?? null;
 		}
 
 		return self::$networks;
@@ -94,7 +100,7 @@ class Module extends Module_Base {
 	}
 
 	public function add_localize_data( $settings ) {
-		$settings['shareButtonsNetworks'] = self::$networks;
+		$settings['shareButtonsNetworks'] = self::get_networks();
 
 		return $settings;
 	}
@@ -105,6 +111,5 @@ class Module extends Module_Base {
 		add_filter( 'elementor_pro/frontend/localize_settings', [ $this, 'add_localize_data' ] );
 
 		add_filter( 'elementor_pro/editor/localize_settings', [ $this, 'add_localize_data' ] );
-
 	}
 }

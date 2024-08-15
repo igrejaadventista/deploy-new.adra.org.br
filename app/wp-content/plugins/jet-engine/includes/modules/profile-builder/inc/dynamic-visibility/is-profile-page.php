@@ -110,7 +110,7 @@ class Is_Profile_Page extends \Jet_Engine\Modules\Dynamic_Visibility\Conditions\
 				'label'       => __( 'Profile Page', 'jet-engine' ),
 				'label_block' => true,
 				'multiple'    => true,
-				'type'        => \Elementor\Controls_Manager::SELECT2,
+				'type'        => 'select2',
 				'default'     => '',
 				'options'     => $options,
 			),

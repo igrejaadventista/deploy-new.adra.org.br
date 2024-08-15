@@ -7,7 +7,7 @@
  */
 
 use RankMath\Helper;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -15,9 +15,12 @@ $redirections = Helper::get_module( 'redirections' )->admin;
 $redirections->table->prepare_items();
 
 $is_new     = (bool) Param::get( 'new' );
-$is_editing = ! empty( Param::get( 'url' ) ) || ! empty( $_GET['urls'] ) || ! empty( $_REQUEST['log'] ) || ! empty( Param::request( 'redirect_uri' ) ) || $redirections->form->is_editing();
+$is_editing = ! empty( Param::get( 'url' ) ) || ! empty( $_GET['urls'] ) || ! empty( $_REQUEST['log'] ) || ! empty( Param::request( 'redirect_uri' ) );
 
 $is_importexport = ! empty( Param::get( 'importexport' ) );
+
+$entries_status = Param::get( 'status' ) ?? 'any';
+
 ?>
 <div class="wrap rank-math-redirections-wrap">
 
@@ -28,11 +31,7 @@ $is_importexport = ! empty( Param::get( 'importexport' ) );
 
 	<div class="clear"></div>
 
-	<div class="rank-math-redirections-form rank-math-editcreate-form<?php echo $is_editing || $is_new ? ' is-open' : ''; ?> rank-math-page rank-math-box">
-
-		<?php $redirections->form->display(); ?>
-
-	</div>
+	<div id="rank-math-redirections-form"></div>
 
 	<div class="rank-math-redirections-form rank-math-importexport-form<?php echo $is_importexport ? ' is-open' : ''; ?>">
 
@@ -42,6 +41,7 @@ $is_importexport = ! empty( Param::get( 'importexport' ) );
 
 	<form method="get">
 		<input type="hidden" name="page" value="rank-math-redirections">
+		<input type="hidden" name="status" value="<?php echo esc_attr( $entries_status ); ?>">
 		<?php $redirections->table->search_box( esc_html__( 'Search', 'rank-math' ), 's' ); ?>
 	</form>
 

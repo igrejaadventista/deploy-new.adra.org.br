@@ -63,7 +63,7 @@
 			<cx-vui-switcher
 				name="parent_manager"
 				label="<?php _e( 'Allow to create new children from parent', 'jet-engine' ); ?>"
-				description="<?php _e( 'If enabled allows to create new children items from the related items control for parent object page', 'jet-engine' ); ?>"
+				description="<?php _e( 'If enabled, allows to create new children items from the related items control for parent object page', 'jet-engine' ); ?>"
 				:wrapper-css="[ 'equalwidth' ]"
 				:value="args.parent_manager"
 				:conditions="[ {
@@ -72,6 +72,19 @@
 					value: true,
 				} ]"
 				@input="( newValue ) => { setArg( newValue, 'parent_manager' ) }"
+			></cx-vui-switcher>
+			<cx-vui-switcher
+				name="parent_allow_delete"
+				label="<?php _e( 'Allow to delete children from parent', 'jet-engine' ); ?>"
+				description="<?php _e( 'If enabled, allows to delete children items from the related items control for parent object page', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:value="args.parent_allow_delete"
+				:conditions="[ {
+					input: args.parent_control,
+					compare: 'equal',
+					value: true,
+				} ]"
+				@input="( newValue ) => { setArg( newValue, 'parent_allow_delete' ) }"
 			></cx-vui-switcher>
 			<cx-vui-switcher
 				name="child_control"
@@ -84,7 +97,7 @@
 			<cx-vui-switcher
 				name="child_manager"
 				label="<?php _e( 'Allow to create new parents from children', 'jet-engine' ); ?>"
-				description="<?php _e( 'If enabled allows to create new parent items from the related items control for child object page', 'jet-engine' ); ?>"
+				description="<?php _e( 'If enabled, allows to create new parent items from the related items control for child object page', 'jet-engine' ); ?>"
 				:wrapper-css="[ 'equalwidth' ]"
 				:value="args.child_manager"
 				:conditions="[ {
@@ -95,6 +108,19 @@
 				@input="( newValue ) => { setArg( newValue, 'child_manager' ) }"
 			></cx-vui-switcher>
 			<cx-vui-switcher
+				name="child_allow_delete"
+				label="<?php _e( 'Allow to delete parents from children', 'jet-engine' ); ?>"
+				description="<?php _e( 'If enabled, allows to delete parent items from the related items control for child object page', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:value="args.child_allow_delete"
+				:conditions="[ {
+					input: args.child_control,
+					compare: 'equal',
+					value: true,
+				} ]"
+				@input="( newValue ) => { setArg( newValue, 'child_allow_delete' ) }"
+			></cx-vui-switcher>
+			<cx-vui-switcher
 				name="db_table"
 				label="<?php _e( 'Register separate DB table', 'jet-engine' ); ?>"
 				description="<?php _e( 'Register separate DB tables to store current relation items and meta data. If you plan to create multiple relations with a big amount of items, this option will help optimize performance', 'jet-engine' ); ?>"
@@ -102,6 +128,102 @@
 				:value="args.db_table"
 				@input="( newValue ) => { setArg( newValue, 'db_table' ) }"
 			></cx-vui-switcher>
+			<cx-vui-switcher
+				label="<?php _e( 'Register get items/item REST API Endpoint', 'jet-engine' ); ?>"
+				description="<?php _e( 'Register Rest API endpoint to get content type items.', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:value="args.rest_get_enabled"
+				@input="( newValue ) => { setArg( newValue, 'rest_get_enabled' ) }"
+			></cx-vui-switcher>
+			<cx-vui-component-wrapper
+				label="<?php _e( 'Endpoint URL', 'jet-engine' ); ?>"
+				description="<?php _e( 'Get endpoint URL', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:conditions="[
+					{
+						'input':   args.rest_get_enabled,
+						'compare': 'equal',
+						'value':   true,
+					}
+				]"
+			>
+				<div>
+					<code>GET {{ restBase }}{{ relID }}</code> - <?php _e( 'All relation data list', 'jet-engine' ) ?><br>
+					<code>GET {{ restBase }}{{ relID }}/children/{_ID}</code> - <?php _e( 'Children items for given parent {_ID}', 'jet-engine' ) ?>
+					<code>GET {{ restBase }}{{ relID }}/parents/{_ID}</code> - <?php _e( 'Parent items for given child {_ID}', 'jet-engine' ) ?>
+				</div>
+			</cx-vui-component-wrapper>
+			<cx-vui-input
+				:label="'<?php _e( 'Access Capability', 'jet-engine' ); ?>'"
+				description="<?php _e( 'Leave empty to make public or set user access capability. More about capabilities <a href=\'https://wordpress.org/support/article/roles-and-capabilities/\' target=\'_blank\'>here</a>.', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:size="'fullwidth'"
+				:value="args.rest_get_access"
+				@input="( newValue ) => { setArg( newValue, 'rest_get_access' ) }"
+				:conditions="[
+					{
+						'input':   args.rest_get_enabled,
+						'compare': 'equal',
+						'value':   true,
+					}
+				]"
+			></cx-vui-input>
+			<cx-vui-switcher
+				label="<?php _e( 'Register update REST API Endpoint', 'jet-engine' ); ?>"
+				description="<?php _e( 'Register Rest API endpoint to update related items.', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:value="args.rest_post_enabled"
+				@input="( newValue ) => { setArg( newValue, 'rest_post_enabled' ) }"
+			></cx-vui-switcher>
+			<cx-vui-component-wrapper
+				label="<?php _e( 'Endpoint URL', 'jet-engine' ); ?>"
+				description="<?php _e( 'Update endpoint URL', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:conditions="[
+					{
+						'input':   args.rest_post_enabled,
+						'compare': 'equal',
+						'value':   true,
+					}
+				]"
+			>
+				<div>
+					<code>POST {{ restBase }}{{ relID }}</code> - <?php _e( 'to insert/update new data you need to send a POST request to given URL with next body:', 'jet-engine' ); ?>
+					<pre>
+{
+	parent_id: object ID,
+	child_id: object ID,
+	context: child/parent,
+	store_items_type: replace/update,
+	meta: object with meta key/meta value pairs
+}
+					</pre>
+					<?php _e( 'Where', 'jet-engine' ); ?>:<br>
+					- <code>context</code> - 'child' <?php _e( 'means we updating children items for static parent object', 'jet-engine' ); ?>, 'parent' <?php _e( 'means we updating parent items for static child object', 'jet-engine' ); ?><br>
+					- <code>store_items_type</code> - 'repalce' <?php _e( 'means if related object for given context already exists, it will be replaced with new one', 'jet-engine' ); ?>, 'update' <?php _e( 'means if related object for given context already exists, new related items will be added to already existsing (if allowed by relation settings)', 'jet-engine' ); ?>.
+				</div>
+			</cx-vui-component-wrapper>
+			<cx-vui-input
+				:label="'<?php _e( 'Access Capability', 'jet-engine' ); ?>'"
+				description="<?php _e( 'Leave empty to make public or set user access capability. More about capabilities <a href=\'https://wordpress.org/support/article/roles-and-capabilities/\' target=\'_blank\'>here</a>.', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:size="'fullwidth'"
+				:value="args.rest_post_access"
+				@input="( newValue ) => { setArg( newValue, 'rest_post_access' ) }"
+				:conditions="[
+					{
+						'input':   args.rest_post_enabled,
+						'compare': 'equal',
+						'value':   true,
+					}
+				]"
+			></cx-vui-input>
+			<cx-vui-component-wrapper
+				label="<?php _e( 'Note!', 'jet-engine' ); ?>"
+				description="<?php _e( 'If you leave this endpoint as public anyone will can to insert new content type items into the your database', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'fullwidth' ]"
+				v-if="args.rest_post_enabled && ! args.rest_post_access"
+			></cx-vui-component-wrapper>
 		</div>
 	</cx-vui-collapse>
 	<?php do_action( 'jet-engine/relations/edit/custom-controls' ); ?>
@@ -158,6 +280,10 @@
 					input: args.parent_control,
 					compare: 'equal',
 					value: true,
+				}, {
+					input: args.parent_manager,
+					compare: 'equal',
+					value: true,
 				} ]"
 			></cx-vui-input>
 			<cx-vui-input
@@ -169,10 +295,6 @@
 				@input="( newValue ) => { setLabel( newValue, 'child_page_control_title' ) }"
 				:conditions="[ {
 					input: args.child_control,
-					compare: 'equal',
-					value: true,
-				}, {
-					input: args.child_manager,
 					compare: 'equal',
 					value: true,
 				} ]"
@@ -222,5 +344,5 @@
 			></cx-vui-input>
 		</div>
 	</cx-vui-collapse>
-	<jet-meta-fields v-model="args.meta_fields" :hide-options="[ 'allow_custom', 'save_custom' ]" slug-delimiter="_"></jet-meta-fields>
+	<jet-meta-fields v-model="args.meta_fields" :hide-options="[ 'allow_custom', 'save_custom', 'show_in_rest' ]" slug-delimiter="_"></jet-meta-fields>
 </div>

@@ -13,7 +13,7 @@ class Jet_Engine_Dynamic_Tags_Module extends Elementor\Modules\DynamicTags\Modul
 	const JET_MACROS_CATEGORY = 'jet_engine_macros';
 
 	public function get_tag_classes_names() {
-		return array(
+		return apply_filters( 'jet-engine/elementor-views/dynamic-tags/default-tags', array(
 			'Jet_Engine_Custom_Image_Tag',
 			'Jet_Engine_Custom_Field_Tag',
 			'Jet_Engine_Custom_Gallery_Tag',
@@ -26,7 +26,9 @@ class Jet_Engine_Dynamic_Tags_Module extends Elementor\Modules\DynamicTags\Modul
 			'Jet_Engine_User_Image_Tag',
 			'Jet_Engine_Dynamic_Function_Tag',
 			'Jet_Engine_Macros_Tag',
-		);
+			'Jet_Engine_Object_Property_Tag',
+			'Jet_Engine_Object_Property_Image_Tag',
+		) );
 	}
 
 	public function get_groups() {
@@ -63,12 +65,22 @@ class Jet_Engine_Dynamic_Tags_Module extends Elementor\Modules\DynamicTags\Modul
 			}
 
 			if ( class_exists( $tag_class ) ) {
-				$dynamic_tags->register_tag( $tag_class );
+				$this->register_tag( $dynamic_tags, new $tag_class );
 			}
 
 		}
 
-		do_action( 'jet-engine/elementor-views/dynamic-tags/register', $dynamic_tags );
+		do_action( 'jet-engine/elementor-views/dynamic-tags/register', $dynamic_tags, $this );
 
+	}
+
+	public function register_tag( $dynamic_tags, $tag_class ) {
+
+		// `register_tag` method is deprecated since v3.5.0
+		if ( method_exists( $dynamic_tags, 'register' ) ) {
+			$dynamic_tags->register( $tag_class );
+		} else {
+			$dynamic_tags->register_tag( $tag_class );
+		}
 	}
 }

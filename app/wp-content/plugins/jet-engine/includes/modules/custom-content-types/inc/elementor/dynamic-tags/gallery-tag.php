@@ -27,7 +27,7 @@ class Gallery_Tag extends \Elementor\Core\DynamicTags\Data_Tag {
 		);
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$groups = array();
 

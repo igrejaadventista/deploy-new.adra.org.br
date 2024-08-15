@@ -41,6 +41,12 @@ class Current_User_Meta extends \Jet_Engine_Base_Macros {
 		$meta_key = ! empty( $args['meta_key'] ) ? $args['meta_key'] : null;
 		$user_id  = get_current_user_id();
 
+		$object = $this->get_macros_object();
+
+		if ( $object && 'WP_User' === get_class( $object ) ) {
+			$user_id = $object->ID;
+		}
+
 		if ( ! $user_id || ! $meta_key ) {
 			return null;
 		}

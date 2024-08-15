@@ -11,22 +11,22 @@
 			<h3 class="cx-vui-subtitle" slot="title"><?php _e( 'General Settings', 'jet-engine' ); ?></h3>
 			<div class="cx-vui-panel" slot="content">
 				<cx-vui-input
-					:name="'post_type_name'"
-					:label="'<?php _e( 'Post Type Name', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Set unique name for your post type. Eg. `Projects`', 'jet-engine' ); ?>'"
+					name="post_type_name"
+					label="<?php _e( 'Post Type Name', 'jet-engine' ); ?>"
+					description="<?php _e( 'Set unique name for your post type. Eg. `Projects`', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
-					:size="'fullwidth'"
+					size="fullwidth"
 					:error="errors.name"
 					v-model="generalSettings.name"
 					@on-focus="handleFocus( 'name' )"
 					@on-input-change="preSetSlug"
 				></cx-vui-input>
 				<cx-vui-input
-					:name="'post_type_slug'"
-					:label="'<?php _e( 'Post Type Slug', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Set slug for your post type. Slug should contain only letters, numbers and `-` or `_` chars', 'jet-engine' ); ?>'"
+					name="post_type_slug"
+					label="<?php _e( 'Post Type Slug', 'jet-engine' ); ?>"
+					description="<?php _e( 'Set slug for your post type. Slug should contain only letters, numbers and `-` or `_` chars', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
-					:size="'fullwidth'"
+					size="fullwidth"
 					:error="errors.slug"
 					:disabled="isBuiltIn"
 					v-model="generalSettings.slug"
@@ -45,10 +45,52 @@
 					v-model="updatePosts"
 				></cx-vui-switcher>
 				<cx-vui-switcher
+					label="<?php _e( 'Custom Meta Storage (Beta)', 'jet-engine' ); ?>"
+					description="<?php _e( 'Store meta fields added below in the custom DB table instead of default `postmeta` table.', 'jet-engine' ); ?>"
+					:wrapper-css="[ 'equalwidth' ]"
+					v-model="generalSettings.custom_storage"
+				></cx-vui-switcher>
+				<div
+					v-if="generalSettings.custom_storage"
+					class="cx-vui-component"
+				>
+					<div class="cx-vui-component__meta">
+						<div class="cx-vui-component__label"><?php _e( 'Please note:', 'jet-engine' ); ?></div>
+						<div class="cx-vui-component__desc"><?php _e( 'Only new data will be stored in the separate table. All existing meta fields should be migrated manually.', 'jet-engine' ); ?></div>
+					</div>
+				</div>
+				<div
+					v-if="generalSettings.custom_storage"
+					class="cx-vui-component cx-vui-component--equalwidth"
+				>
+					<div class="cx-vui-component__meta">
+						<div class="cx-vui-component__label"><?php _e( 'Custom DB table name', 'jet-engine' ); ?></div>
+						<div class="cx-vui-component__desc"><?php _e( 'Exact name of meta storage table in the DB', 'jet-engine' ); ?></div>
+					</div>
+					<div class="cx-vui-component__control">
+						<code :style="{ display: 'block', padding: '10px 20px' }">{{ getTableName() }}</code>
+					</div>
+				</div>
+				<div
+					v-if="generalSettings.custom_storage"
+					class="cx-vui-component"
+				>
+					<div class="cx-vui-component__meta">
+						<div class="cx-vui-component__label"><?php _e( 'Please note:', 'jet-engine' ); ?></div>
+						<div class="cx-vui-component__desc"><?php _e( 'If you change any existing Meta Fields names, all stored data from the updated field will be lost!', 'jet-engine' ); ?></div>
+					</div>
+				</div>
+				<cx-vui-switcher
 					label="<?php _e( '`Edit post type/meta box` link', 'jet-engine' ); ?>"
 					description="<?php _e( 'Add `Edit post type/meta box` link to post edit page.', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="generalSettings.show_edit_link"
+				></cx-vui-switcher>
+				<cx-vui-switcher
+					label="<?php _e( 'Hide meta field names', 'jet-engine' ); ?>"
+					description="<?php _e( 'Hide meta field names on post edit page.', 'jet-engine' ); ?>"
+					:wrapper-css="[ 'equalwidth' ]"
+					v-model="generalSettings.hide_field_names"
 				></cx-vui-switcher>
 			</div>
 		</cx-vui-collapse>
@@ -63,7 +105,7 @@
 					:label="labelObject.label"
 					:description="labelObject.description"
 					:wrapper-css="[ 'equalwidth' ]"
-					:size="'fullwidth'"
+					size="fullwidth"
 					:key="'label_for_' + labelObject.name"
 					v-model="labels[ labelObject.name ]"
 					@on-focus="handleLabelFocus( labelObject.name, labelObject.is_singular, labelObject.default )"
@@ -76,73 +118,73 @@
 			<h3 class="cx-vui-subtitle" slot="title">Advanced Settings</h3>
 			<div class="cx-vui-panel" slot="content">
 				<cx-vui-switcher
-					:name="'public'"
-					:label="'<?php _e( 'Is Public', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Controls how the type is visible to authors and readers', 'jet-engine' ); ?>'"
+					name="public"
+					label="<?php _e( 'Is Public', 'jet-engine' ); ?>"
+					description="<?php _e( 'Controls how the type is visible to authors and readers', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.public"
 					@on-change="preSetIsPublicDeps"
 				></cx-vui-switcher>
 				<cx-vui-switcher
-					:name="'exclude_from_search'"
-					:label="'<?php _e( 'Exclude From Search', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Whether to exclude posts with this post type from front end search results', 'jet-engine' ); ?>'"
+					name="exclude_from_search"
+					label="<?php _e( 'Exclude From Search', 'jet-engine' ); ?>"
+					description="<?php _e( 'Whether to exclude posts with this post type from front end search results', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.exclude_from_search"
 				></cx-vui-switcher>
 				<cx-vui-switcher
-					:name="'publicly_queryable'"
-					:label="'<?php _e( 'Publicly Queryable', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Whether queries can be performed on the front end as part of parse_request()', 'jet-engine' ); ?>'"
+					name="publicly_queryable"
+					label="<?php _e( 'Publicly Queryable', 'jet-engine' ); ?>"
+					description="<?php _e( 'Whether queries can be performed on the front end as part of parse_request()', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.publicly_queryable"
 				></cx-vui-switcher>
 				<cx-vui-switcher
-					:name="'show_ui'"
-					:label="'<?php _e( 'Show Admin UI', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Whether to generate a default UI for managing this post type in the admin', 'jet-engine' ); ?>'"
+					name="show_ui"
+					label="<?php _e( 'Show Admin UI', 'jet-engine' ); ?>"
+					description="<?php _e( 'Whether to generate a default UI for managing this post type in the admin', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.show_ui"
 				></cx-vui-switcher>
 				<cx-vui-switcher
-					:name="'show_in_menu'"
-					:label="'<?php _e( 'Show in Admin Menu', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Where to show the post type in the admin menu. show_ui must be true', 'jet-engine' ); ?>'"
+					name="show_in_menu"
+					label="<?php _e( 'Show in Admin Menu', 'jet-engine' ); ?>"
+					description="<?php _e( 'Where to show the post type in the admin menu. show_ui must be true', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.show_in_menu"
 				></cx-vui-switcher>
 				<cx-vui-switcher
-					:name="'show_in_nav_menus'"
-					:label="'<?php _e( 'Show in Nav Menu', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Whether post_type is available for selection in navigation menus', 'jet-engine' ); ?>'"
+					name="show_in_nav_menus"
+					label="<?php _e( 'Show in Nav Menu', 'jet-engine' ); ?>"
+					description="<?php _e( 'Whether post_type is available for selection in navigation menus', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.show_in_nav_menus"
 				></cx-vui-switcher>
 				<cx-vui-switcher
-					:name="'show_in_rest'"
-					:label="'<?php _e( 'Show in Rest API', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Whether to expose this post type in the REST API. Also enable/disable Gutenberg editor for current post type', 'jet-engine' ); ?>'"
+					name="show_in_rest"
+					label="<?php _e( 'Show in Rest API', 'jet-engine' ); ?>"
+					description="<?php _e( 'Whether to expose this post type in the REST API. Also enable/disable Gutenberg editor for current post type', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.show_in_rest"
 				></cx-vui-switcher>
 				<cx-vui-switcher
-					:name="'query_var'"
-					:label="'<?php _e( 'Register Query Var', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Sets the query_var key for this post type', 'jet-engine' ); ?>'"
+					name="query_var"
+					label="<?php _e( 'Register Query Var', 'jet-engine' ); ?>"
+					description="'<?php _e( 'Sets the query_var key for this post type', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.query_var"
 				></cx-vui-switcher>
 				<cx-vui-switcher
-					:name="'rewrite'"
-					:label="'<?php _e( 'Rewrite', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Triggers the handling of rewrites for this post type. To prevent rewrites, set to false', 'jet-engine' ); ?>'"
+					name="rewrite"
+					label="<?php _e( 'Rewrite', 'jet-engine' ); ?>"
+					description="<?php _e( 'Triggers the handling of rewrites for this post type. To prevent rewrites, set to false', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.rewrite"
 				></cx-vui-switcher>
 				<cx-vui-input
-					:name="'rewrite_slug'"
-					:label="'<?php _e( 'Rewrite Slug', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Customize the permalink structure slug. Defaults to the post type slug', 'jet-engine' ); ?>'"
+					name="rewrite_slug"
+					label="<?php _e( 'Rewrite Slug', 'jet-engine' ); ?>"
+					description="<?php _e( 'Customize the permalink structure slug. Defaults to the post type slug', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					:size="'fullwidth'"
 					:conditions="[
@@ -155,9 +197,9 @@
 					v-model="advancedSettings.rewrite_slug"
 				></cx-vui-input>
 				<cx-vui-switcher
-					:name="'with_front'"
-					:label="'<?php _e( 'Rewrite With Front', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Whether the permastruct should be prepended with WP_Rewrite::$front', 'jet-engine' ); ?>'"
+					name="with_front"
+					label="<?php _e( 'Rewrite With Front', 'jet-engine' ); ?>"
+					description="<?php _e( 'Whether the permastruct should be prepended with WP_Rewrite::$front', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					:conditions="[
 						{
@@ -169,52 +211,68 @@
 					v-model="advancedSettings.with_front"
 				></cx-vui-switcher>
 				<cx-vui-input
-					:name="'capability_type'"
-					:label="'<?php _e( 'Capability Type', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'The string to use to build the read, edit, and delete capabilities', 'jet-engine' ); ?>'"
+					name="capability_type"
+					label="<?php _e( 'Capability Type', 'jet-engine' ); ?>"
+					description="<?php _e( 'The string to use to build the read, edit, and delete capabilities', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					:size="'fullwidth'"
 					v-model="advancedSettings.capability_type"
 				></cx-vui-input>
 				<cx-vui-switcher
-					:name="'has_archive'"
-					:label="'<?php _e( 'Has Archive', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Enables post type archives', 'jet-engine' ); ?>'"
+					name="map_meta_cap"
+					label="<?php _e( 'Map Meta Cap', 'jet-engine' ); ?>"
+					description="<?php _e( 'Whether to use the internal default meta capability handling', 'jet-engine' ); ?>"
+					:wrapper-css="[ 'equalwidth' ]"
+					v-model="advancedSettings.map_meta_cap"
+				></cx-vui-switcher>
+				<cx-vui-switcher
+					name="has_archive"
+					label="<?php _e( 'Has Archive', 'jet-engine' ); ?>"
+					description="<?php _e( 'Enables post type archives', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.has_archive"
 				></cx-vui-switcher>
 				<cx-vui-switcher
-					:name="'hierarchical'"
-					:label="'<?php _e( 'Hierarchical', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Whether the post type is hierarchical (e.g. page)', 'jet-engine' ); ?>'"
+					name="hierarchical"
+					label="<?php _e( 'Hierarchical', 'jet-engine' ); ?>"
+					description="<?php _e( 'Whether the post type is hierarchical (e.g. page)', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="advancedSettings.hierarchical"
 				></cx-vui-switcher>
 				<cx-vui-input
-					:name="'menu_position'"
-					:label="'<?php _e( 'Menu Position', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'The position in the menu order the post type should appear', 'jet-engine' ); ?>'"
+					label="<?php _e( 'Menu Position', 'jet-engine' ); ?>"
+					description="<?php _e( 'The position in the menu order the post type should appear', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
-					:size="'fullwidth'"
+					v-if="advancedSettings.menu_position && ! positionIDs.includes( advancedSettings.menu_position )"
+					size="fullwidth"
 					v-model="advancedSettings.menu_position"
 				></cx-vui-input>
+				<cx-vui-select
+					label="<?php _e( 'Menu position', 'jet-engine' ); ?>"
+					description="<?php _e( 'Select existing menu item to add page after', 'jet-engine' ); ?>"
+					v-if="! advancedSettings.menu_position || positionIDs.includes( advancedSettings.menu_position )"
+					:wrapper-css="[ 'equalwidth' ]"
+					size="fullwidth"
+					:options-list="availablePositions"
+					v-model="advancedSettings.menu_position"
+				></cx-vui-select>
 				<cx-vui-iconpicker
-					:name="'menu_icon'"
-					:label="'<?php _e( 'Menu Icon', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Icon will be visible in admin menu', 'jet-engine' ); ?>'"
-					:icon-base="'dashicons'"
-					:icon-prefix="'dashicons-'"
+					name="menu_icon"
+					label="<?php _e( 'Menu Icon', 'jet-engine' ); ?>"
+					description="<?php _e( 'Icon will be visible in admin menu', 'jet-engine' ); ?>"
+					icon-base="dashicons"
+					icon-prefix="dashicons-"
 					:icons="icons"
 					:wrapper-css="[ 'equalwidth' ]"
-					:size="'fullwidth'"
+					size="fullwidth"
 					v-model="advancedSettings.menu_icon"
 				></cx-vui-iconpicker>
 				<cx-vui-f-select
-					:name="'supports'"
-					:label="'<?php _e( 'Supports', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Registers support of certain feature(s) for a current post type', 'jet-engine' ); ?>'"
+					name="supports"
+					label="<?php _e( 'Supports', 'jet-engine' ); ?>"
+					description="<?php _e( 'Registers support of certain feature(s) for a current post type', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
-					:placeholder="'Select option...'"
+					placeholder="Select option..."
 					:multiple="true"
 					:options-list="supports"
 					v-model="advancedSettings.supports"
@@ -226,12 +284,14 @@
 		<cx-vui-collapse
 			:collapsed="true"
 		>
-			<h3 class="cx-vui-subtitle" slot="title"><?php _e( 'Admin Columns', 'jet-engine' ); ?> ({{ adminColumns.length }})</h3>
+			<h3 class="cx-vui-subtitle" slot="title">
+				<?php _e( 'Admin Columns', 'jet-engine' ); ?> ({{ adminColumns.length }})
+			</h3>
 			<cx-vui-repeater
 				slot="content"
-				:button-label="'<?php _e( 'Add New', 'jet-engine' ); ?>'"
-				:button-style="'accent'"
-				:button-size="'default'"
+				button-label="<?php _e( 'Add New', 'jet-engine' ); ?>"
+				button-style="accent"
+				button-size="default"
 				v-model="adminColumns"
 				@add-new-item="addNewAdminColumn"
 			>
@@ -247,29 +307,29 @@
 				>
 					<cx-vui-input
 						:name="'column[' + index + '][title]'"
-						:label="'<?php _e( 'Title', 'jet-engine' ); ?>'"
-						:description="'<?php _e( 'Current column title. Will be shown at the top of the posts list table', 'jet-engine' ); ?>'"
+						label="<?php _e( 'Title', 'jet-engine' ); ?>"
+						description="<?php _e( 'Current column title. Will be shown at the top of the posts list table', 'jet-engine' ); ?>"
 						:wrapper-css="[ 'equalwidth' ]"
-						:size="'fullwidth'"
+						size="fullwidth"
 						:value="adminColumns[ index ].title"
 						@input="setColumnProp( index, 'title', $event )"
 					></cx-vui-input>
 					<cx-vui-select
 						:name="'column[' + index + '][type]'"
-						:label="'<?php _e( 'Type', 'jet-engine' ); ?>'"
-						:description="'<?php _e( 'Select type of data to fill column cells', 'jet-engine' ); ?>'"
+						label="<?php _e( 'Type', 'jet-engine' ); ?>"
+						description="<?php _e( 'Select type of data to fill column cells', 'jet-engine' ); ?>"
 						:wrapper-css="[ 'equalwidth' ]"
-						:size="'fullwidth'"
+						size="fullwidth"
 						:options-list="adminColumnsTypes"
 						:value="adminColumns[ index ].type"
 						@input="setColumnProp( index, 'type', $event )"
 					></cx-vui-select>
 					<cx-vui-input
 						:name="'column[' + index + '][meta_field]'"
-						:label="'<?php _e( 'Field Name', 'jet-engine' ); ?>'"
-						:description="'<?php _e( 'Custom field name to get value from', 'jet-engine' ); ?>'"
+						label="<?php _e( 'Field Name', 'jet-engine' ); ?>"
+						description="<?php _e( 'Custom field name to get value from', 'jet-engine' ); ?>"
 						:wrapper-css="[ 'equalwidth' ]"
-						:size="'fullwidth'"
+						size="fullwidth"
 						:conditions="[
 							{
 								input: adminColumns[ index ].type,
@@ -282,10 +342,10 @@
 					></cx-vui-input>
 					<cx-vui-input
 						:name="'column[' + index + '][taxonomy]'"
-						:label="'<?php _e( 'Taxonomy', 'jet-engine' ); ?>'"
-						:description="'<?php _e( 'Taxonomy slug to get post terms from', 'jet-engine' ); ?>'"
+						label="<?php _e( 'Taxonomy', 'jet-engine' ); ?>"
+						description="<?php _e( 'Taxonomy slug to get post terms from', 'jet-engine' ); ?>"
 						:wrapper-css="[ 'equalwidth' ]"
-						:size="'fullwidth'"
+						size="fullwidth"
 						:conditions="[
 							{
 								input: adminColumns[ index ].type,
@@ -298,10 +358,10 @@
 					></cx-vui-input>
 					<cx-vui-input
 						:name="'column[' + index + '][callback]'"
-						:label="'<?php _e( 'Callback', 'jet-engine' ); ?>'"
-						:description="'<?php _e( 'Custom function name to get column cell value from', 'jet-engine' ); ?>'"
+						label="<?php _e( 'Callback', 'jet-engine' ); ?>"
+						description="<?php _e( 'Custom function name to get column cell value from', 'jet-engine' ); ?>"
 						:wrapper-css="[ 'equalwidth' ]"
-						:size="'fullwidth'"
+						size="fullwidth"
 						:conditions="[
 							{
 								input: adminColumns[ index ].type,
@@ -321,10 +381,10 @@
 					</cx-vui-input>
 					<cx-vui-input
 						:name="'column[' + index + '][position]'"
-						:label="'<?php _e( 'Column order', 'jet-engine' ); ?>'"
-						:description="'<?php _e( 'Column order. Should be a positive integer', 'jet-engine' ); ?>'"
+						label="<?php _e( 'Column order', 'jet-engine' ); ?>"
+						description="<?php _e( 'Column order. Should be a positive integer', 'jet-engine' ); ?>"
 						:wrapper-css="[ 'equalwidth' ]"
-						:size="'fullwidth'"
+						size="fullwidth"
 						:value="adminColumns[ index ].position"
 						@input="setColumnProp( index, 'position', $event )"
 					></cx-vui-input>
@@ -339,15 +399,14 @@
 					></cx-vui-input>
 					<cx-vui-input
 						:name="'column[' + index + '][suffix]'"
-						:label="'<?php _e( 'Suffix', 'jet-engine' ); ?>'"
-						:description="'<?php _e( 'Text to add after column cell value', 'jet-engine' ); ?>'"
+						label="<?php _e( 'Suffix', 'jet-engine' ); ?>"
+						description="<?php _e( 'Text to add after column cell value', 'jet-engine' ); ?>"
 						:wrapper-css="[ 'equalwidth' ]"
-						:size="'fullwidth'"
+						size="fullwidth"
 						:value="adminColumns[ index ].suffix"
 						@input="setColumnProp( index, 'suffix', $event )"
 					></cx-vui-input>
 					<cx-vui-switcher
-						name="is_sortable"
 						label="<?php _e( 'Is Sortable', 'jet-engine' ); ?>"
 						description="<?php _e( 'Make this column sortable', 'jet-engine' ); ?>"
 						:wrapper-css="[ 'equalwidth' ]"
@@ -363,10 +422,10 @@
 					></cx-vui-switcher>
 					<cx-vui-input
 						:name="'column[' + index + '][suffix]'"
-						:label="'<?php _e( 'By field', 'jet-engine' ); ?>'"
-						:description="'<?php _e( 'Sort can be done only by meta field value. Please set field name to sort posts by. If you are using `jet_engine_custom_cb_menu_order` callback leave this field empty', 'jet-engine' ); ?>'"
+						label="<?php _e( 'By field', 'jet-engine' ); ?>"
+						description="<?php _e( 'Sort can be done only by meta field value. Please set field name to sort posts by. If you are using `jet_engine_custom_cb_menu_order` callback leave this field empty', 'jet-engine' ); ?>"
 						:wrapper-css="[ 'equalwidth' ]"
-						:size="'fullwidth'"
+						size="fullwidth"
 						:value="adminColumns[ index ].sort_by_field"
 						@input="setColumnProp( index, 'sort_by_field', $event )"
 						:conditions="[
@@ -408,7 +467,13 @@
 		<cx-vui-collapse
 			:collapsed="true"
 		>
-			<h3 class="cx-vui-subtitle" slot="title"><?php _e( 'Admin Filters', 'jet-engine' ); ?> ({{ adminFilters.length }})</h3>
+			<h3 class="cx-vui-subtitle has-help-link" slot="title">
+				<?php _e( 'Admin Filters', 'jet-engine' ); ?> ({{ adminFilters.length }})
+				<a href="https://crocoblock.com/knowledge-base/articles/jetengine-custom-post-type-admin-filters/?utm_source=jetengine&utm_medium=admin-filters&utm_campaign=need-help" class="jet-help-link" target="_blank">
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10.4413 7.39906C10.9421 6.89828 11.1925 6.29734 11.1925 5.59624C11.1925 4.71987 10.8795 3.9687 10.2535 3.34272C9.62754 2.71674 8.87637 2.40376 8 2.40376C7.12363 2.40376 6.37246 2.71674 5.74648 3.34272C5.1205 3.9687 4.80751 4.71987 4.80751 5.59624H6.38498C6.38498 5.17058 6.54773 4.79499 6.87324 4.46948C7.19875 4.14398 7.57434 3.98122 8 3.98122C8.42566 3.98122 8.80125 4.14398 9.12676 4.46948C9.45227 4.79499 9.61502 5.17058 9.61502 5.59624C9.61502 6.02191 9.45227 6.3975 9.12676 6.723L8.15024 7.73709C7.52426 8.41315 7.21127 9.16432 7.21127 9.99061V10.4038H8.78873C8.78873 9.57747 9.10172 8.82629 9.7277 8.15024L10.4413 7.39906ZM8.78873 13.5962V12.0188H7.21127V13.5962H8.78873ZM2.32864 2.3662C3.9061 0.788732 5.79656 0 8 0C10.2034 0 12.0814 0.788732 13.6338 2.3662C15.2113 3.91862 16 5.79656 16 8C16 10.2034 15.2113 12.0939 13.6338 13.6714C12.0814 15.2238 10.2034 16 8 16C5.79656 16 3.9061 15.2238 2.32864 13.6714C0.776213 12.0939 0 10.2034 0 8C0 5.79656 0.776213 3.91862 2.32864 2.3662Z" fill="#007CBA"></path></svg>
+					<?php _e( 'What is this?' ) ?>
+				</a>
+			</h3>
 			<jet-engine-admin-filters
 				slot="content"
 				v-model="adminFilters"
@@ -440,16 +505,16 @@
 					v-if="isEdit"
 				>
 					<cx-vui-button
-						:button-style="'link-error'"
-						:size="'link'"
+						button-style="link-error"
+						size="link"
 						@click="resetDialog = true"
 						v-if="isBuiltIn"
 					>
 						<span slot="label"><?php _e( 'Reset to defaults', 'jet-engine' ); ?></span>
 					</cx-vui-button>
 					<cx-vui-button
-						:button-style="'link-error'"
-						:size="'link'"
+						button-style="link-error"
+						size="link"
 						@click="showDeleteDialog = true"
 						v-else
 					>
@@ -483,6 +548,18 @@
 							:key="'notice_' + index"
 						>{{ notice }}</div>
 					</div>
+				</div>
+			</div>
+			<div class="jet-engine-edit-page__actions-extra-settings cx-vui-panel" v-if="!generalSettings.custom_storage">
+				<div class="jet-engine-reverse-switcher cx-vui-component">
+					<div class="cx-vui-component__control">
+						<cx-vui-switcher
+							:prevent-wrap="true"
+							v-model="generalSettings.delete_metadata"
+						></cx-vui-switcher>
+						<div class="cx-vui-component__label"><?php _e( 'Delete metadata', 'jet-engine' ); ?></div>
+					</div>
+					<div class="cx-vui-component__desc"><?php _e( 'Toggle this option to delete metadata from the database for the deleted meta fields.', 'jet-engine' ); ?></div>
 				</div>
 			</div>
 			<div class="cx-vui-hr"></div>

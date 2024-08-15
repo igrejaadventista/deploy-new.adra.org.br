@@ -33,33 +33,42 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 	public static $test_gif = '';
 
 	/**
+	 * The API key used for API-based tests.
+	 *
+	 * @var stringg $api_key
+	 */
+	public static $api_key = '';
+
+	/**
 	 * Downloads test images.
 	 */
-	public static function setUpBeforeClass() {
+	public static function set_up_before_class() {
 		$wp_upload_dir   = wp_upload_dir();
 		$temp_upload_dir = trailingslashit( $wp_upload_dir['basedir'] ) . 'testing/';
 		wp_mkdir_p( $temp_upload_dir );
 
-		$test_jpg = download_url( 'https://s3-us-west-2.amazonaws.com/exactlywww/DCClogo.jpg' );
-		rename( $test_jpg, $temp_upload_dir . basename( $test_jpg ) );
-		self::$test_jpg = $temp_upload_dir . basename( $test_jpg );
+		$test_jpg = download_url( 'https://ewwwio-test.sfo2.digitaloceanspaces.com/unit-tests/DCClogo.jpg' );
+		rename( $test_jpg, $temp_upload_dir . wp_basename( $test_jpg ) );
+		self::$test_jpg = $temp_upload_dir . wp_basename( $test_jpg );
 
-		$test_png = download_url( 'https://s3-us-west-2.amazonaws.com/exactlywww/common-loon.png' );
-		rename( $test_png, $temp_upload_dir . basename( $test_png ) );
-		self::$test_png = $temp_upload_dir . basename( $test_png );
+		$test_png = download_url( 'https://ewwwio-test.sfo2.digitaloceanspaces.com/unit-tests/common-loon.png' );
+		rename( $test_png, $temp_upload_dir . wp_basename( $test_png ) );
+		self::$test_png = $temp_upload_dir . wp_basename( $test_png );
 
-		$test_gif = download_url( 'https://s3-us-west-2.amazonaws.com/exactlywww/xhtml11.gif' );
-		rename( $test_gif, $temp_upload_dir . basename( $test_gif ) );
-		self::$test_gif = $temp_upload_dir . basename( $test_gif );
+		$test_gif = download_url( 'https://ewwwio-test.sfo2.digitaloceanspaces.com/unit-tests/xhtml11.gif' );
+		rename( $test_gif, $temp_upload_dir . wp_basename( $test_gif ) );
+		self::$test_gif = $temp_upload_dir . wp_basename( $test_gif );
 
-		ewww_image_optimizer_set_defaults();
+		self::$api_key  = getenv( 'EWWWIO_API_KEY' );
+
+		ewwwio()->set_defaults();
 		update_option( 'ewww_image_optimizer_jpg_level', 10 );
 		update_option( 'ewww_image_optimizer_gif_level', 10 );
 		update_option( 'ewww_image_optimizer_webp', true );
 		update_option( 'ewww_image_optimizer_png_level', 40 );
 		update_site_option( 'ewww_image_optimizer_webp', true );
 		update_site_option( 'ewww_image_optimizer_png_level', 40 );
-		ewww_image_optimizer_install_tools();
+		ewwwio()->local->install_tools();
 		ewww_image_optimizer_install_pngout();
 		ewww_image_optimizer_install_svgcleaner();
 		update_option( 'ewww_image_optimizer_webp', '' );
@@ -71,8 +80,8 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 	/**
 	 * Initializes the plugin and installs the ewwwio_images table.
 	 */
-	function setUp() {
-		parent::setUp();
+	function set_up() {
+		parent::set_up();
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		ewww_image_optimizer_install_table();
 		add_filter( 'query', array( $this, '_create_temporary_tables' ) );
@@ -87,9 +96,8 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 		if ( ! $original ) {
 			$original = self::$test_jpg;
 		}
-		global $ewww_force;
-		$ewww_force = 1;
-		$filename = $original . ".jpg";
+		ewwwio()->force = true;
+		$filename       = $original . ".jpg";
 		copy( $original, $filename );
 		$results = ewww_image_optimizer( $filename, 1, false, false, true );
 		return $results;
@@ -104,9 +112,8 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 		if ( ! $original ) {
 			$original = self::$test_png;
 		}
-		global $ewww_force;
-		$ewww_force = 1;
-		$filename = $original . ".png";
+		ewwwio()->force = true;
+		$filename       = $original . ".png";
 		copy( $original, $filename );
 		$results = ewww_image_optimizer( $filename, 1, false, false, true );
 		return $results;
@@ -121,18 +128,17 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 		if ( ! $original ) {
 			$original = self::$test_gif;
 		}
-		global $ewww_force;
-		$ewww_force = 1;
-		$filename = $original . ".gif";
+		ewwwio()->force = true;
+		$filename       = $original . ".gif";
 		copy( $original, $filename );
 		$results = ewww_image_optimizer( $filename, 1, false, false, true );
 		return $results;
 	}
 
 	/**
-	 * Test JPG to PNG conversion.
+	 * Test local JPG to PNG conversion.
 	 */
-	function test_convert_jpg_to_png() {
+	function test_local_convert_jpg_to_png() {
 		update_option( 'ewww_image_optimizer_metadata_remove', true );
 		update_option( 'ewww_image_optimizer_jpg_level', 10 );
 		update_option( 'ewww_image_optimizer_png_level', 10 );
@@ -146,10 +152,30 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 		$this->assertEquals( 'image/png', ewww_image_optimizer_mimetype( $results[0], 'i' ) );
 		unlink( $results[0] );
 
-		update_option( 'ewww_image_optimizer_cloud_key', 'abc123' );
+		update_option( 'ewww_image_optimizer_jpg_to_png', '' );
+		update_site_option( 'ewww_image_optimizer_jpg_to_png', '' );
+	}
+
+	/**
+	 * Test API-based JPG to PNG conversion.
+	 */
+	function test_api_convert_jpg_to_png() {
+		if ( empty( self::$api_key ) ) {
+			self::markTestSkipped( 'No API key available.' );
+		}
+
+		update_option( 'ewww_image_optimizer_metadata_remove', true );
 		update_option( 'ewww_image_optimizer_jpg_level', 20 );
-		update_site_option( 'ewww_image_optimizer_cloud_key', 'abc123' );
+		update_option( 'ewww_image_optimizer_png_level', 10 );
+		update_option( 'ewww_image_optimizer_jpg_to_png', true );
+		update_site_option( 'ewww_image_optimizer_metadata_remove', true );
 		update_site_option( 'ewww_image_optimizer_jpg_level', 20 );
+		update_site_option( 'ewww_image_optimizer_png_level', 10 );
+		update_site_option( 'ewww_image_optimizer_jpg_to_png', true );
+
+		update_option( 'ewww_image_optimizer_cloud_key', self::$api_key );
+		update_site_option( 'ewww_image_optimizer_cloud_key', self::$api_key );
+
 		$results = $this->optimize_jpg();
 		$this->assertEquals( 'image/png', ewww_image_optimizer_mimetype( $results[0], 'i' ) );
 		unlink( $results[0] );
@@ -184,9 +210,9 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test PNG to JPG conversion with alpha.
+	 * Test local PNG to JPG conversion with alpha.
 	 */
-	function test_convert_png_to_jpg_alpha() {
+	function test_local_convert_png_to_jpg_alpha() {
 		update_option( 'ewww_image_optimizer_png_level', 10 );
 		update_option( 'ewww_image_optimizer_jpg_level', 10 );
 		update_option( 'ewww_image_optimizer_disable_pngout', true );
@@ -203,9 +229,9 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 		update_site_option( 'ewww_image_optimizer_jpg_background', '' );
 
 		// No background, conversion will fail.
-		$test_png = download_url( 'https://s3-us-west-2.amazonaws.com/exactlywww/books.png' );
-		rename( $test_png, dirname( self::$test_png ) . basename( $test_png ) );
-		$test_png = dirname( self::$test_png ) . basename( $test_png );
+		$test_png = download_url( 'https://ewwwio-test.sfo2.digitaloceanspaces.com/unit-tests/books.png' );
+		rename( $test_png, dirname( self::$test_png ) . wp_basename( $test_png ) );
+		$test_png = dirname( self::$test_png ) . wp_basename( $test_png );
 
 		$results = $this->optimize_png( $test_png );
 		$this->assertEquals( 'image/png', ewww_image_optimizer_mimetype( $results[0], 'i' ) );
@@ -218,13 +244,43 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 		$this->assertEquals( 'image/jpeg', ewww_image_optimizer_mimetype( $results[0], 'i' ) );
 		unlink( $results[0] );
 
-		// No background, conversion will fail, using API.
-		update_option( 'ewww_image_optimizer_png_level', 20 );
+		update_option( 'ewww_image_optimizer_png_to_jpg', '' );
 		update_option( 'ewww_image_optimizer_jpg_background', '' );
-		update_option( 'ewww_image_optimizer_cloud_key', 'abc123' );
-		update_site_option( 'ewww_image_optimizer_png_level', 20 );
+		update_site_option( 'ewww_image_optimizer_png_to_jpg', '' );
 		update_site_option( 'ewww_image_optimizer_jpg_background', '' );
-		update_site_option( 'ewww_image_optimizer_cloud_key', 'abc123' );
+		unlink( $test_png );
+	}
+
+	/**
+	 * Test API-based PNG to JPG conversion with alpha.
+	 */
+	function test_api_convert_png_to_jpg_alpha() {
+		if ( empty( self::$api_key ) ) {
+			self::markTestSkipped( 'No API key available.' );
+		}
+
+		update_option( 'ewww_image_optimizer_png_level', 20 );
+		update_option( 'ewww_image_optimizer_jpg_level', 10 );
+		update_option( 'ewww_image_optimizer_disable_pngout', true );
+		update_option( 'ewww_image_optimizer_optipng_level', 2 );
+		update_option( 'ewww_image_optimizer_metadata_remove', true );
+		update_option( 'ewww_image_optimizer_png_to_jpg', true );
+		update_option( 'ewww_image_optimizer_jpg_background', '' );
+		update_site_option( 'ewww_image_optimizer_png_level', 20 );
+		update_site_option( 'ewww_image_optimizer_jpg_level', 10 );
+		update_site_option( 'ewww_image_optimizer_disable_pngout', true );
+		update_site_option( 'ewww_image_optimizer_optipng_level', 2 );
+		update_site_option( 'ewww_image_optimizer_metadata_remove', true );
+		update_site_option( 'ewww_image_optimizer_png_to_jpg', true );
+		update_site_option( 'ewww_image_optimizer_jpg_background', '' );
+
+		$test_png = download_url( 'https://ewwwio-test.sfo2.digitaloceanspaces.com/unit-tests/books.png' );
+		rename( $test_png, dirname( self::$test_png ) . wp_basename( $test_png ) );
+		$test_png = dirname( self::$test_png ) . wp_basename( $test_png );
+
+		// No background, conversion will fail, using API.
+		update_option( 'ewww_image_optimizer_cloud_key', self::$api_key );
+		update_site_option( 'ewww_image_optimizer_cloud_key', self::$api_key );
 		$results = $this->optimize_png( $test_png );
 		$this->assertEquals( 'image/png', ewww_image_optimizer_mimetype( $results[0], 'i' ) );
 		unlink( $results[0] );
@@ -259,7 +315,7 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 		list( $file_path, $upload_path ) = ewww_image_optimizer_attachment_path( $meta, $id );
 		$this->assertEquals( 'image/jpeg', ewww_image_optimizer_mimetype( $file_path, 'i' ) );
 
-		$test_png = download_url( 'https://s3-us-west-2.amazonaws.com/exactlywww/books.png' );
+		$test_png = download_url( 'https://ewwwio-test.sfo2.digitaloceanspaces.com/unit-tests/books.png' );
 		$upload_png = $test_png . '.png';
 		copy( $test_png, $upload_png );
 		$id = $this->factory->attachment->create_upload_object( $upload_png );
@@ -303,9 +359,9 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test GIF to PNG conversion.
+	 * Test local GIF to PNG conversion.
 	 */
-	function test_convert_gif_to_png() {
+	function test_local_convert_gif_to_png() {
 		update_option( 'ewww_image_optimizer_gif_level', 10 );
 		update_option( 'ewww_image_optimizer_png_level', 10 );
 		update_option( 'ewww_image_optimizer_gif_to_png', true );
@@ -317,8 +373,23 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 		$this->assertEquals( 'image/png', ewww_image_optimizer_mimetype( $results[0], 'i' ) );
 		unlink( $results[0] );
 
-		update_option( 'ewww_image_optimizer_cloud_key', 'abc123' );
-		update_site_option( 'ewww_image_optimizer_cloud_key', 'abc123' );
+		update_option( 'ewww_image_optimizer_gif_to_png', '' );
+		update_site_option( 'ewww_image_optimizer_gif_to_png', '' );
+	}
+
+	/**
+	 * Test API-based GIF to PNG conversion.
+	 */
+	function test_api_convert_gif_to_png() {
+		update_option( 'ewww_image_optimizer_gif_level', 10 );
+		update_option( 'ewww_image_optimizer_png_level', 10 );
+		update_option( 'ewww_image_optimizer_gif_to_png', true );
+		update_site_option( 'ewww_image_optimizer_gif_level', 10 );
+		update_site_option( 'ewww_image_optimizer_png_level', 10 );
+		update_site_option( 'ewww_image_optimizer_gif_to_png', true );
+
+		update_option( 'ewww_image_optimizer_cloud_key', self::$api_key );
+		update_site_option( 'ewww_image_optimizer_cloud_key', self::$api_key );
 		$results = $this->optimize_gif();
 		$this->assertEquals( 'image/png', ewww_image_optimizer_mimetype( $results[0], 'i' ) );
 		unlink( $results[0] );
@@ -332,7 +403,7 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 	/**
 	 * Cleans up ewwwio_images table.
 	 */
-	function tearDown() {
+	function tear_down() {
 		global $wpdb;
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		$wpdb->query( "DROP TABLE IF EXISTS $wpdb->ewwwio_images" );
@@ -341,13 +412,13 @@ class EWWWIO_Convert_Tests extends WP_UnitTestCase {
 		delete_option( 'ewww_image_optimizer_cloud_key' );
 		delete_site_option( 'ewww_image_optimizer_version' );
 		delete_site_option( 'ewww_image_optimizer_cloud_key' );
-		parent::tearDown();
+		parent::tear_down();
 	}
 
 	/**
 	 * Cleans up the temp images.
 	 */
-	public static function tearDownAfterClass() {
+	public static function tear_down_after_class() {
 		if ( ewwwio_is_file( self::$test_jpg ) ) {
 			unlink( self::$test_jpg );
 		}

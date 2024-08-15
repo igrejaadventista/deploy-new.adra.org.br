@@ -1,40 +1,108 @@
 <?php
 namespace Jet_Engine\Modules\Profile_Builder;
 
-class Elementor_Integration {
-
-	public $pages = null;
+class Elementor_Integration extends Base_Integration {
 
 	/**
 	 * Constructor for the class
 	 */
 	public function __construct() {
 
+		add_action( 'jet-engine/listings/dynamic-link/source-controls', [ $this, 'register_link_controls' ], 10 );
+		add_action( 'jet-engine/listings/dynamic-image/link-source-controls', [ $this, 'register_img_link_controls' ], 10 );
+
 		if ( ! defined( 'ELEMENTOR_VERSION' ) ) {
 			return;
 		}
 
-		add_action( 'elementor/widgets/widgets_registered', array( $this, 'register_widgets' ), 11 );
-		add_action( 'jet-engine/listings/dynamic-link/source-controls', array( $this, 'register_link_controls' ), 10 );
-		add_action( 'jet-engine/listings/dynamic-image/link-source-controls', array( $this, 'register_img_link_controls' ), 10 );
+		add_action( 'jet-engine/elementor-views/widgets/register', [ $this, 'register_widgets' ], 11, 2 );
 
-		add_action( 'jet-engine/elementor-views/dynamic-tags/register', array( $this, 'register_dynamic_tags' ) );
-		add_action( 'jet-engine/profile-builder/template/assets', array( $this, 'enqueue_template_styles' ) );
+		add_action( 'jet-engine/elementor-views/dynamic-tags/register', [ $this, 'register_dynamic_tags' ], 10, 2 );
+		add_action( 'jet-engine/profile-builder/template/assets', [ $this, 'enqueue_template_styles' ] );
 
-		add_filter( 'jet-engine/profile-builder/template/content', array( $this, 'render_template_content' ), 0, 2 );
+		add_filter( 'jet-engine/profile-builder/template/content', [ $this, 'render_template_content' ], 0, 4 );
+		add_filter( 'jet-engine/profile-builder/settings/template-sources', [ $this, 'register_templates_source' ] );
 
+		add_filter( 
+			'jet-engine/profile-builder/create-template/elementor_library',
+			[ $this, 'create_profile_template' ],
+			10, 3
+		);
 
+	}
+
+	public function create_profile_template( $result = [], $template_name = '', $template_view = '' ) {
+
+		if ( ! $template_name ) {
+			return $result;
+		}
+
+		$template_id = wp_insert_post( [
+			'post_title' => $template_name,
+			'post_type'   => 'elementor_library',
+			'post_status' => 'publish',
+		] );
+
+		if ( ! $template_id ) {
+			return $result;
+		}
+
+		update_post_meta(
+			$template_id,
+			'_elementor_source',
+			'post'
+		);
+
+		update_post_meta(
+			$template_id,
+			'_elementor_edit_mode',
+			'builder'
+		);
+
+		update_post_meta(
+			$template_id,
+			'_elementor_template_type',
+			'container'
+		);
+
+		$document = \Elementor\Plugin::instance()->documents->get( $template_id );
+
+		$template_url = ( $document ) ? $document->get_edit_url() : add_query_arg( [ 
+			'post'   => $template_id,
+			'action' => 'elementor' 
+		], admin_url( 'post.php' ) );
+
+		return [
+			'template_url' => $template_url,
+			'template_id'  => $template_id,
+		];
+
+	}
+
+	/**
+	 * Add elementor templates to allowed profile builder templates
+	 * 
+	 * @param  array $sources Initial sources list
+	 * @return array
+	 */
+	public function register_templates_source( $sources ) {
+		$sources['elementor_library'] = __( 'Elementor Template', 'jet-engine' );
+		return $sources;
 	}
 
 	/**
 	 * Check if profile template is Elementor template, render it with Elementor
 	 *
-	 * @param  [type] $content     [description]
-	 * @param  [type] $template_id [description]
-	 * @return [type]              [description]
+	 * @param  string $content     Initial content
+	 * @param  int    $template_id template ID to render
+	 * @return string
 	 */
-	public function render_template_content( $content, $template_id ) {
+	public function render_template_content( $content, $template_id, $frontend, $template ) {
 
+		if ( 'elementor_library' !== $template->post_type ) {
+			return $content;
+		}
+		
 		$elementor_content = \Elementor\Plugin::instance()->frontend->get_builder_content( $template_id );
 
 		if ( $elementor_content ) {
@@ -63,14 +131,15 @@ class Elementor_Integration {
 	/**
 	 * Register Elementor-related dynamic tags
 	 *
+	 * @param  [type] $dynamic_tags [description]
 	 * @param  [type] $tags_module [description]
 	 * @return [type]              [description]
 	 */
-	public function register_dynamic_tags( $tags_module ) {
+	public function register_dynamic_tags( $dynamic_tags, $tags_module ) {
 
 		require_once jet_engine()->modules->modules_path( 'profile-builder/inc/dynamic-tags/profile-page-url.php' );
 
-		$tags_module->register_tag( new Dynamic_Tags\Profile_Page_URL() );
+		$tags_module->register_tag( $dynamic_tags, new Dynamic_Tags\Profile_Page_URL() );
 
 	}
 
@@ -84,56 +153,6 @@ class Elementor_Integration {
 	}
 
 	/**
-	 * Get all profile pages list to use as options
-	 *
-	 * @return [type] [description]
-	 */
-	public function get_pages_for_options() {
-
-		if ( null === $this->pages ) {
-
-			$pages    = array();
-			$settings = Module::instance()->settings->get();
-
-			if ( ! empty( $settings['account_page_structure'] ) ) {
-
-				$options = array();
-
-				foreach ( $settings['account_page_structure'] as $page ) {
-					$options['account_page::' . $page['slug'] ] = $page['title'];
-				}
-
-				$pages[] = array(
-					'label'   => __( 'Account Page', 'jet-engine' ),
-					'options' => $options,
-				);
-
-			}
-
-			if ( ! empty( $settings['enable_single_user_page'] ) && ! empty( $settings['user_page_structure'] ) ) {
-
-				$options = array();
-
-				foreach ( $settings['user_page_structure'] as $page ) {
-					$options['single_user_page::' . $page['slug'] ] = $page['title'];
-				}
-
-				$pages[] = array(
-					'label'   => __( 'Single User Page', 'jet-engine' ),
-					'options' => $options,
-				);
-
-			}
-
-			$this->pages = $pages;
-
-		}
-
-		return $this->pages;
-
-	}
-
-	/**
 	 * Register link control
 	 *
 	 * @param  [type] $widget [description]
@@ -141,7 +160,7 @@ class Elementor_Integration {
 	 */
 	public function register_link_controls( $widget = null, $is_image = false ) {
 
-		$pages = $this->get_pages_for_options();
+		$pages = $this->get_pages_for_options( 'elementor' );
 
 		$condition = array(
 			'dynamic_link_source' => 'profile_page',
@@ -158,7 +177,7 @@ class Elementor_Integration {
 			'dynamic_link_profile_page',
 			array(
 				'label'     => __( 'Profile Page', 'jet-engine' ),
-				'type'      => \Elementor\Controls_Manager::SELECT,
+				'type'      => 'select',
 				'default'   => '',
 				'groups'    => $pages,
 				'condition' => $condition,
@@ -170,18 +189,24 @@ class Elementor_Integration {
 	/**
 	 * Register profile builder widgets
 	 *
-	 * @return [type] [description]
+	 * @return void
 	 */
-	public function register_widgets( $widgets_manager ) {
+	public function register_widgets( $widgets_manager, $elementor_views ) {
 
-		require jet_engine()->modules->modules_path( 'profile-builder/inc/widgets/profile-menu-widget.php' );
-		$widgets_manager->register_widget_type( new Profile_Menu_Widget() );
+		$elementor_views->register_widget(
+			jet_engine()->modules->modules_path( 'profile-builder/inc/widgets/profile-menu-widget.php' ),
+			$widgets_manager,
+			__NAMESPACE__ . '\Profile_Menu_Widget'
+		);
 
 		$template_mode = Module::instance()->settings->get( 'template_mode' );
 
 		if ( 'content' === $template_mode ) {
-			require jet_engine()->modules->modules_path( 'profile-builder/inc/widgets/profile-content-widget.php' );
-			$widgets_manager->register_widget_type( new Profile_Content_Widget() );
+			$elementor_views->register_widget(
+				jet_engine()->modules->modules_path( 'profile-builder/inc/widgets/profile-content-widget.php' ),
+				$widgets_manager,
+				__NAMESPACE__ . '\Profile_Content_Widget'
+			);
 		}
 
 	}

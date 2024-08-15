@@ -88,7 +88,7 @@ class List_Table extends \WP_List_Table {
 				break;
 
 			default:
-				$value = call_user_func( $data['_cb'], $value );
+				$value = call_user_func( $data['_cb'], $value, $item, $data, $column_name );
 
 				break;
 
@@ -256,6 +256,12 @@ class List_Table extends \WP_List_Table {
 					}
 				}
 
+				if ( 'sql-date' === $data['type'] ) {
+					$data['type'] = 'datetime-local';
+					$value = strtotime( $value );
+					$value = is_numeric( $value ) ? date( 'Y-m-d\TH:i:s', $value ) : '';
+				}
+
 				$result[ $col ] = array(
 					'value' => $value,
 					'type'  => $data['type'],
@@ -286,17 +292,18 @@ class List_Table extends \WP_List_Table {
 
 		$quick_edit = new Quick_Edit( array(
 			'fields' => $this->factory->get_quick_edit_columns(),
-		), false );
+		), $this->factory );
 
 		$quick_edit->render_fields();
 
 		echo '<div class="submit inline-edit-save">
-			<button type="button" class="button jet-engine-cct-quick-edit--cancel alignleft">Cancel</button>
-			<button type="button" class="button button-primary jet-engine-cct-quick-edit--save alignright">Update</button><span class="spinner"></span>
+			<span class="spinner"></span>
+			<button type="button" class="button button-primary jet-engine-cct-quick-edit--save">' . esc_html__( 'Update', 'jet-engine' ) . '</button>
+			<button type="button" class="button jet-engine-cct-quick-edit--cancel">' . esc_html__( 'Cancel', 'jet-engine' ) . '</button>
 			<div class="clear"></div>
-			<div class="notice notice-error notice-alt inline hidden">
-				<p class="error"></p>
-			</div>
+		</div>
+		<div class="notice notice-error notice-alt inline hidden">
+			<p class="error"></p>
 		</div>';
 
 		$template = ob_get_clean();
@@ -443,7 +450,7 @@ class List_Table extends \WP_List_Table {
 		/**
 		 * First, lets decide how many records per page to show
 		 */
-		$per_page = $this->per_page;
+		$per_page = $this->get_items_per_page( $this->factory->admin_pages->get_per_page_option_name(), $this->per_page );
 
 		add_thickbox();
 

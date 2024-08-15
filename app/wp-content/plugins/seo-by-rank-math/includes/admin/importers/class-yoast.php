@@ -13,9 +13,8 @@ namespace RankMath\Admin\Importers;
 use RankMath\Helper;
 use RankMath\Redirections\Redirection;
 use RankMath\Tools\Yoast_Blocks;
-use MyThemeShop\Helpers\DB;
-use MyThemeShop\Helpers\WordPress;
-use MyThemeShop\Helpers\Str;
+use RankMath\Helpers\DB;
+use RankMath\Helpers\Str;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -68,6 +67,8 @@ class Yoast extends Plugin_Importer {
 	 */
 	public function convert_variables( $string ) {
 		$string = str_replace( '%%term_title%%', '%term%', $string );
+		$string = str_replace( '%%category_description%%', '%term_description%', $string );
+		$string = str_replace( '%%searchphrase%%', '%search_query%', $string );
 		$string = preg_replace( '/%%cf_([^%]+)%%/i', '%customfield($1)%', $string );
 		$string = preg_replace( '/%%ct_([^%]+)%%/i', '%customterm($1)%', $string );
 		$string = preg_replace( '/%%ct_desc_([^%]+)%%/i', '%customterm($1)%', $string );
@@ -112,10 +113,12 @@ class Yoast extends Plugin_Importer {
 			'metadesc-archive-wpseo' => 'date_archive_description',
 			'title-search-wpseo'     => 'search_title',
 			'title-404-wpseo'        => '404_title',
+			'org-description'        => 'organization_description',
 		];
 		$this->replace( $hash, $yoast_titles, $this->titles, 'convert_variables' );
 
 		$this->local_seo_settings();
+		$this->set_additional_organization_details( $yoast_titles );
 		$this->set_separator( $yoast_titles );
 		$this->set_post_types( $yoast_titles );
 		$this->set_taxonomies( $yoast_titles );
@@ -568,7 +571,7 @@ class Yoast extends Plugin_Importer {
 	private function set_post_focus_keyword( $post_id ) {
 		$extra_fks = get_post_meta( $post_id, '_yoast_wpseo_focuskeywords', true );
 		$extra_fks = json_decode( $extra_fks, true );
-		if ( empty( $extra_fks ) ) {
+		if ( empty( $extra_fks ) || ! is_array( $extra_fks ) ) {
 			return;
 		}
 
@@ -690,6 +693,15 @@ class Yoast extends Plugin_Importer {
 			if ( empty( $this->get_meta( 'user', $userid, 'rank_math_robots' ) ) && get_user_meta( $userid, 'wpseo_noindex_author', true ) ) {
 				update_user_meta( $userid, 'rank_math_robots', [ 'noindex' ] );
 			}
+
+			$social_urls = [];
+			foreach ( [ 'linkedin', 'myspace', 'pinterest', 'instagram', 'soundcloud', 'tumblr', 'youtube', 'wikipedia' ] as $key ) {
+				$social_urls[] = get_user_meta( $userid, $key, true );
+			}
+
+			if ( ! empty( $social_urls ) ) {
+				update_user_meta( $userid, 'additional_profile_urls', implode( ' ', array_filter( $social_urls ) ) );
+			}
 		}
 
 		return $this->get_pagination_arg();
@@ -747,6 +759,41 @@ class Yoast extends Plugin_Importer {
 	}
 
 	/**
+	 * Set additional Organization details.
+	 *
+	 * @param array $yoast_titles Settings.
+	 */
+	private function set_additional_organization_details( $yoast_titles ) {
+		$additional_details = [];
+		$properties         = [
+			'org-legal-name'       => 'legalName',
+			'org-founding-date'    => 'foundingDate',
+			'org-number-employees' => 'numberOfEmployees',
+			'org-vat-id'           => 'vatID',
+			'org-tax-id'           => 'taxID',
+			'org-iso'              => 'iso6523Code',
+			'org-duns'             => 'duns',
+			'org-leicode'          => 'leiCode',
+			'org-naics'            => 'naics',
+		];
+
+		foreach ( $properties as $key => $property ) {
+			if ( empty( $yoast_titles[ $key ] ) ) {
+				continue;
+			}
+
+			$additional_details[] = [
+				'type'  => $property,
+				'value' => $yoast_titles[ $key ],
+			];
+		}
+
+		if ( ! empty( $additional_details ) ) {
+			$this->titles['additional_info'] = $additional_details;
+		}
+	}
+
+	/**
 	 * Set separator.
 	 *
 	 * @param array $yoast_titles    Settings.
@@ -790,10 +837,12 @@ class Yoast extends Plugin_Importer {
 		$logo_id  = 'company' === $knowledgegraph_type ? 'company_logo_id' : 'person_logo_id';
 
 		$hash = [
-			'company_name'      => 'knowledgegraph_name',
-			'company_or_person' => 'knowledgegraph_type',
-			$logo_key           => 'knowledgegraph_logo',
-			$logo_id            => 'knowledgegraph_logo_id',
+			'company_name'           => 'knowledgegraph_name',
+			'website_name'           => 'website_name',
+			'alternate_website_name' => 'website_alternate_name',
+			'company_or_person'      => 'knowledgegraph_type',
+			$logo_key                => 'knowledgegraph_logo',
+			$logo_id                 => 'knowledgegraph_logo_id',
 		];
 		$this->replace( $hash, $yoast_titles, $this->titles );
 
@@ -1031,7 +1080,7 @@ class Yoast extends Plugin_Importer {
 	 * @param array $yoast_sitemap Settings.
 	 */
 	private function sitemap_exclude_roles( $yoast_sitemap ) {
-		foreach ( WordPress::get_roles() as $role => $label ) {
+		foreach ( Helper::get_roles() as $role => $label ) {
 			$key = "user_role-{$role}-not_in_sitemap";
 			if ( isset( $yoast_sitemap[ $key ] ) && $yoast_sitemap[ $key ] ) {
 				$this->sitemap['exclude_roles'][] = $role;
@@ -1148,6 +1197,10 @@ class Yoast extends Plugin_Importer {
 			'twitter_site'  => 'twitter_author_names',
 			'fbadminapp'    => 'facebook_app_id',
 		];
+
+		if ( ! empty( $yoast_social['other_social_urls'] ) ) {
+			$this->titles['social_additional_profiles'] = implode( PHP_EOL, $yoast_social['other_social_urls'] );
+		}
 		$this->replace( $hash, $yoast_social, $this->titles );
 	}
 
@@ -1174,12 +1227,11 @@ class Yoast extends Plugin_Importer {
 		$this->replace( $hash, $yoast_internallinks, $this->settings, 'convert_bool' );
 
 		// RSS.
-		$yoast_rss = get_option( 'wpseo_rss' );
-		$hash      = [
+		$hash = [
 			'rssbefore' => 'rss_before_content',
 			'rssafter'  => 'rss_after_content',
 		];
-		$this->replace( $hash, $yoast_rss, $this->settings, 'convert_variables' );
+		$this->replace( $hash, $yoast_titles, $this->settings, 'convert_variables' );
 	}
 
 	/**

@@ -24,6 +24,8 @@ class Button extends \Jet_Engine_Render_Base {
 			'added_to_store_url'   => '',
 
 			'object_context' => 'default_object',
+
+			'wrapper_class' => '',
 		);
 	}
 
@@ -44,7 +46,18 @@ class Button extends \Jet_Engine_Render_Base {
 			return;
 		}
 
-		$post_id = get_the_ID();
+		$context_object = jet_engine()->listings->data->get_object_by_context( $context );
+
+		// Check if the context object is not empty.
+		if ( $context_object && is_object( $context_object ) && 'stdClass' === get_class( $context_object ) ) {
+			$obj_vars = get_object_vars( $context_object );
+
+			if ( empty( $obj_vars ) ) {
+				return;
+			}
+		}
+
+		$post_id = jet_engine()->listings->data->get_current_object_id( $context_object );
 
 		if ( $store_instance->is_user_store() ) {
 
@@ -78,6 +91,7 @@ class Button extends \Jet_Engine_Render_Base {
 		$url   = '#';
 		$label = ! empty( $settings['label'] ) ? $this->get_label_html( $settings['label'] ) : '';
 		$icon  = ! empty( $settings['icon'] ) ? $this->get_icon_html( $settings['icon'] ) : '';
+
 
 		$action_after_added = ! empty( $settings['action_after_added'] ) ? $settings['action_after_added'] : 'remove_from_store';
 
@@ -201,7 +215,13 @@ class Button extends \Jet_Engine_Render_Base {
 			$label
 		);
 
-		printf( '<div class="jet-data-store-link-wrapper">%s</div>', $link_html );
+		$wrapper_css = ! empty( $settings['wrapper_css'] ) ? esc_attr( $settings['wrapper_css'] ) : '';
+
+		printf( 
+			'<div class="jet-data-store-link-wrapper %2$s">%1$s</div>', 
+			$link_html,
+			$wrapper_css
+		);
 	}
 
 	public function get_label_html( $label ) {

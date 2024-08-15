@@ -18,6 +18,12 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Terms' ) ) {
 			return 'jet-listing-dynamic-terms';
 		}
 
+		public function default_settings() {
+			return array(
+				'object_context' => 'default_object',
+			);
+		}
+
 		/**
 		 * Render taxonomies list
 		 *
@@ -31,12 +37,66 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Terms' ) ) {
 				return;
 			}
 
-			$terms = wp_get_post_terms( get_the_ID(), $tax );
+			$object_context = $this->get( 'object_context' );
+			$object         = jet_engine()->listings->data->get_object_by_context( $object_context );
 
-			if ( empty( $terms ) ) {
+			if ( ! $object ) {
+				$object = jet_engine()->listings->data->get_current_object();
+			}
 
-				if ( ! empty( $settings['hide_if_empty'] ) ) {
+			if ( ! $object || ! is_object( $object ) ) {
+				return;
+			}
+
+			$class = get_class( $object );
+
+			if ( is_a( $object, 'WC_Product' ) ) {
+				$class = 'WC_Product';
+			}
+
+			switch ( $class ) {
+				case 'WP_Post':
+				case 'WC_Product':
+
+					$args      = array();
+					$args_keys = array( 'orderby', 'order' );
+
+					foreach ( $args_keys as $key ) {
+
+						if ( empty( $settings[ $key ] ) ) {
+							continue;
+						}
+
+						$args[ $key ] = $settings[ $key ];
+					}
+
+					$post_id = jet_engine()->listings->data->get_current_object_id( $object );
+
+					$terms = wp_get_post_terms( $post_id, $tax, $args );
+					$terms = apply_filters( 'jet-engine/listings/dynamic-terms/items', $terms, $post_id, $settings, $this );
+
+					break;
+
+				case 'WP_Term':
+					$terms = array( $object );
+					break;
+				
+				default:
+					// Current object can`t be used with this widget. Only instances of WP_Post or WP_Term classes are allowed.
+					return;
+			}
+
+			
+
+			if ( empty( $terms ) || is_wp_error( $terms ) ) {
+
+				$hide_if_empty = isset( $settings['hide_if_empty'] ) ? $settings['hide_if_empty'] : false;
+				$hide_if_empty = filter_var( $hide_if_empty, FILTER_VALIDATE_BOOLEAN );
+
+				if ( $hide_if_empty ) {
 					$this->show_field = false;
+				} elseif ( ! Jet_Engine_Tools::is_empty( $settings, 'field_fallback' ) ) {
+					echo wp_kses_post( $settings['field_fallback'] );
 				}
 
 				return;
@@ -45,8 +105,6 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Terms' ) ) {
 			if ( ! isset( $settings['terms_delimiter'] ) ) {
 				$settings['terms_delimiter'] = ', ';
 			}
-
-
 
 			$show_all = isset( $settings['show_all_terms'] ) ? $settings['show_all_terms'] : 'yes';
 			$show_all = filter_var( $show_all, FILTER_VALIDATE_BOOLEAN );

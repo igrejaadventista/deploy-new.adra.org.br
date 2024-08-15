@@ -14,8 +14,8 @@ namespace RankMath;
 
 use RankMath\Traits\Hooker;
 use RankMath\Admin\Watcher;
+use RankMath\Helper;
 use RankMath\Admin\Admin_Helper;
-use MyThemeShop\Helpers\WordPress;
 use RankMath\Role_Manager\Capability_Manager;
 
 defined( 'ABSPATH' ) || exit;
@@ -35,8 +35,7 @@ class Installer {
 		register_deactivation_hook( RANK_MATH_FILE, [ $this, 'deactivation' ] );
 
 		$this->action( 'wp', 'create_cron_jobs' );
-		$this->action( 'wpmu_new_blog', 'activate_blog' );
-		$this->action( 'activate_blog', 'activate_blog' );
+		$this->action( 'wp_initialize_site', 'initialize_site' );
 		$this->filter( 'wpmu_drop_tables', 'on_delete_blog' );
 	}
 
@@ -71,14 +70,10 @@ class Installer {
 	/**
 	 * Fired when a new site is activated with a WPMU environment.
 	 *
-	 * @param int $blog_id ID of the new blog.
+	 * @param WP_Site $site The new site's object.
 	 */
-	public function activate_blog( $blog_id ) {
-		if ( 1 !== did_action( 'wpmu_new_blog' ) ) {
-			return;
-		}
-
-		switch_to_blog( $blog_id );
+	public function initialize_site( $site ) {
+		switch_to_blog( $site->blog_id );
 		$this->activate();
 		restore_current_blog();
 	}
@@ -130,7 +125,7 @@ class Installer {
 	}
 
 	/**
-	 * Runs on activation of the plugin.
+	 * Plugin activation callback.
 	 */
 	private function activate() {
 		// Init to use the common filters.
@@ -164,9 +159,10 @@ class Installer {
 		// Activate Watcher.
 		$watcher = new Watcher();
 		$watcher->check_activated_plugin();
+		$watcher->check_search_engine_visibility( ! get_option( 'blog_public' ) );
 
 		$this->clear_rewrite_rules( true );
-		Helper::clear_cache();
+		Helper::clear_cache( 'activate' );
 
 		$this->do_action( 'activate' );
 	}
@@ -177,7 +173,7 @@ class Installer {
 	private function deactivate() {
 		$this->clear_rewrite_rules( false );
 		$this->remove_cron_jobs();
-		Helper::clear_cache();
+		Helper::clear_cache( 'deactivate' );
 		Admin_Helper::deregister_user();
 		$this->do_action( 'deactivate' );
 	}
@@ -196,61 +192,61 @@ class Installer {
 
 		if ( in_array( '404-monitor', $modules, true ) ) {
 			$table_schema[] = "CREATE TABLE {$wpdb->prefix}rank_math_404_logs (
-				id BIGINT(20) unsigned NOT NULL AUTO_INCREMENT,
-				uri VARCHAR(255) NOT NULL,
-				accessed DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
-				times_accessed BIGINT(20) unsigned NOT NULL DEFAULT 1,
-				referer VARCHAR(255) NOT NULL DEFAULT '',
-				user_agent VARCHAR(255) NOT NULL DEFAULT '',
-				PRIMARY KEY id (id),
+				id bigint(20) unsigned NOT NULL auto_increment,
+				uri varchar(255) NOT NULL,
+				accessed datetime NOT NULL default '0000-00-00 00:00:00',
+				times_accessed bigint(20) unsigned NOT NULL default 1,
+				referer varchar(255) NOT NULL default '',
+				user_agent varchar(255) NOT NULL default '',
+				PRIMARY KEY  (id),
 				KEY uri (uri(191))
 			) $collate;";
 		}
 
 		if ( in_array( 'redirections', $modules, true ) ) {
 			$table_schema[] = "CREATE TABLE {$wpdb->prefix}rank_math_redirections (
-				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				sources TEXT CHARACTER SET {$wpdb->charset} COLLATE {$wpdb->charset}_bin NOT NULL,
-				url_to TEXT NOT NULL,
-				header_code SMALLINT(4) UNSIGNED NOT NULL,
-				hits BIGINT(20) UNSIGNED NOT NULL DEFAULT '0',
-				status VARCHAR(25) NOT NULL DEFAULT 'active',
-				created DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
-				updated DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
-				last_accessed DATETIME NOT NULL DEFAULT '0000-00-00 00:00:00',
-				PRIMARY KEY id (id),
+				id bigint(20) unsigned NOT NULL auto_increment,
+				sources text CHARACTER SET {$wpdb->charset} COLLATE {$wpdb->charset}_bin NOT NULL,
+				url_to text NOT NULL,
+				header_code smallint(4) unsigned NOT NULL,
+				hits bigint(20) unsigned NOT NULL default '0',
+				status varchar(25) NOT NULL default 'active',
+				created datetime NOT NULL default '0000-00-00 00:00:00',
+				updated datetime NOT NULL default '0000-00-00 00:00:00',
+				last_accessed datetime NOT NULL default '0000-00-00 00:00:00',
+				PRIMARY KEY  (id),
 				KEY status (status)
 			) $collate;";
 
 			$table_schema[] = "CREATE TABLE {$wpdb->prefix}rank_math_redirections_cache (
-				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				from_url TEXT CHARACTER SET {$wpdb->charset} COLLATE {$wpdb->charset}_bin NOT NULL,
-				redirection_id BIGINT(20) UNSIGNED NOT NULL,
-				object_id BIGINT(20) UNSIGNED NOT NULL DEFAULT '0',
-				object_type VARCHAR(10) NOT NULL DEFAULT 'post',
-				is_redirected TINYINT(1) NOT NULL DEFAULT '0',
-				PRIMARY KEY id (id),
+				id bigint(20) unsigned NOT NULL auto_increment,
+				from_url text CHARACTER SET {$wpdb->charset} COLLATE {$wpdb->charset}_bin NOT NULL,
+				redirection_id bigint(20) unsigned NOT NULL,
+				object_id bigint(20) unsigned NOT NULL default '0',
+				object_type varchar(10) NOT NULL default 'post',
+				is_redirected tinyint(1) NOT NULL default '0',
+				PRIMARY KEY  (id),
 				KEY redirection_id (redirection_id)
 			) $collate;";
 		}
 
 		if ( in_array( 'link-counter', $modules, true ) ) {
 			$table_schema[] = "CREATE TABLE {$wpdb->prefix}rank_math_internal_links (
-				id BIGINT(20) unsigned NOT NULL AUTO_INCREMENT,
-				url VARCHAR(255) NOT NULL,
+				id bigint(20) unsigned NOT NULL auto_increment,
+				url varchar(255) NOT NULL,
 				post_id bigint(20) unsigned NOT NULL,
 				target_post_id bigint(20) unsigned NOT NULL,
-				type VARCHAR(8) NOT NULL,
-				PRIMARY KEY id (id),
+				type varchar(8) NOT NULL,
+				PRIMARY KEY  (id),
 				KEY link_direction (post_id, type)
 			) $collate;";
 
 			$table_schema[] = "CREATE TABLE {$wpdb->prefix}rank_math_internal_meta (
-				object_id BIGINT(20) UNSIGNED NOT NULL,
-				internal_link_count int(10) UNSIGNED NULL DEFAULT 0,
-				external_link_count int(10) UNSIGNED NULL DEFAULT 0,
-				incoming_link_count int(10) UNSIGNED NULL DEFAULT 0,
-				PRIMARY KEY object_id (object_id)
+				object_id bigint(20) unsigned NOT NULL,
+				internal_link_count int(10) unsigned NULL default 0,
+				external_link_count int(10) unsigned NULL default 0,
+				incoming_link_count int(10) unsigned NULL default 0,
+				PRIMARY KEY  (object_id)
 			) $collate;";
 		}
 
@@ -371,6 +367,13 @@ class Installer {
 					'frontend_seo_score_position'         => 'top',
 					'setup_mode'                          => 'advanced',
 					'content_ai_post_types'               => array_keys( $post_types ),
+					'content_ai_country'                  => 'all',
+					'content_ai_tone'                     => 'Formal',
+					'content_ai_audience'                 => 'General Audience',
+					'content_ai_language'                 => Helper::content_ai_default_language(),
+					'analytics_stats'                     => 'on',
+					'toc_block_title'                     => 'Table of Contents',
+					'toc_block_list_style'                => 'ul',
 				]
 			)
 		);
@@ -381,11 +384,15 @@ class Installer {
 	 */
 	private function create_titles_sitemaps_options() {
 		$sitemap = [
-			'items_per_page'         => 200,
-			'include_images'         => 'on',
-			'include_featured_image' => 'off',
-			'ping_search_engines'    => 'on',
-			'exclude_roles'          => $this->get_excluded_roles(),
+			'items_per_page'          => 200,
+			'include_images'          => 'on',
+			'include_featured_image'  => 'off',
+			'exclude_roles'           => $this->get_excluded_roles(),
+			'html_sitemap'            => 'on',
+			'html_sitemap_display'    => 'shortcode',
+			'html_sitemap_sort'       => 'published',
+			'html_sitemap_seo_titles' => 'titles',
+			'authors_sitemap'         => 'on',
 		];
 		$titles  = [
 			'noindex_empty_taxonomies'   => 'on',
@@ -394,6 +401,7 @@ class Installer {
 			'twitter_card_type'          => 'summary_large_image',
 			'knowledgegraph_type'        => class_exists( 'Easy_Digital_Downloads' ) || class_exists( 'WooCommerce' ) ? 'company' : 'person',
 			'knowledgegraph_name'        => get_bloginfo( 'name' ),
+			'website_name'               => get_bloginfo( 'name' ),
 			'local_business_type'        => 'Organization',
 			'local_address_format'       => '{address} {locality}, {region} {postalcode}',
 			'opening_hours'              => $this->get_opening_hours(),
@@ -543,7 +551,15 @@ class Installer {
 			$titles[ 'tax_' . $taxonomy . '_slack_enhanced_sharing' ] = 'on';
 
 			$sitemap[ 'tax_' . $taxonomy . '_sitemap' ] = 'category' === $taxonomy ? 'on' : 'off';
+
+			if ( substr( $taxonomy, 0, 3 ) === 'pa_' ) {
+				$titles[ 'remove_' . $taxonomy . '_snippet_data' ] = 'on';
+			}
 		}
+
+		$titles['remove_product_cat_snippet_data'] = 'on';
+		$titles['remove_product_tag_snippet_data'] = 'on';
+
 	}
 
 	/**
@@ -586,7 +602,8 @@ class Installer {
 		$midnight = strtotime( 'tomorrow midnight' );
 		foreach ( $this->get_cron_jobs() as $job => $recurrence ) {
 			if ( ! wp_next_scheduled( "rank_math/{$job}" ) ) {
-				wp_schedule_event( $midnight, $this->do_filter( "{$job}_recurrence", $recurrence ), "rank_math/{$job}" );
+				$timestamp = 'content-ai/update_prompts' === $job ? $midnight + wp_rand( 60, 86400 ) : $midnight;
+				wp_schedule_event( $timestamp, $this->do_filter( "{$job}_recurrence", $recurrence ), "rank_math/{$job}" );
 			}
 		}
 	}
@@ -607,8 +624,9 @@ class Installer {
 	 */
 	private function get_cron_jobs() {
 		return [
-			'redirection/clean_trashed'    => 'daily',     // Add cron for cleaning trashed redirects.
-			'links/internal_links'         => 'daily',     // Add cron for counting links.
+			'redirection/clean_trashed' => 'daily', // Add cron for cleaning trashed redirects.
+			'links/internal_links'      => 'daily', // Add cron for counting links.
+			'content-ai/update_prompts' => 'daily', // Add cron for updating the prompts data.
 		];
 	}
 
@@ -636,10 +654,10 @@ class Installer {
 	 * @return array
 	 */
 	private function get_excluded_roles() {
-		$roles = WordPress::get_roles();
+		$roles = Helper::get_roles();
 		unset( $roles['administrator'], $roles['editor'], $roles['author'] );
 
-		return $roles;
+		return array_keys( $roles );
 	}
 
 	/**

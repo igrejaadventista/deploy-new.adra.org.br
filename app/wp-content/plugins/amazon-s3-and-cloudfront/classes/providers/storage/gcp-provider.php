@@ -10,6 +10,7 @@ use DeliciousBrains\WP_Offload_Media\Gcp\Google\Cloud\Storage\StorageClient;
 use DeliciousBrains\WP_Offload_Media\Gcp\Google\Cloud\Storage\StorageObject;
 use DeliciousBrains\WP_Offload_Media\Providers\Storage\Streams\GCP_GCS_Stream_Wrapper;
 use Exception;
+use WP_Error;
 
 class GCP_Provider extends Storage_Provider {
 
@@ -89,45 +90,51 @@ class GCP_Provider extends Storage_Provider {
 	 * @var array
 	 */
 	protected static $regions = array(
-		'asia'                    => 'Asia (Multi-Regional)',
-		'eu'                      => 'European Union (Multi-Regional)',
-		'us'                      => 'United States (Multi-Regional)',
-		'us-central1'             => 'Iowa',
-		'us-east1'                => 'South Carolina',
-		'us-east4'                => 'Northern Virginia',
-		'us-east5'                => 'Columbus',
-		'us-west1'                => 'Oregon',
-		'us-west2'                => 'Los Angeles',
-		'us-west3'                => 'Salt Lake City',
-		'us-west4'                => 'Las Vegas',
-		'us-south1'               => 'Dallas',
-		'northamerica-northeast1' => 'Montréal',
-		'northamerica-northeast2' => 'Toronto',
-		'southamerica-east1'      => 'São Paulo',
-		'southamerica-west1'      => 'Santiago',
-		'europe-central2'         => 'Warsaw',
-		'europe-north1'           => 'Finland',
-		'europe-west1'            => 'Belgium',
-		'europe-west2'            => 'London',
-		'europe-west3'            => 'Frankfurt',
-		'europe-west4'            => 'Netherlands',
-		'europe-west6'            => 'Zürich',
-		'europe-west8'            => 'Milan',
-		'europe-west9'            => 'Paris',
-		'europe-southwest1'       => 'Madrid',
-		'asia-east1'              => 'Taiwan',
-		'asia-east2'              => 'Hong Kong',
-		'asia-northeast1'         => 'Tokyo',
-		'asia-northeast2'         => 'Osaka',
-		'asia-northeast3'         => 'Seoul',
-		'asia-south1'             => 'Mumbai',
-		'asia-south2'             => 'Dehli',
-		'asia-southeast1'         => 'Singapore',
-		'asia-southeast2'         => 'Jakarta',
-		'australia-southeast1'    => 'Sydney',
-		'australia-southeast2'    => 'Melbourne',
-		'eur4'                    => 'EUR4 (Finland/Netherlands Dual-Region)',
-		'nam4'                    => 'NAM4 (Iowa/South Carolina Dual-Region)',
+		'asia'                    => 'Multi-Region (Asia)',
+		'eu'                      => 'Multi-Region (EU)',
+		'us'                      => 'Multi-Region (US)',
+		'us-central1'             => 'North America (Iowa)',
+		'us-east1'                => 'North America (South Carolina)',
+		'us-east4'                => 'North America (Northern Virginia)',
+		'us-east5'                => 'North America (Columbus)',
+		'us-west1'                => 'North America (Oregon)',
+		'us-west2'                => 'North America (Los Angeles)',
+		'us-west3'                => 'North America (Salt Lake City)',
+		'us-west4'                => 'North America (Las Vegas)',
+		'us-south1'               => 'North America (Dallas)',
+		'northamerica-northeast1' => 'North America (Montréal)',
+		'northamerica-northeast2' => 'North America (Toronto)',
+		'southamerica-east1'      => 'South America (São Paulo)',
+		'southamerica-west1'      => 'South America (Santiago)',
+		'europe-central2'         => 'Europe (Warsaw)',
+		'europe-north1'           => 'Europe (Finland)',
+		'europe-west1'            => 'Europe (Belgium)',
+		'europe-west2'            => 'Europe (London)',
+		'europe-west3'            => 'Europe (Frankfurt)',
+		'europe-west4'            => 'Europe (Netherlands)',
+		'europe-west6'            => 'Europe (Zürich)',
+		'europe-west8'            => 'Europe (Milan)',
+		'europe-west9'            => 'Europe (Paris)',
+		'europe-west10'           => 'Europe (Berlin)',
+		'europe-west12'           => 'Europe (Turin)',
+		'europe-southwest1'       => 'Europe (Madrid)',
+		'asia-east1'              => 'Asia (Taiwan)',
+		'asia-east2'              => 'Asia (Hong Kong)',
+		'asia-northeast1'         => 'Asia (Tokyo)',
+		'asia-northeast2'         => 'Asia (Osaka)',
+		'asia-northeast3'         => 'Asia (Seoul)',
+		'asia-southeast1'         => 'Asia (Singapore)',
+		'asia-south1'             => 'India (Mumbai)',
+		'asia-south2'             => 'India (Dehli)',
+		'asia-southeast2'         => 'Indonesia (Jakarta)',
+		'me-central1'             => 'Middle East (Doha)',
+		'me-central2'             => 'Middle East (Dammam, Saudi Arabia)',
+		'me-west1'                => 'Middle East (Tel Aviv)',
+		'australia-southeast1'    => 'Australia (Sydney)',
+		'australia-southeast2'    => 'Australia (Melbourne)',
+		'asia1'                   => 'Dual-Region (Tokyo/Osaka)',
+		'eur4'                    => 'Dual-Region (Finland/Netherlands)',
+		'nam4'                    => 'Dual-Region (Iowa/South Carolina)',
 	);
 
 	/**
@@ -614,11 +621,15 @@ class GCP_Provider extends Storage_Provider {
 	public function can_write( $bucket, $key, $file_contents ) {
 		try {
 			// Attempt to create the test file.
-			$this->upload_object( array(
-				'Bucket' => $bucket,
-				'Key'    => $key,
-				'Body'   => $file_contents,
-			) );
+			$this->upload_object(
+				static::filter_object_meta(
+					array(
+						'Bucket' => $bucket,
+						'Key'    => $key,
+						'Body'   => $file_contents,
+					)
+				)
+			);
 
 			// delete it straight away if created
 			$this->delete_object( array(
@@ -720,5 +731,141 @@ class GCP_Provider extends Storage_Provider {
 		}
 
 		return $project_id;
+	}
+
+	/**
+	 * Read key file contents from path and convert it to the appropriate format for this provider.
+	 *
+	 * @param string $path
+	 *
+	 * @return mixed
+	 */
+	protected function get_key_file_path_contents( string $path ) {
+		$notice_id   = 'validate-key-file-path';
+		$notice_args = array(
+			'type'                  => 'error',
+			'only_show_in_settings' => true,
+			'only_show_on_tab'      => 'media',
+			'hide_on_parent'        => true,
+			'custom_id'             => $notice_id,
+		);
+
+		$content = json_decode( file_get_contents( $path ), true );
+
+		if ( empty( $content ) ) {
+			$this->as3cf->notices->add_notice( __( 'Media cannot be offloaded due to invalid JSON in the key file.', 'amazon-s3-and-cloudfront' ), $notice_args );
+
+			return false;
+		}
+
+		return $content;
+	}
+
+	/**
+	 * Google specific validation of the key file contents.
+	 *
+	 * @param array $key_file_content
+	 *
+	 * @return bool
+	 */
+	public function validate_key_file_content( $key_file_content ): bool {
+		$notice_id = 'validate-key-file-content';
+		$this->as3cf->notices->remove_notice_by_id( $notice_id );
+
+		$notice_args = array(
+			'type'                  => 'error',
+			'only_show_in_settings' => true,
+			'only_show_on_tab'      => 'media',
+			'hide_on_parent'        => true,
+			'custom_id'             => $notice_id,
+		);
+
+		if ( ! isset( $key_file_content['project_id'] ) ) {
+			$this->as3cf->notices->add_notice(
+				sprintf(
+					__( 'Media cannot be offloaded due to a missing <code>project_id</code> field which may be the result of an old or obsolete key file. <a href="%1$s" target="_blank">Create a new key file</a>', 'amazon-s3-and-cloudfront' ),
+					static::get_provider_service_quick_start_url() . '#service-account-key-file'
+				),
+				$notice_args
+			);
+
+			return false;
+		}
+
+		if ( ! isset( $key_file_content['private_key'] ) ) {
+			$this->as3cf->notices->add_notice(
+				sprintf(
+					__( 'Media cannot be offloaded due to a missing <code>private_key</code> field in the key file. <a href="%1$s" target="_blank"">Create a new key file</a>', 'amazon-s3-and-cloudfront' ),
+					static::get_provider_service_quick_start_url() . '#service-account-key-file'
+				),
+				$notice_args
+			);
+
+			return false;
+		}
+
+		if ( ! isset( $key_file_content['type'] ) ) {
+			$this->as3cf->notices->add_notice(
+				sprintf(
+					__( 'Media cannot be offloaded due to a missing <code>type</code> field in the key file. <a href="%1$s" target="_blank">Create a new key file</a>', 'amazon-s3-and-cloudfront' ),
+					static::get_provider_service_quick_start_url() . '#service-account-key-file'
+				),
+				$notice_args
+			);
+
+			return false;
+		}
+
+		if ( ! isset( $key_file_content['client_email'] ) ) {
+			$this->as3cf->notices->add_notice(
+				sprintf(
+					__( 'Media cannot be offloaded due to a missing <code>client_email</code> field in the key file. <a href="%1$s" target="_blank">Create a new key file</a>', 'amazon-s3-and-cloudfront' ),
+					static::get_provider_service_quick_start_url() . '#service-account-key-file'
+				),
+				$notice_args
+			);
+
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Prepare the bucket error.
+	 *
+	 * @param WP_Error $object
+	 * @param bool     $single Are we dealing with a single bucket?
+	 *
+	 * @return string
+	 */
+	public function prepare_bucket_error( WP_Error $object, bool $single = true ): string {
+		if ( false !== strpos( $object->get_error_message(), "OpenSSL unable to sign" ) ) {
+			return sprintf(
+				__( 'Media cannot be offloaded due to an invalid OpenSSL Private Key. <a href="%1$s" target="_blank">Update the key file</a>', 'amazon-s3-and-cloudfront' ),
+				static::get_provider_service_quick_start_url() . '#service-account-key-file'
+			);
+		}
+
+		// This may be a JSON error message from Google.
+		$message = json_decode( $object->get_error_message() );
+		if ( ! is_null( $message ) ) {
+			if ( isset( $message->error ) && 'invalid_grant' === $message->error ) {
+				return sprintf(
+					__( 'Media cannot be offloaded using the provided service account. <a href="%1$s" target="_blank">Read more</a>', 'amazon-s3-and-cloudfront' ),
+					static::get_provider_service_quick_start_url() . '#service-account-key-file'
+				);
+			}
+
+			if ( isset( $message->error->code ) && 404 === $message->error->code ) {
+				return sprintf(
+					__( 'Media cannot be offloaded because a bucket with the configured name does not exist. <a href="%1$s">Enter a different bucket</a>', 'amazon-s3-and-cloudfront' ),
+					'#/storage/bucket'
+				);
+			}
+		}
+
+		// Fallback to generic error parsing.
+		return parent::prepare_bucket_error( $object, $single );
 	}
 }

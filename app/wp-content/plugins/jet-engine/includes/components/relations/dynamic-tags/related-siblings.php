@@ -15,8 +15,8 @@ class Related_Siblings extends Related_Items {
 		return __( 'Related Siblings', 'jet-engine' );
 	}
 
-	protected function _register_controls() {
-		parent::_register_controls();
+	protected function register_controls() {
+		parent::register_controls();
 	}
 
 	public function get_value( array $options = array() ) {

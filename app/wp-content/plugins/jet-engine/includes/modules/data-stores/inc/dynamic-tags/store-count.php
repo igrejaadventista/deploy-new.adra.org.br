@@ -35,7 +35,7 @@ class Store_Count extends \Elementor\Core\DynamicTags\Tag {
 		return true;
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->add_control(
 			'data_store',

@@ -10,6 +10,8 @@
 
 namespace RankMath\Google;
 
+use RankMath\Helper;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
@@ -66,17 +68,23 @@ class Url_Inspection extends Request {
 	 * @param string $page URL to inspect (relative).
 	 */
 	public function get_api_results( $page ) {
-		$gsc_profile = Console::get_site_url();
-		$args        = [
-			'inspectionUrl' => untrailingslashit( $gsc_profile ) . $page,
-			'siteUrl'       => $gsc_profile,
-			'languageCode'  => str_replace( '_', '-', get_locale() ),
+		$lang_arr  = \explode( '_', get_locale() );
+		$lang_code = empty( $lang_arr[1] ) ? $lang_arr[0] : $lang_arr[0] . '-' . $lang_arr[1];
+
+		$args = [
+			'inspectionUrl' => untrailingslashit( Helper::get_home_url() ) . $page,
+			'siteUrl'       => Console::get_site_url(),
+			'languageCode'  => $lang_code,
 		];
 
 		set_time_limit( 90 );
+
+		$workflow = 'inspections';
+		$this->set_workflow( $workflow );
+
 		$response = $this->http_post( $this->api_url, $args, 60 );
 
-		$this->log_failed_request( $response, 'inspections', $page, func_get_args() );
+		$this->log_failed_request( $response, $workflow, $page, func_get_args() );
 
 		if ( ! $this->is_success() ) {
 			return false;
@@ -117,8 +125,6 @@ class Url_Inspection extends Request {
 			'indexStatusResult.indexingState'   => 'indexing_state',
 			'indexStatusResult.pageFetchState'  => 'page_fetch_state',
 			'indexStatusResult.robotsTxtState'  => 'robots_txt_state',
-			'mobileUsabilityResult.verdict'     => 'mobile_usability_verdict',
-			'mobileUsabilityResult.issues'      => 'mobile_usability_issues',
 			'richResultsResult.verdict'         => 'rich_results_verdict',
 			'indexStatusResult.crawledAs'       => 'crawled_as',
 			'indexStatusResult.googleCanonical' => 'google_canonical',

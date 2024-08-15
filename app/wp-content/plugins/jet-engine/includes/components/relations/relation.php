@@ -22,6 +22,8 @@ if ( ! defined( 'WPINC' ) ) {
  * 'child_control'  => true - register or not control for related parents on the children objects edit page
  * 'parent_manager' => true - allow to create new objects of children type from parent object edit page
  * 'child_manager'  => true - allow to create new objects of parent type from children objects edit page
+ * 'parent_allow_delete' => true - allow to delete objects of children type from parent object edit page
+ * 'child_allow_delete'  => true - allow to delete objects of parent type from children objects edit page
  * 'parent_table' => array( 'image' => array( 'enable' => true, 'callback' => '', 'name' => 'Image' ) ) - additional table columns for parent object edit page control
  * 'child_table'  => array( 'image' => array( 'enable' => true, 'callback' => '', 'name' => 'Image' ) ) - additional table columns for child object edit page control
  * 'meta_fields'    => array() - list of meta fields for relation
@@ -60,6 +62,8 @@ class Relation {
 			$this->setup_controls();
 		}
 
+		add_action( 'rest_api_init', array( $this, 'init_public_rest_api' ) );
+
 		jet_engine()->relations->types_helper->register_cleanup_hook( $this->get_args( 'parent_object' ), array( $this, 'cleanup_relation' ) );
 		jet_engine()->relations->types_helper->register_cleanup_hook( $this->get_args( 'child_object' ), array( $this, 'cleanup_relation' ) );
 
@@ -68,6 +72,29 @@ class Relation {
 		add_filter( 'jet-engine/listings/data/object-by-context/' . $this->get_context_name(), array( $this, 'apply_context' ) );
 
 		do_action( 'jet-engine/relations/init/' . $rel_id, $this );
+
+	}
+
+	public function init_public_rest_api() {
+		
+
+		$get  = $this->get_args( 'rest_get_enabled' );
+		$edit = $this->get_args( 'rest_post_enabled' );
+
+		if ( $get || $edit ) {
+
+			if ( ! class_exists( '\Jet_Engine\Relations\Rest\Public_Controller' ) ) {
+				require jet_engine()->relations->component_path( 'rest-api/public-controller.php' );
+			}
+
+			$rest_controller = new Rest\Public_Controller();
+
+			$rest_controller->register_routes( array(
+				'rel_id' => $this->rel_id,
+				'get'    => $get,
+				'edit'   => $edit,
+			) );
+		}
 
 	}
 
@@ -386,7 +413,19 @@ class Relation {
 					$field_data['description'] = wp_strip_all_tags( $field_data['description'] );
 				}
 
+				if ( ! empty( $field_data['options_callback'] )
+					&& is_callable( $field_data['options_callback'] ) 
+				) {
+
+					$field_data['options'] = \Jet_Engine_Tools::get_options_from_callback(
+						$field_data['options_callback'], true
+					);
+
+					unset( $field_data['options_callback'] );
+				}
+
 				$meta_fields[ $key ] = $field_data;
+
 			}
 
 		}
@@ -529,7 +568,7 @@ class Relation {
 
 	/**
 	 * Returns related items for given object
-	 * Automtically detects - we need to get children or parent items by object.
+	 * Automatically detects - we need to get children or parent items by object.
 	 *
 	 * @param  [type] $object [description]
 	 * @return [type]         [description]
@@ -742,6 +781,8 @@ class Relation {
 		}
 
 		$this->delete_rows( $parent_object, $child_object, true );
+		$this->db->reset_cache();
+		$this->meta_db->reset_cache();
 
 	}
 
@@ -776,7 +817,10 @@ class Relation {
 
 		$this->db->delete( $delete_where );
 
-		wp_cache_flush();
+		do_action( 'jet-engine/relation/delete/after', $parent_object, $child_object, $clear_meta, $this );
+
+		$this->db->reset_cache();
+		$this->meta_db->reset_cache();
 
 	}
 
@@ -818,6 +862,9 @@ class Relation {
 				}
 			}
 		}
+
+		$this->db->reset_cache();
+		$this->meta_db->reset_cache();
 
 	}
 
@@ -861,7 +908,10 @@ class Relation {
 
 		}
 
-		wp_cache_flush();
+		do_action( 'jet-engine/relation/update-all-meta/after', $parent_object, $child_object, $new_meta, $this );
+
+		$this->db->reset_cache();
+		$this->meta_db->reset_cache();
 
 	}
 
@@ -972,6 +1022,9 @@ class Relation {
 
 		wp_cache_delete( $cache_key, $this->rel_cache_group );
 
+		$this->db->reset_cache();
+		$this->meta_db->reset_cache();
+
 	}
 
 	/**
@@ -1006,6 +1059,9 @@ class Relation {
 
 		$cache_key = $this->get_cache_key( $parent_object, $child_object );
 		wp_cache_delete( $cache_key, $this->rel_cache_group );
+
+		$this->db->reset_cache();
+		$this->meta_db->reset_cache();
 
 	}
 
@@ -1090,37 +1146,77 @@ class Relation {
 		$current_object_id = jet_engine()->listings->data->get_current_object_id();
 		$current_object    = jet_engine()->listings->data->get_current_object();
 
+		$key_data = explode( '::', $key );
+		$key = $key_data[0];
+		$suffix = isset( $key_data[1] ) ? $key_data[1] : false;
+
+
+
 		if ( ! $current_object || ! $current_object_id ) {
 			return false;
 		}
 
-		$from_object = jet_engine()->relations->types_helper->get_type_for_object( $current_object );
+		$res       = false;
+		$parent_id = false;
+		$child_id  = false;
 
-		if ( $this->get_args( 'parent_object' ) === $from_object ) {
+		if ( $suffix ) {
+			switch ( $suffix ) {
+				case 'child':
+					
+					$child_id      = $current_object_id;
+					$parent_object = jet_engine()->listings->objects_stack->get_parent_object_from_stack();
 
-			$child_object = jet_engine()->relations->sources->get_object_from_stack( $this->get_args( 'child_object' ) );
+					if ( $parent_object ) {
+						$parent_id  = jet_engine()->listings->data->get_current_object_id( $parent_object );
+					}
 
-			if ( ! $child_object ) {
-				return false;
+					break;
+				
+				case 'parent':
+					
+					$parent_id      = $current_object_id;
+					$child_object = jet_engine()->listings->objects_stack->get_parent_object_from_stack();
+
+					if ( $child_object ) {
+						$child_id  = jet_engine()->listings->data->get_current_object_id( $child_object );
+					}
+
+					break;
 			}
-
-			$parent_id = $current_object_id;
-			$child_id  = jet_engine()->listings->data->get_current_object_id( $child_object );
-
 		} else {
 
-			$parent_object = jet_engine()->relations->sources->get_object_from_stack( $this->get_args( 'parent_object' ) );
+			$from_object = jet_engine()->relations->types_helper->get_type_for_object( $current_object );
 
-			if ( ! $parent_object ) {
-				return false;
+			if ( $this->get_args( 'parent_object' ) === $from_object ) {
+
+				$child_object = jet_engine()->relations->sources->get_object_from_stack( $this->get_args( 'child_object' ) );
+
+				if ( ! $child_object ) {
+					return false;
+				}
+
+				$parent_id = $current_object_id;
+				$child_id  = jet_engine()->listings->data->get_current_object_id( $child_object );
+
+			} else {
+
+				$parent_object = jet_engine()->relations->sources->get_object_from_stack( $this->get_args( 'parent_object' ) );
+
+				if ( ! $parent_object ) {
+					return false;
+				}
+
+				$parent_id = jet_engine()->listings->data->get_current_object_id( $parent_object );
+				$child_id  = $current_object_id;
+
 			}
-
-			$parent_id = jet_engine()->listings->data->get_current_object_id( $parent_object );
-			$child_id  = $current_object_id;
 
 		}
 
-		$res = $this->get_meta( $parent_id, $child_id, $key );
+		if ( $parent_id && $child_id ) {
+			$res = $this->get_meta( $parent_id, $child_id, $key );
+		}
 
 		return $res;
 
@@ -1176,6 +1272,14 @@ class Relation {
 		if ( ! empty( $exists ) ) {
 			return $exists[0];
 		}
+
+		$allow_update = apply_filters( 'jet-engine/relation/update/allow_update', true, $parent_object, $child_object, $this );
+
+		if ( ! $allow_update ) {
+			return false;
+		}
+
+		do_action( 'jet-engine/relation/update/before', $parent_object, $child_object, $this );
 
 		$update = false;
 		$where  = array(
@@ -1250,8 +1354,11 @@ class Relation {
 
 		}
 
+		do_action( 'jet-engine/relation/update/after', $parent_object, $child_object, $item_id, $this );
+
+		$this->db->reset_cache();
+		$this->meta_db->reset_cache();
 		$this->reset_update_context();
-		wp_cache_flush();
 
 		if ( ! empty( $item_id ) && is_array( $item_id ) ) {
 			return $item_id;

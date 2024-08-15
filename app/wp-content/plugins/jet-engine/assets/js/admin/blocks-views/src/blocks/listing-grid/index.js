@@ -15,6 +15,10 @@ const {
 } = wp.blockEditor;
 
 const {
+	Fragment
+} = wp.element;
+
+const {
 	PanelColor,
 	IconButton,
 	TextControl,
@@ -30,18 +34,21 @@ const {
 	Path,
 	Circle,
 	Rect,
-	SVG,
-	ServerSideRender
+	SVG
 } = wp.components;
 
-const GIcon = <SVG width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><Rect x="1" y="16" width="18" height="18" rx="3" fill="#6F8BFF" stroke="#162B40" strokeWidth="2"></Rect><Rect x="2" y="38" width="16" height="2" rx="1" fill="#162B40"></Rect><Rect x="2" y="42" width="16" height="2" rx="1" fill="#162B40"></Rect><path d="M2 47C2 46.4477 2.44772 46 3 46H9C9.55228 46 10 46.4477 10 47C10 47.5523 9.55228 48 9 48H3C2.44772 48 2 47.5523 2 47Z" fill="#162B40"></path><Rect x="24" y="38" width="16" height="2" rx="1" fill="#162B40"></Rect><Rect x="24" y="42" width="16" height="2" rx="1" fill="#162B40"></Rect><path d="M24 47C24 46.4477 24.4477 46 25 46H31C31.5523 46 32 46.4477 32 47C32 47.5523 31.5523 48 31 48H25C24.4477 48 24 47.5523 24 47Z" fill="#162B40"></path><Rect x="46" y="38" width="16" height="2" rx="1" fill="#162B40"></Rect><Rect x="46" y="42" width="16" height="2" rx="1" fill="#162B40"></Rect><path d="M46 47C46 46.4477 46.4477 46 47 46H53C53.5523 46 54 46.4477 54 47C54 47.5523 53.5523 48 53 48H47C46.4477 48 46 47.5523 46 47Z" fill="#162B40"></path><Rect x="23" y="16" width="18" height="18" rx="3" fill="white" stroke="#162B40" strokeWidth="2"></Rect><Rect x="45" y="16" width="18" height="18" rx="3" fill="white" stroke="#162B40" strokeWidth="2"></Rect></SVG>;
+const {
+	serverSideRender: ServerSideRender
+} = wp;
+
+const GIcon = <SVG width="46" height="24" viewBox="0 0 64 33" fill="none" xmlns="http://www.w3.org/2000/svg"><Path fillRule="evenodd" clipRule="evenodd" d="M0 4C0 1.79086 1.79086 0 4 0H16C18.2091 0 20 1.79086 20 4V16C20 18.2091 18.2091 20 16 20H4C1.79086 20 0 18.2091 0 16V4ZM4 2H16C17.1046 2 18 2.89543 18 4V16C18 17.1046 17.1046 18 16 18H4C2.89543 18 2 17.1046 2 16V4C2 2.89543 2.89543 2 4 2Z" fill="currentColor"/><Path fillRule="evenodd" clipRule="evenodd" d="M42 4V16C42 18.2091 40.2091 20 38 20H26C23.7909 20 22 18.2091 22 16V4C22 1.79086 23.7909 0 26 0H38C40.2091 0 42 1.79086 42 4ZM24 4C24 2.89543 24.8954 2 26 2H38C39.1046 2 40 2.89543 40 4V16C40 17.1046 39.1046 18 38 18H26C24.8954 18 24 17.1046 24 16V4Z" fill="currentColor"/><Path fillRule="evenodd" clipRule="evenodd" d="M44 16V4C44 1.79086 45.7909 0 48 0H60C62.2091 0 64 1.79086 64 4V16C64 18.2091 62.2091 20 60 20H48C45.7909 20 44 18.2091 44 16ZM46 4C46 2.89543 46.8954 2 48 2H60C61.1046 2 62 2.89543 62 4V16C62 17.1046 61.1046 18 60 18H48C46.8954 18 46 17.1046 46 16V4Z" fill="currentColor"/><Path d="M2 24C2 23.4477 2.44772 23 3 23H17C17.5523 23 18 23.4477 18 24C18 24.5523 17.5523 25 17 25H3C2.44772 25 2 24.5523 2 24Z" fill="currentColor"/><Path d="M2 28C2 27.4477 2.44772 27 3 27H17C17.5523 27 18 27.4477 18 28C18 28.5523 17.5523 29 17 29H3C2.44772 29 2 28.5523 2 28Z" fill="currentColor"/><Path d="M39 23H25C24.4477 23 24 23.4477 24 24C24 24.5523 24.4477 25 25 25H39C39.5523 25 40 24.5523 40 24C40 23.4477 39.5523 23 39 23Z" fill="currentColor"/><Path d="M24 32C24 31.4477 24.4477 31 25 31H31C31.5523 31 32 31.4477 32 32C32 32.5523 31.5523 33 31 33H25C24.4477 33 24 32.5523 24 32Z" fill="currentColor"/><Path d="M61 27H47C46.4477 27 46 27.4477 46 28C46 28.5523 46.4477 29 47 29H61C61.5523 29 62 28.5523 62 28C62 27.4477 61.5523 27 61 27Z" fill="currentColor"/><Path d="M3 31C2.44772 31 2 31.4477 2 32C2 32.5523 2.44772 33 3 33H9C9.55228 33 10 32.5523 10 32C10 31.4477 9.55228 31 9 31H3Z" fill="currentColor"/><Path d="M25 27C24.4477 27 24 27.4477 24 28C24 28.5523 24.4477 29 25 29H39C39.5523 29 40 28.5523 40 28C40 27.4477 39.5523 27 39 27H25Z" fill="currentColor"/><Path d="M47 23C46.4477 23 46 23.4477 46 24C46 24.5523 46.4477 25 47 25H61C61.5523 25 62 24.5523 62 24C62 23.4477 61.5523 23 61 23H47Z" fill="currentColor"/><Path d="M47 31C46.4477 31 46 31.4477 46 32C46 32.5523 46.4477 33 47 33H53C53.5523 33 54 32.5523 54 32C54 31.4477 53.5523 31 53 31H47Z" fill="currentColor"/></SVG>;
 
 const blockAttributes = window.JetEngineListingData.atts.listingGrid;
 
 registerBlockType( 'jet-engine/listing-grid', {
 	title: __( 'Listing Grid' ),
 	icon: GIcon,
-	category: 'layout',
+	category: 'jet-engine',
 	attributes: blockAttributes,
 	className: 'jet-listing-grid',
 	edit: class extends wp.element.Component {
@@ -139,7 +146,66 @@ registerBlockType( 'jet-engine/listing-grid', {
 				} );
 			};
 
+			const isMasonry = function() {
+				if ( 'auto' === props.attributes.columns
+					|| 'auto' === props.attributes.columns_tablet
+					|| 'auto' === props.attributes.columns_mobile
+				) {
+					return false;
+				}
+
+				return props.attributes.is_masonry;
+
+			};
+
 			const userRoles = window.JetEngineListingData.userRoles;
+
+			const columnsOptions = [
+				{
+					value: 1,
+					label: 1
+				},
+				{
+					value: 2,
+					label: 2
+				},
+				{
+					value: 3,
+					label: 3
+				},
+				{
+					value: 4,
+					label: 4
+				},
+				{
+					value: 5,
+					label: 5
+				},
+				{
+					value: 6,
+					label: 6
+				},
+				{
+					value: 7,
+					label: 7
+				},
+				{
+					value: 8,
+					label: 8
+				},
+				{
+					value: 9,
+					label: 9
+				},
+				{
+					value: 10,
+					label: 10
+				},
+				{
+					value: 'auto',
+					label: 'Auto'
+				}
+			];
 
 			return [
 				props.isSelected && (
@@ -155,36 +221,60 @@ registerBlockType( 'jet-engine/listing-grid', {
 									props.setAttributes( { lisitng_id: newValue } );
 								}}
 							/>
-							<TextControl
-								type="number"
+							<SelectControl
 								label={ __( 'Columns Number' ) }
 								value={ attributes.columns }
-								min={ `0` }
-								max={ `6` }
+								options={ columnsOptions }
 								onChange={ newValue => {
-									props.setAttributes( { columns: Number(newValue) } );
+									props.setAttributes( { columns: newValue } );
 								} }
 							/>
-							<TextControl
+							{ 'auto' === attributes.columns && <TextControl
 								type="number"
+								label={ __( 'Column Min Width' ) }
+								value={ attributes.column_min_width }
+								min="0"
+								max="1200"
+								onChange={ newValue => {
+									props.setAttributes( { column_min_width: Number( newValue ) } );
+								} }
+							/> }
+							<SelectControl
 								label={ __( 'Columns Number(Tablet)' ) }
 								value={ attributes.columns_tablet }
-								min={ `0` }
-								max={ `6` }
+								options={ columnsOptions }
 								onChange={ newValue => {
-									props.setAttributes( { columns_tablet: Number(newValue) } );
+									props.setAttributes( { columns_tablet: newValue } );
 								} }
 							/>
-							<TextControl
+							{ 'auto' === attributes.columns_tablet && <TextControl
 								type="number"
+								label={ __( 'Column Min Width (Tablet)' ) }
+								value={ attributes.column_min_width_tablet }
+								min="0"
+								max="800"
+								onChange={ newValue => {
+									props.setAttributes( { column_min_width_tablet: Number( newValue ) } );
+								} }
+							/> }
+							<SelectControl
 								label={ __( 'Columns Number(Mobile)' ) }
 								value={ attributes.columns_mobile }
-								min={ `0` }
-								max={ `6` }
+								options={ columnsOptions }
 								onChange={ newValue => {
-									props.setAttributes( { columns_mobile: Number(newValue) } );
+									props.setAttributes( { columns_mobile: newValue } );
 								} }
 							/>
+							{ 'auto' === attributes.columns_mobile && <TextControl
+								type="number"
+								label={ __( 'Column Min Width (Mobile)' ) }
+								value={ attributes.column_min_width_mobile }
+								min="0"
+								max="480"
+								onChange={ newValue => {
+									props.setAttributes( { column_min_width_mobile: Number( newValue ) } );
+								} }
+							/> }
 							<ToggleControl
 								label={ __( 'Use as Archive Template' ) }
 								checked={ attributes.is_archive_template }
@@ -275,14 +365,14 @@ registerBlockType( 'jet-engine/listing-grid', {
 									} }
 								/>
 							}
-							<ToggleControl
+							{ 'auto' !== attributes.columns && 'auto' !== attributes.columns_mobile && 'auto' !== attributes.columns_tablet && <ToggleControl
 								label={ __( 'Is masonry grid' ) }
 								checked={ attributes.is_masonry }
 								onChange={ () => {
 									props.setAttributes({ is_masonry: ! attributes.is_masonry });
 								} }
-							/>
-							{ ! attributes.is_masonry && <ToggleControl
+							/> }
+							{ ! isMasonry() && <ToggleControl
 								label={ __( 'Equal columns height' ) }
 								checked={ attributes.equal_columns_height }
 								help={ __( 'Fits only top level sections of grid item' ) }
@@ -299,7 +389,7 @@ registerBlockType( 'jet-engine/listing-grid', {
 							/>
 							{ attributes.use_load_more &&
 								<SelectControl
-									label={ __( 'Status' ) }
+									label={ __( 'Load more type' ) }
 									value={ attributes.load_more_type }
 									options={ [
 										{
@@ -320,28 +410,62 @@ registerBlockType( 'jet-engine/listing-grid', {
 								<TextControl
 									type="text"
 									label={ __( 'Load more element ID' ) }
+									help={ __( 'Please, make sure to add a Button block that will be used as "Load more" button' ) }
 									value={ attributes.load_more_id }
 									onChange={ newValue => {
 										props.setAttributes( { load_more_id: newValue } );
 									} }
 								/>
 							}
-							<ToggleControl
-								label={ __( 'Use Custom Post Types' ) }
-								checked={ attributes.use_custom_post_types }
-								onChange={ () => {
-									props.setAttributes({ use_custom_post_types: ! attributes.use_custom_post_types });
-								} }
-							/>
-							{ attributes.use_custom_post_types && <SelectControl
-								multiple={true}
-								label={ __( 'Post types' ) }
-								value={ attributes.custom_post_types }
-								options={ window.JetEngineListingData.postTypes }
-								onChange={ newValue => {
-									props.setAttributes( { custom_post_types: newValue } );
-								}}
-							/> }
+							{ attributes.use_load_more && attributes.load_more_type && 'scroll' === attributes.load_more_type &&
+								<TextControl
+									type="number"
+									label={ __( 'Load more offset' ) }
+									value={ attributes.load_more_offset }
+									onChange={ newValue => {
+										props.setAttributes( { load_more_offset: Number(newValue) } );
+									} }
+								/>
+							}
+							{ attributes.use_load_more &&
+								<div>
+									<TextControl
+										type="text"
+										label={ __( 'Loader text' ) }
+										value={ attributes.loader_text }
+										onChange={ newValue => {
+											props.setAttributes( { loader_text: newValue } );
+										} }
+									/>
+									<ToggleControl
+										label={ __( 'Show loader spinner' ) }
+										checked={ attributes.loader_spinner }
+										onChange={ () => {
+											props.setAttributes( { loader_spinner: ! attributes.loader_spinner } );
+										} }
+									/>
+									<hr/>
+								</div>
+							}
+							{ ! window.JetEngineListingData.legacy.is_disabled && <Fragment>
+								<ToggleControl
+									label={ __( 'Use Custom Post Types' ) }
+									checked={ attributes.use_custom_post_types }
+									onChange={ () => {
+										props.setAttributes({ use_custom_post_types: ! attributes.use_custom_post_types });
+									} }
+								/>
+								{ attributes.use_custom_post_types && <SelectControl
+									multiple={true}
+									label={ __( 'Post types' ) }
+									value={ attributes.custom_post_types }
+									options={ window.JetEngineListingData.postTypes }
+									onChange={ newValue => {
+										props.setAttributes( { custom_post_types: newValue } );
+									}}
+								/> }
+							</Fragment> }
+
 							{ window.JetEngineListingData.injections.enabled &&
 								<div>
 									<ToggleControl
@@ -390,23 +514,57 @@ registerBlockType( 'jet-engine/listing-grid', {
 																{
 																	value: 'item_meta',
 																	label: __( 'Depends on item meta field value' ),
+																},
+																{
+																	value: 'has_terms',
+																	label: __( 'If post has terms' ),
+																},
+																{
+																	value: 'post_type',
+																	label: __( 'If post type is' ),
+																},
+																{
+																	value: 'term_tax',
+																	label: __( 'If term taxonomy is' ),
 																}
 															] }
 															onChange={ newValue => {
 																updateItem( item, 'item_condition_type', newValue, 'injection_items' )
 															} }
 														/>
-														{ 'on_item' === item.item_condition_type && <TextControl
-															type="number"
-															label={ __( 'Item number' ) }
-															value={ item.item_num }
-															min="-1000"
-															max="1000"
-															step="1"
-															onChange={ newValue => {
-																updateItem( item, 'item_num', newValue, 'injection_items' )
-															}}
-														/> }
+														{ 'on_item' === item.item_condition_type &&
+															<div>
+																<TextControl
+																	type="number"
+																	label={ __( 'Item number' ) }
+																	value={ item.item_num }
+																	min="-1000"
+																	max="1000"
+																	step="1"
+																	onChange={ newValue => {
+																		updateItem( item, 'item_num', newValue, 'injection_items' )
+																	}}
+																/>
+																<SelectControl
+																	label={ __( 'Start from first' ) }
+																	value={ item.start_from_first }
+																	help={ __( 'If checked - alternative item will be injected on first item and then on each N item after first. If not - on each N item from start. If "Item number" is negative converts into "Start from last"' ) }
+																	options={ [
+																		{
+																			value: 0,
+																			label: __( 'No' ),
+																		},
+																		{
+																			value: 1,
+																			label: __( 'Yes' ),
+																		}
+																	] }
+																	onChange={ newValue => {
+																		updateItem( item, 'start_from_first', newValue, 'injection_items' )
+																	} }
+																/>
+															</div>
+														}
 														{ 'item_meta' === item.item_condition_type && <div>
 																	<TextControl
 																		type="text"
@@ -484,6 +642,37 @@ registerBlockType( 'jet-engine/listing-grid', {
 																	/>
 															</div>
 														}
+														{ -1 !== ['has_terms', 'term_tax'].indexOf( item.item_condition_type ) &&
+															<SelectControl
+																label={ __( 'Taxonomy' ) }
+																value={ item.tax }
+																options={ taxonomies }
+																onChange={ newValue => {
+																	updateItem( item, 'tax', newValue, 'injection_items' )
+																} }
+															/>
+														}
+														{ 'has_terms' === item.item_condition_type &&
+															<TextControl
+																type="text"
+																label={ __( 'Terms' ) }
+																help={ __( 'Comma-separated string of term ids or slugs' ) }
+																value={ item.terms }
+																onChange={ newValue => {
+																	updateItem( item, 'terms', newValue, 'injection_items' )
+																} }
+															/>
+														}
+														{ 'post_type' === item.item_condition_type &&
+															<SelectControl
+																label={ __( 'Post Type' ) }
+																value={ item.post_type }
+																options={ window.JetEngineListingData.postTypes }
+																onChange={ newValue => {
+																	updateItem( item, 'post_type', newValue, 'injection_items' )
+																} }
+															/>
+														}
 														<SelectControl
 															label={ __( 'Inject this item only once' ) }
 															value={ item.inject_once }
@@ -499,24 +688,6 @@ registerBlockType( 'jet-engine/listing-grid', {
 															] }
 															onChange={ newValue => {
 																updateItem( item, 'inject_once', newValue, 'injection_items' )
-															} }
-														/>
-														<SelectControl
-															label={ __( 'Start from first' ) }
-															value={ item.start_from_first }
-															help={ __( 'If checked - alternative item will be injected on first item and then on each N item after first. If not - on each N item from start. If "Item number" is negative converts into "Start from last"' ) }
-															options={ [
-																{
-																	value: 0,
-																	label: __( 'No' ),
-																},
-																{
-																	value: 1,
-																	label: __( 'Yes' ),
-																}
-															] }
-															onChange={ newValue => {
-																updateItem( item, 'start_from_first', newValue, 'injection_items' )
 															} }
 														/>
 														<RangeControl
@@ -547,12 +718,22 @@ registerBlockType( 'jet-engine/listing-grid', {
 																updateItem( item, 'static_item', newValue, 'injection_items' )
 															} }
 														/>
+														{ 1 == item.static_item && <SelectControl
+															label={ __( 'Static item context' ) }
+															value={ item.static_item_context }
+															help={ __( 'Select object to to use as default inside static item' ) }
+															options={ window.JetEngineListingData.allowedContextList }
+															onChange={ newValue => {
+																updateItem( item, 'static_item_context', newValue, 'injection_items' )
+															} }
+														/> }
 													</div>
 											}
 										</JetEngineRepeater>
 									}
 								</div>
 							}
+						 	<div dangerouslySetInnerHTML={ { __html: window.JetEngineListingData.legacy.message } }></div>
 						</PanelBody>
 						<PanelBody
 							title={ __( 'Custom Query' ) }
@@ -575,7 +756,7 @@ registerBlockType( 'jet-engine/listing-grid', {
 								}}
 							/> }
 						</PanelBody>
-						<PanelBody
+						{ ! window.JetEngineListingData.legacy.is_disabled && <PanelBody
 							title={ __( 'Posts Query' ) }
 							initialOpen={ false }
 						>
@@ -1212,8 +1393,8 @@ registerBlockType( 'jet-engine/listing-grid', {
 							<p>
 								<ExternalLink href="https://crocoblock.com/knowledge-base/articles/jetengine-macros-guide/">{ __( 'Macros Guide' ) }</ExternalLink>
 							</p>
-						</PanelBody>
-						<PanelBody
+						</PanelBody> }
+						{ ! window.JetEngineListingData.legacy.is_disabled && <PanelBody
 							title={ __( 'Terms Query' ) }
 							initialOpen={ false }
 						>
@@ -1467,8 +1648,8 @@ registerBlockType( 'jet-engine/listing-grid', {
 									props.setAttributes( { term_meta_query_relation: newValue } );
 								}}
 							/>
-						</PanelBody>
-						<PanelBody
+						</PanelBody> }
+						{ ! window.JetEngineListingData.legacy.is_disabled && <PanelBody
 							title={ __( 'Users Query' ) }
 							initialOpen={ false }
 						>
@@ -1669,10 +1850,11 @@ registerBlockType( 'jet-engine/listing-grid', {
 									props.setAttributes( { users_meta_query_relation: newValue } );
 								}}
 							/>
-						</PanelBody>
-						{ window.JetEngineListingData.customPanles.listingGrid.length && <React.Fragment>
-							{ window.JetEngineListingData.customPanles.listingGrid.map( ( Panel ) => {
+						</PanelBody> }
+						{ ! window.JetEngineListingData.legacy.is_disabled && window.JetEngineListingData.customPanles.listingGrid.length > 0 && <React.Fragment>
+							{ window.JetEngineListingData.customPanles.listingGrid.map( ( Panel, index ) => {
 								return <Panel
+									key={ 'custom_panel_' + index }
 									attributes={ props.attributes }
 									onChange={ ( data ) => {
 										props.setAttributes( data );
@@ -1697,14 +1879,14 @@ registerBlockType( 'jet-engine/listing-grid', {
 							title={ __( 'Slider Settings' ) }
 							initialOpen={ false }
 						>
-							{ ! attributes.is_masonry && ! attributes.scroll_slider_enabled && <ToggleControl
+							{ ! isMasonry() && ! attributes.scroll_slider_enabled && <ToggleControl
 								label={ __( 'Enable Slider' ) }
 								checked={ attributes.carousel_enabled }
 								onChange={ () => {
 									props.setAttributes( { carousel_enabled: ! attributes.carousel_enabled } );
 								} }
 							/> }
-							{ ! attributes.is_masonry && ! attributes.scroll_slider_enabled && attributes.carousel_enabled && <div>
+							{ ! isMasonry() && ! attributes.scroll_slider_enabled && attributes.carousel_enabled && <div>
 									<RangeControl
 										label={ __( 'Slides to Scroll' ) }
 										min="1"
@@ -1737,14 +1919,23 @@ registerBlockType( 'jet-engine/listing-grid', {
 										} }
 									/>
 									{ attributes.autoplay &&
-										<TextControl
-											type="number"
-											label={ __( 'Autoplay Speed' ) }
-											value={ attributes.autoplay_speed }
-											onChange={ newValue => {
-												props.setAttributes( { autoplay_speed: newValue } );
-											}}
-										/>
+										<div>
+											<TextControl
+												type="number"
+												label={ __( 'Autoplay Speed' ) }
+												value={ attributes.autoplay_speed }
+												onChange={ newValue => {
+													props.setAttributes( { autoplay_speed: newValue } );
+												}}
+											/>
+											<ToggleControl
+												label={ __( 'Pause On Hover' ) }
+												checked={ attributes.pause_on_hover }
+												onChange={ () => {
+													props.setAttributes( { pause_on_hover: ! attributes.pause_on_hover } );
+												} }
+											/>
+										</div>
 									}
 									<SelectControl
 										label={ __( 'Effect' ) }
@@ -1787,14 +1978,14 @@ registerBlockType( 'jet-engine/listing-grid', {
 									/>
 								</div>
 							}
-							{ ! attributes.is_masonry && ! attributes.carousel_enabled && <ToggleControl
+							{ ! isMasonry() && ! attributes.carousel_enabled && <ToggleControl
 								label={ __( 'Enable Scroll Slider' ) }
 								checked={ attributes.scroll_slider_enabled }
 								onChange={ () => {
 									props.setAttributes( { scroll_slider_enabled: ! attributes.scroll_slider_enabled } );
 								} }
 							/> }
-							{ ! attributes.is_masonry && ! attributes.carousel_enabled && attributes.scroll_slider_enabled && <div>
+							{ ! isMasonry() && ! attributes.carousel_enabled && attributes.scroll_slider_enabled && <div>
 									<SelectControl
 										label={ __( 'Scroll Slider On' ) }
 										multiple={ true }
@@ -1831,7 +2022,7 @@ registerBlockType( 'jet-engine/listing-grid', {
 						</PanelBody>
 					</InspectorControls>
 				),
-				<Disabled>
+				<Disabled key={ 'block_render' }>
 					<ServerSideRender
 						block="jet-engine/listing-grid"
 						attributes={ attributes }

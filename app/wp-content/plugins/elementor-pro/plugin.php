@@ -1,9 +1,11 @@
 <?php
 namespace ElementorPro;
 
+use ElementorPro\Core\PHP_Api;
 use ElementorPro\Core\Admin\Admin;
 use ElementorPro\Core\App\App;
 use ElementorPro\Core\Connect;
+use ElementorPro\Core\Compatibility\Compatibility;
 use Elementor\Core\Responsive\Files\Frontend as FrontendFile;
 use Elementor\Utils;
 use ElementorPro\Core\Editor\Editor;
@@ -81,6 +83,16 @@ class Plugin {
 	];
 
 	/**
+	 * @var \ElementorPro\License\Updater
+	 */
+	public $updater;
+
+	/**
+	 * @var PHP_Api
+	 */
+	public $php_api;
+
+	/**
 	 * Throw error on object clone
 	 *
 	 * The whole idea of the singleton design pattern is that there is a single
@@ -90,8 +102,11 @@ class Plugin {
 	 * @return void
 	 */
 	public function __clone() {
-		// Cloning instances of the class is forbidden
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Something went wrong.', 'elementor-pro' ), '1.0.0' );
+		_doing_it_wrong(
+			__FUNCTION__,
+			sprintf( 'Cloning instances of the singleton "%s" class is forbidden.', get_class( $this ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			'1.0.0'
+		);
 	}
 
 	/**
@@ -101,8 +116,11 @@ class Plugin {
 	 * @return void
 	 */
 	public function __wakeup() {
-		// Unserializing instances of the class is forbidden
-		_doing_it_wrong( __FUNCTION__, esc_html__( 'Something went wrong.', 'elementor-pro' ), '1.0.0' );
+		_doing_it_wrong(
+			__FUNCTION__,
+			sprintf( 'Unserializing instances of the singleton "%s" class is forbidden.', get_class( $this ) ), // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			'1.0.0'
+		);
 	}
 
 	/**
@@ -217,11 +235,7 @@ class Plugin {
 
 		wp_set_script_translations( 'elementor-pro-frontend', 'elementor-pro', ELEMENTOR_PRO_PATH . 'languages' );
 
-		if ( self::elementor()->experiments->is_feature_active( 'e_optimized_assets_loading' ) ) {
-			wp_enqueue_script( 'pro-elements-handlers' );
-		} else {
-			wp_enqueue_script( 'pro-preloaded-elements-handlers' );
-		}
+		wp_enqueue_script( 'pro-elements-handlers' );
 
 		$assets_url = ELEMENTOR_PRO_ASSETS_URL;
 
@@ -266,10 +280,6 @@ class Plugin {
 			'ElementorProFrontendConfig',
 			$locale_settings
 		);
-
-		if ( $this->is_assets_loader_exist() ) {
-			$this->register_assets();
-		}
 	}
 
 	public function register_frontend_scripts() {
@@ -294,35 +304,29 @@ class Plugin {
 		);
 
 		wp_register_script(
-			'pro-preloaded-elements-handlers',
-			ELEMENTOR_PRO_URL . 'assets/js/preloaded-elements-handlers' . $suffix . '.js',
-			[
-				'elementor-frontend',
-			],
-			ELEMENTOR_PRO_VERSION,
-			true
-		);
-
-		wp_register_script(
 			'smartmenus',
 			ELEMENTOR_PRO_URL . 'assets/lib/smartmenus/jquery.smartmenus' . $suffix . '.js',
 			[
 				'jquery',
 			],
-			'1.0.1',
+			'1.2.1',
 			true
 		);
 
-		if ( ! $this->is_assets_loader_exist() ) {
-			wp_register_script(
-				'elementor-sticky',
-				ELEMENTOR_PRO_URL . 'assets/lib/sticky/jquery.sticky' . $suffix . '.js',
-				[
-					'jquery',
-				],
-				ELEMENTOR_PRO_VERSION,
-				true
-			);
+		$sticky_handle = $this->is_assets_loader_exist() ? 'e-sticky' : 'elementor-sticky';
+
+		wp_register_script(
+			$sticky_handle,
+			ELEMENTOR_PRO_URL . 'assets/lib/sticky/jquery.sticky' . $suffix . '.js',
+			[
+				'jquery',
+			],
+			ELEMENTOR_PRO_VERSION,
+			true
+		);
+
+		if ( $this->is_assets_loader_exist() ) {
+			$this->register_assets();
 		}
 	}
 
@@ -402,6 +406,11 @@ class Plugin {
 			$settings['library_connect']['current_access_level'] = API::get_library_access_level();
 		}
 
+		// Core >= 3.18.0
+		if ( isset( $settings['library_connect']['current_access_tier'] ) ) {
+			$settings['library_connect']['current_access_tier'] = API::get_access_tier();
+		}
+
 		return $settings;
 	}
 
@@ -418,6 +427,10 @@ class Plugin {
 		add_action( 'elementor/document/save_version', [ $this, 'on_document_save_version' ] );
 
 		add_filter( 'elementor/editor/localize_settings', function ( $settings ) {
+			return $this->add_subscription_template_access_level_to_settings( $settings );
+		}, 11 /** After Elementor Core (Library) */ );
+
+		add_filter( 'elementor/common/localize_settings', function ( $settings ) {
 			return $this->add_subscription_template_access_level_to_settings( $settings );
 		}, 11 /** After Elementor Core (Library) */ );
 	}
@@ -462,6 +475,8 @@ class Plugin {
 	private function __construct() {
 		spl_autoload_register( [ $this, 'autoload' ] );
 
+		Compatibility::register_actions();
+
 		new Connect\Manager();
 
 		$this->setup_hooks();
@@ -473,6 +488,8 @@ class Plugin {
 		$this->app = new App();
 
 		$this->license_admin = new License\Admin();
+
+		$this->php_api = new PHP_Api();
 
 		if ( is_user_logged_in() ) {
 			$this->integrations = new Integrations_Manager(); // TODO: This one is safe to move out of the condition.

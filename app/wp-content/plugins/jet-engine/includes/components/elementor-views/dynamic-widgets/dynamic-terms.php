@@ -30,7 +30,7 @@ class Jet_Listing_Dynamic_Terms_Widget extends Widget_Base {
 		return 'https://crocoblock.com/knowledge-base/articles/jetengine-dynamic-terms-widget-overview/?utm_source=jetengine&utm_medium=dynamic-terms&utm_campaign=need-help';
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->start_controls_section(
 			'section_general',
@@ -143,6 +143,39 @@ class Jet_Listing_Dynamic_Terms_Widget extends Widget_Base {
 		);
 
 		$this->add_control(
+			'orderby',
+			array(
+				'label'     => esc_html__( 'Order By', 'jet-engine' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => 'name',
+				'separator' => 'before',
+				'options'   => array(
+					'name'        => esc_html__( 'Name', 'jet-engine' ),
+					'slug'        => esc_html__( 'Slug', 'jet-engine' ),
+					'term_group'  => esc_html__( 'Term group', 'jet-engine' ),
+					'term_id'     => esc_html__( 'Term ID', 'jet-engine' ),
+					'description' => esc_html__( 'Description', 'jet-engine' ),
+					'parent'      => esc_html__( 'Parent', 'jet-engine' ),
+					'term_order'  => esc_html__( 'Term Order', 'jet-engine' ),
+					'count'       => esc_html__( 'By the number of objects associated with the term', 'jet-engine' ),
+				),
+			)
+		);
+
+		$this->add_control(
+			'order',
+			array(
+				'label'   => esc_html__( 'Order', 'jet-engine' ),
+				'type'    => Controls_Manager::SELECT,
+				'default' => 'ASC',
+				'options' => array(
+					'ASC'  => esc_html__( 'ASC', 'jet-engine' ),
+					'DESC' => esc_html__( 'DESC', 'jet-engine' ),
+				),
+			)
+		);
+
+		$this->add_control(
 			'hide_if_empty',
 			array(
 				'label'        => esc_html__( 'Hide if value is empty', 'jet-engine' ),
@@ -152,6 +185,32 @@ class Jet_Listing_Dynamic_Terms_Widget extends Widget_Base {
 				'return_value' => 'yes',
 				'default'      => '',
 				'separator'    => 'before',
+			)
+		);
+
+		$this->add_control(
+			'field_fallback',
+			array(
+				'label'       => esc_html__( 'Fallback', 'jet-engine' ),
+				'type'        => Controls_Manager::TEXT,
+				'default'     => '',
+				'label_block' => true,
+				'description' => __( 'Show this if field value is empty', 'jet-engine' ),
+				'dynamic'     => array( 'active' => true, ),
+				'condition'   => array(
+					'hide_if_empty' => '',
+				),
+			)
+		);
+
+		$this->add_control(
+			'object_context',
+			array(
+				'label'     => __( 'Context', 'jet-engine' ),
+				'type'      => Controls_Manager::SELECT,
+				'default'   => 'default_object',
+				'options'   => jet_engine()->listings->allowed_context_list(),
+				'separator' => 'before',
 			)
 		);
 
@@ -210,7 +269,7 @@ class Jet_Listing_Dynamic_Terms_Widget extends Widget_Base {
 				'type' => Controls_Manager::COLOR,
 				'selectors' => array(
 					$this->css_selector( '__icon' ) => 'color: {{VALUE}}',
-					$this->css_selector( '__icon svg path' ) => 'fill: {{VALUE}}',
+					$this->css_selector( '__icon :is(svg, path)' ) => 'fill: {{VALUE}}',
 				),
 			)
 		);
@@ -350,7 +409,7 @@ class Jet_Listing_Dynamic_Terms_Widget extends Widget_Base {
 			array(
 				'label'      => __( 'Padding', 'jet-engine' ),
 				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', '%', 'em' ),
+				'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 				'selectors'  => array(
 					$this->css_selector( '__link' ) => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				),
@@ -362,7 +421,7 @@ class Jet_Listing_Dynamic_Terms_Widget extends Widget_Base {
 			array(
 				'label'      => __( 'Margin', 'jet-engine' ),
 				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', '%', 'em' ),
+				'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 				'selectors'  => array(
 					$this->css_selector( '__link' ) => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				),
@@ -384,7 +443,7 @@ class Jet_Listing_Dynamic_Terms_Widget extends Widget_Base {
 			array(
 				'label'      => __( 'Border Radius', 'jet-engine' ),
 				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', '%' ),
+				'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 				'selectors'  => array(
 					$this->css_selector( '__link' ) => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				),
@@ -627,7 +686,7 @@ class Jet_Listing_Dynamic_Terms_Widget extends Widget_Base {
 	}
 
 	protected function render() {
-		jet_engine()->listings->render_item( 'dynamic-terms', $this->get_settings() );
+		jet_engine()->listings->render_item( 'dynamic-terms', $this->get_settings_for_display() );
 	}
 
 }

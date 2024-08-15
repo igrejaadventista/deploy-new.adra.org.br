@@ -59,6 +59,7 @@
 				>{{ item.labels.name }}</a>
 			</span>
 			<i slot="slug">{{ item.slug }}</i>
+			<i slot="slug" v-if="item.rewrite_slug" title="<?php _e( 'Rewrite slug', 'jet-engine' ); ?>"> ( {{ item.rewrite_slug }} )</i>
 			<div slot="actions" style="display: flex;">
 				<a :href="getEditLink( item.id, item.slug )"><?php _e( 'Edit', 'jet-engine' ); ?></a>
 				<span v-if="'built-in' !== showTypes">&nbsp;|&nbsp;</span>
@@ -82,5 +83,6 @@
 		v-model="showDeleteDialog"
 		:post-type-id="parseInt( deletedItem.id, 10 )"
 		:post-type-slug="deletedItem.slug"
+		:post-type-name="deletedItem.labels.name"
 	></jet-cpt-delete-dialog>
 </div>

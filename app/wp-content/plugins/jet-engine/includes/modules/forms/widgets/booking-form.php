@@ -34,10 +34,10 @@ class Jet_Engine_Booking_Form_Widget extends Widget_Base {
 	}
 
 	public function get_help_url() {
-		return 'https://crocoblock.com/knowledge-base/articles/how-to-enable-booking-forms-functionality-in-jetengine/?utm_source=jetengine&utm_medium=booking-form&utm_campaign=need-help';
+		return 'https://crocoblock.com/knowledge-base/articles/how-to-create-a-booking-form-layout/?utm_source=jetengine&utm_medium=booking-form&utm_campaign=need-help';
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->start_controls_section(
 			'section_general',
@@ -324,7 +324,7 @@ class Jet_Engine_Booking_Form_Widget extends Widget_Base {
 				'separator'            => 'before',
 				'options'              => array(
 					'left'   => array(
-						'title' => __( 'Left', 'jet-engine' ),
+						'title' => __( 'Start', 'jet-engine' ),
 						'icon'  => 'eicon-h-align-left',
 					),
 					'center' => array(
@@ -332,7 +332,7 @@ class Jet_Engine_Booking_Form_Widget extends Widget_Base {
 						'icon'  => 'eicon-h-align-center',
 					),
 					'right'  => array(
-						'title' => __( 'Right', 'jet-engine' ),
+						'title' => __( 'End', 'jet-engine' ),
 						'icon'  => 'eicon-h-align-right',
 					),
 				),

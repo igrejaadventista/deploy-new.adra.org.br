@@ -24,7 +24,7 @@ class Jet_Engine_Custom_Gallery_Tag extends Elementor\Core\DynamicTags\Data_Tag 
 		);
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->add_control(
 			'gallery_field',

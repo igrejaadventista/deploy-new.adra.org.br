@@ -5,32 +5,42 @@ namespace Elementor;
 use Elementor\Group_Control_Border;
 use Elementor\Core\Schemes\Typography as Scheme_Typography;
 
+// Exit if accessed directly
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
-} // Exit if accessed directly
+}
 
 class Jet_Smart_Filters_Rating_Widget extends Jet_Smart_Filters_Base_Widget {
 
 	public function get_name() {
+
 		return 'jet-smart-filters-rating';
 	}
 
 	public function get_title() {
+
 		return __( 'Rating Filter', 'jet-smart-filters' );
 	}
 
 	public function get_icon() {
+
 		return 'jet-smart-filters-icon-rating-filter';
 	}
 
+	public function get_style_depends() {
+
+		return array( 'font-awesome' );
+	}
+
 	public function get_help_url() {
+
 		return jet_smart_filters()->widgets->prepare_help_url(
 			'https://crocoblock.com/knowledge-base/articles/jetsmartfilters-how-to-filter-woocommerce-products-by-rating/',
 			$this->get_name()
 		);
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$css_scheme = apply_filters(
 			'jet-smart-filters/widgets/rating/css-scheme',
@@ -181,7 +191,6 @@ class Jet_Smart_Filters_Rating_Widget extends Jet_Smart_Filters_Base_Widget {
 		$this->rating_controls_section_filter_label( $css_scheme );
 
 		$this->rating_controls_section_filter_apply_button( $css_scheme );
-
 	}
 
 	public function rating_controls_section_filter_stars( $css_scheme ) {
@@ -309,7 +318,6 @@ class Jet_Smart_Filters_Rating_Widget extends Jet_Smart_Filters_Base_Widget {
 		);
 
 		$this->end_controls_section();
-
 	}
 
 	public function rating_controls_section_filter_label( $css_scheme ) {
@@ -405,7 +413,6 @@ class Jet_Smart_Filters_Rating_Widget extends Jet_Smart_Filters_Base_Widget {
 		);
 
 		$this->end_controls_section();
-
 	}
 
 	public function rating_controls_section_filter_apply_button( $css_scheme ) {
@@ -595,7 +602,6 @@ class Jet_Smart_Filters_Rating_Widget extends Jet_Smart_Filters_Base_Widget {
 		);
 
 		$this->end_controls_section();
-
 	}
 
 	protected function render() {
@@ -606,16 +612,16 @@ class Jet_Smart_Filters_Rating_Widget extends Jet_Smart_Filters_Base_Widget {
 		$settings   = $this->get_settings();
 
 		if ( empty( $settings['filter_id'] ) ) {
-			if ( Plugin::instance()->editor->is_edit_mode() ) {
+			/* if ( Plugin::instance()->editor->is_edit_mode() ) {
 				echo '<div></div>';
-			}
+			} */
 
 			return;
 		}
 
 		printf( '<div class="%1$s jet-filter">', $base_class );
 
-		$filter_id            = $settings['filter_id'];
+		$filter_id            = apply_filters( 'jet-smart-filters/render_filter_template/filter_id', $settings['filter_id'] );
 		$provider             = ! empty( $settings['content_provider'] ) ? $settings['content_provider'] : '';
 		$query_id             = ! empty( $settings['query_id'] ) ? $settings['query_id'] : 'default';
 		$show_label           = ! empty( $settings['show_label'] ) ? filter_var( $settings['show_label'], FILTER_VALIDATE_BOOLEAN ) : false;
@@ -624,7 +630,7 @@ class Jet_Smart_Filters_Rating_Widget extends Jet_Smart_Filters_Base_Widget {
 		$format               = '<i class="jet-rating-icon %s"></i>';
 		$rating_icon          = sprintf( $format, $icon );
 
-		jet_smart_filters()->admin_bar->register_post_item( $filter_id );
+		jet_smart_filters()->admin_bar_register_item( $filter_id );
 
 		if ( 'submit' === $settings['apply_on'] && in_array( $settings['apply_type'], ['ajax', 'mixed'] ) ) {
 			$apply_type = $settings['apply_type'] . '-reload';
@@ -635,7 +641,7 @@ class Jet_Smart_Filters_Rating_Widget extends Jet_Smart_Filters_Base_Widget {
 		include jet_smart_filters()->get_template( 'common/filter-label.php' );
 
 		jet_smart_filters()->filter_types->render_filter_template( $this->get_widget_fiter_type(), array(
-			'filter_id'            => $settings['filter_id'],
+			'filter_id'            => $filter_id,
 			'content_provider'     => $provider,
 			'additional_providers' => $additional_providers,
 			'query_id'             => $query_id,
@@ -648,7 +654,5 @@ class Jet_Smart_Filters_Rating_Widget extends Jet_Smart_Filters_Base_Widget {
 		echo '</div>';
 
 		include jet_smart_filters()->get_template( 'common/apply-filters.php' );
-
 	}
-
 }

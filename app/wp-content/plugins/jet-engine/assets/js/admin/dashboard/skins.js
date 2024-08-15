@@ -29,6 +29,7 @@
 					data: {
 						action: 'jet_engine_import_preset',
 						preset: self.currentPreset,
+						_nonce: window.JetEngineDashboardConfig._nonce,
 					},
 				}).done(function() {
 					self.successMessage = self.getPresetMsg( self.currentPreset );
@@ -121,19 +122,10 @@
 				relations: exportConfig.relations,
 				optionsPages: exportConfig.options_pages,
 				listingItems: exportConfig.listing_items,
+				componentsList: exportConfig.components,
 				glossariesList: exportConfig.glossaries,
 				queriesList: exportConfig.queries,
-				skin: {
-					post_types: [],
-					taxonomies: [],
-					meta_boxes: [],
-					relations: [],
-					listing_items: [],
-					options_pages: [],
-					glossaries: [],
-					queries: [],
-					sample_content: false,
-				}
+				skin: exportConfig.skin_vars,
 			};
 		},
 		methods: {
@@ -213,6 +205,8 @@
 				formData = new FormData();
 				formData.append( '_skin', self.file );
 				formData.append( 'action', 'jet_engine_import_skin' );
+				formData.append( '_nonce', window.JetEngineDashboardConfig._nonce );
+
 
 				xhr = new XMLHttpRequest();
 
@@ -225,7 +219,7 @@
 						response = JSON.parse( response );
 
 						if ( ! response.success ) {
-							self.error = response.data.message;
+							self.error = response.data;
 							return;
 						} else {
 							self.log = response.data;

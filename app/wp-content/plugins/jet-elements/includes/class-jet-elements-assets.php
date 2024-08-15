@@ -170,11 +170,13 @@ if ( ! class_exists( 'Jet_Elements_Assets' ) ) {
 			$key          = jet_elements_settings()->get( 'api_key' );
 
 			if ( ! empty( $key ) && ( empty( $api_disabled ) || 'true' !== $api_disabled['disable'] ) ) {
+				
+				$map_query_arg = apply_filters( 'jet-elements/advanced-map/query-arg', array( 'key' => jet_elements_settings()->get( 'api_key' )));
 
 				wp_register_script(
 					'google-maps-api',
 					add_query_arg(
-						array( 'key' => jet_elements_settings()->get( 'api_key' ), ),
+						$map_query_arg,
 						'https://maps.googleapis.com/maps/api/js'
 					),
 					false,
@@ -328,6 +330,14 @@ if ( ! class_exists( 'Jet_Elements_Assets' ) ) {
 				'1.8.1',
 				true
 			);
+
+			wp_register_script(
+				'waypoints',
+				jet_elements()->plugin_url( 'assets/js/lib/waypoints/waypoints.js' ),
+				array( 'jquery' ),
+				'4.0.2',
+				true
+			);
 		}
 
 		/**
@@ -342,7 +352,7 @@ if ( ! class_exists( 'Jet_Elements_Assets' ) ) {
 			wp_enqueue_script(
 				'jet-elements',
 				jet_elements()->plugin_url( 'assets/js/jet-elements' . $min_suffix . '.js' ),
-				array( 'jquery', 'elementor-frontend' ),
+				array( 'jquery', 'elementor-frontend', 'waypoints' ),
 				jet_elements()->get_version(),
 				true
 			);

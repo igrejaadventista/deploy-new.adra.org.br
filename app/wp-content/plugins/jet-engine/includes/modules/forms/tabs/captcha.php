@@ -11,6 +11,8 @@ class Captcha extends Base_Form_Tab {
 	}
 
 	public function on_get_request() {
+		$this->verify_request();
+
 		$secret = sanitize_text_field( $_POST['secret'] );
 		$key   = sanitize_text_field( $_POST['key'] );
 

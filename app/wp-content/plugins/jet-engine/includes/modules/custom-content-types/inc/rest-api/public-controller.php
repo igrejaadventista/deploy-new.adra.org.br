@@ -172,6 +172,12 @@ class Public_Controller {
 				$type = 'array';
 			}
 
+			if ( in_array( $field['type'], array( 'select', 'posts' ) ) && ! empty( $field['is_multiple'] )
+				 && filter_var( $field['is_multiple'], FILTER_VALIDATE_BOOLEAN )
+			) {
+				$type = 'array';
+			}
+
 			$args[ $field['name'] ] = array(
 				'type'        => $type,
 				'description' => $field['title'],
@@ -273,6 +279,38 @@ class Public_Controller {
 
 			$query['_cct_search'] = $search_data;
 		}
+
+		$query = apply_filters( 
+			'jet-engine/custom-content-types/rest-api/' . $content_type->get_arg( 'slug' ) . '/get-items/query',
+			$query,
+			$content_type,
+			$request,
+			$this
+		);
+
+		$limit = apply_filters( 
+			'jet-engine/custom-content-types/rest-api/' . $content_type->get_arg( 'slug' ) . '/get-items/limit',
+			$limit,
+			$content_type,
+			$request,
+			$this
+		);
+
+		$offset = apply_filters( 
+			'jet-engine/custom-content-types/rest-api/' . $content_type->get_arg( 'slug' ) . '/get-items/offset',
+			$offset,
+			$content_type,
+			$request,
+			$this
+		);
+
+		$order = apply_filters( 
+			'jet-engine/custom-content-types/rest-api/' . $content_type->get_arg( 'slug' ) . '/get-items/order',
+			$order,
+			$content_type,
+			$request,
+			$this
+		);
 
 		$data = $content_type->db->query( $query, $limit, $offset, $order );
 		$data = $this->filter_data( $data, $content_type, false );
@@ -445,7 +483,7 @@ class Public_Controller {
 		$id      = $request->get_param( '_ID' );
 		$handler = $content_type->get_item_handler();
 
-		$handler->delete_item( $id );
+		$handler->raw_delete_item( $id );
 
 		return new \WP_REST_Response( array( 'success' => true ), 200 );
 

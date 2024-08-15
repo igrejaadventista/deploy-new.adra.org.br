@@ -48,7 +48,7 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Page_Edit' ) ) {
 		 * @return [type] [description]
 		 */
 		public function item_id() {
-			return isset( $_GET['id'] ) ? absint( $_GET['id'] ) : false;
+			return isset( $_GET['id'] ) ? $_GET['id'] : false;
 		}
 
 		/**
@@ -91,11 +91,22 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Page_Edit' ) ) {
 				true
 			);
 
-			$id = $this->item_id();
+			$id            = $this->item_id();
+			$api_path_edit = jet_engine()->api->get_route( $this->get_slug() . '-taxonomy' );
+			$api_path_get  = jet_engine()->api->get_route( 'get-taxonomy' );
+			$is_built_in   = false;
 
 			if ( $id ) {
 				$button_label = __( 'Update Taxonomy', 'jet-engine' );
 				$redirect     = false;
+
+				if ( $id < 0 ) {
+					$api_path_edit = jet_engine()->api->get_route( 'edit-built-in-tax' );
+					$api_path_get  = jet_engine()->api->get_route( 'get-built-in-tax' );
+					$api_path_get .= esc_attr( $_GET['tax'] );
+					$is_built_in   = true;
+				}
+
 			} else {
 				$button_label = __( 'Add Taxonomy', 'jet-engine' );
 				$redirect     = $this->manager->get_edit_item_link( '%id%' );
@@ -105,10 +116,14 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Page_Edit' ) ) {
 				'jet-engine-cpt-edit',
 				'JetEngineCPTConfig',
 				$this->manager->get_admin_page_config( array(
-					'api_path_edit'     => jet_engine()->api->get_route( $this->get_slug() . '-taxonomy' ),
+					'api_path_edit'     => $api_path_edit,
+					'api_path_get'      => $api_path_get,
+					'api_path_reset'    => jet_engine()->api->get_route( 'reset-built-in-tax' ),
 					'item_id'           => $id,
 					'edit_button_label' => $button_label,
+					'is_built_in'       => $is_built_in,
 					'redirect'          => $redirect,
+					'slug_error'        => __( 'Maximum 32 characters length', 'jet-engine' ),
 					'help_links'        => array(
 						array(
 							'url'   => 'https://crocoblock.com/knowledge-base/articles/creating-custom-taxonomy-with-jetengine/?utm_source=jetengine&utm_medium=taxonomies-page&utm_campaign=need-help',

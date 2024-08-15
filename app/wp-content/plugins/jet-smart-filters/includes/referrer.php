@@ -22,8 +22,6 @@ class Jet_Smart_Filters_Referrer_Manager {
 
 	/**
 	 * Query varaibale key to define front referrer request
-	 *
-	 * @var string
 	 */
 	public $front_query_key = 'jsf_ajax';
 
@@ -35,6 +33,11 @@ class Jet_Smart_Filters_Referrer_Manager {
 		$this->referrer_type = jet_smart_filters()->settings->get( 'ajax_request_types' );
 
 		if ( 'default' === $this->referrer_type || ! $this->referrer_type ) {
+
+			if ( jet_smart_filters()->query->is_ajax_filter() ) {
+				$this->define_filters_request_constant();
+			}
+
 			return;
 		}
 
@@ -48,6 +51,10 @@ class Jet_Smart_Filters_Referrer_Manager {
 			add_action( 'parse_request', array( $this, 'setup_front_referrer' ) );
 		}
 
+	}
+
+	public function define_filters_request_constant() {
+		define( 'JET_SMART_FILTERS_DOING_REQUEST', true );
 	}
 
 	public function set_referrer_settings( $data ) {
@@ -65,29 +72,30 @@ class Jet_Smart_Filters_Referrer_Manager {
 
 	/**
 	 * Setup front referrer
-	 *
-	 * @param  [type] $wp [description]
-	 * @return [type]     [description]
 	 */
 	public function setup_front_referrer( $wp ) {
+
+		$this->define_filters_request_constant();
 
 		$wp->query_posts();
 		$wp->register_globals();
 
-		define( 'DOING_AJAX', true );
+		if ( apply_filters( 'jet-smart-filters/referrer/front/define-ajax', false ) ) {
+			define( 'DOING_AJAX', true );
+		}
+		
 		jet_smart_filters()->query->set_is_ajax_filter();
+
+		do_action( 'jet-smart-filters/referrer/request' );
 
 		do_action( 'wp_ajax_jet_smart_filters' );
 		do_action( 'wp_ajax_nopriv_jet_smart_filters' );
 
 		die();
-
 	}
 
 	/**
 	 * Setup data by referrer URL string
-	 *
-	 * @return [type] [description]
 	 */
 	public function setup_ajax_referrer() {
 
@@ -100,6 +108,8 @@ class Jet_Smart_Filters_Referrer_Manager {
 		if ( ! is_array( $referrer ) ) {
 			return;
 		}
+
+		$this->define_filters_request_constant();
 
 		global $wp;
 
@@ -121,7 +131,6 @@ class Jet_Smart_Filters_Referrer_Manager {
 				$_GET[ $key ]     = $value;
 				$_REQUEST[ $key ] = $value;
 			}
-
 		}
 
 		foreach ( $map as $request_key => $server_key ) {
@@ -143,14 +152,14 @@ class Jet_Smart_Filters_Referrer_Manager {
 			$_SERVER[ $key ] = $value;
 		}
 
+		do_action( 'jet-smart-filters/referrer/request' );
 	}
 
 	/**
 	 * Returns referrer URL
-	 *
-	 * @return [type] [description]
 	 */
 	public function get_referrer_data() {
+
 		return array(
 			'uri'  => ! empty( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : null,
 			'info' => ! empty( $_SERVER['PATH_INFO'] ) ? $_SERVER['PATH_INFO'] : null,
@@ -160,11 +169,9 @@ class Jet_Smart_Filters_Referrer_Manager {
 
 	/**
 	 * Returns referrer URL
-	 *
-	 * @return [type] [description]
 	 */
 	public function get_referrer_url() {
+
 		return add_query_arg( array( $this->front_query_key => 1 ) );
 	}
-
 }

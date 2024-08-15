@@ -53,7 +53,7 @@ if ( ! class_exists( 'Jet_Elements_Compatibility' ) ) {
 		 */
 		public function filter_jetpack_photon_skip_image( $val, $src, $tag ) {
 
-			if ( ! is_array( $tag ) && strpos( $tag, 'jet-instagram-gallery__image' ) ) {
+			if ( is_string( $tag ) && strpos( $tag, 'jet-instagram-gallery__image' ) ) {
 				return true;
 			}
 

@@ -5,6 +5,9 @@ namespace WPMailSMTP\Tasks;
 use ActionScheduler_Action;
 use ActionScheduler_DataController;
 use ActionScheduler_DBStore;
+use WPMailSMTP\Tasks\Queue\CleanupQueueTask;
+use WPMailSMTP\Tasks\Queue\ProcessQueueTask;
+use WPMailSMTP\Tasks\Queue\SendEnqueuedEmailTask;
 use WPMailSMTP\Tasks\Reports\SummaryEmailTask;
 
 /**
@@ -61,6 +64,9 @@ class Tasks {
 
 		// Remove scheduled action meta after action execution.
 		add_action( 'action_scheduler_after_execute', [ $this, 'clear_action_meta' ], PHP_INT_MAX, 2 );
+
+		// Cancel tasks on plugin deactivation.
+		register_deactivation_hook( WPMS_PLUGIN_FILE, [ $this, 'cancel_all' ] );
 	}
 
 	/**
@@ -77,6 +83,9 @@ class Tasks {
 		$tasks = [
 			SummaryEmailTask::class,
 			DebugEventsCleanupTask::class,
+			ProcessQueueTask::class,
+			CleanupQueueTask::class,
+			SendEnqueuedEmailTask::class,
 		];
 
 		/**
@@ -149,6 +158,45 @@ class Tasks {
 	}
 
 	/**
+	 * Remove all the AS actions for a group and remove group.
+	 *
+	 * @since 3.7.0
+	 *
+	 * @param string $group Group to remove all actions for.
+	 */
+	public function remove_all( $group = '' ) {
+
+		global $wpdb;
+
+		if ( empty( $group ) ) {
+			$group = self::GROUP;
+		} else {
+			$group = sanitize_key( $group );
+		}
+
+		if (
+			class_exists( 'ActionScheduler_DBStore' ) &&
+			isset( $wpdb->actionscheduler_actions ) &&
+			isset( $wpdb->actionscheduler_groups )
+		) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+			$group_id = $wpdb->get_var(
+				$wpdb->prepare( "SELECT group_id FROM {$wpdb->actionscheduler_groups} WHERE slug=%s", $group )
+			);
+
+			if ( ! empty( $group_id ) ) {
+				// Delete actions.
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->delete( $wpdb->actionscheduler_actions, [ 'group_id' => (int) $group_id ], [ '%d' ] );
+
+				// Delete group.
+				// phpcs:ignore WordPress.DB.DirectDatabaseQuery.NoCaching
+				$wpdb->delete( $wpdb->actionscheduler_groups, [ 'slug' => $group ], [ '%s' ] );
+			}
+		}
+	}
+
+	/**
 	 * Clear the meta after action complete.
 	 * Fired before an action is marked as completed.
 	 *
@@ -208,7 +256,8 @@ class Tasks {
 	 */
 	public static function is_scheduled( $hook ) {
 
-		if ( ! function_exists( 'as_has_scheduled_action' ) ) {
+		// If ActionScheduler wasn't loaded, then no tasks are scheduled.
+		if ( ! function_exists( 'as_next_scheduled_action' ) ) {
 			return null;
 		}
 
@@ -221,7 +270,12 @@ class Tasks {
 		}
 
 		// Action is not in the array, so it is not scheduled or belongs to another group.
-		return as_has_scheduled_action( $hook );
+		if ( function_exists( 'as_has_scheduled_action' ) ) {
+			// This function more performant than `as_next_scheduled_action`, but it is available only since AS 3.3.0.
+			return as_has_scheduled_action( $hook );
+		} else {
+			return as_next_scheduled_action( $hook ) !== false;
+		}
 	}
 
 	/**

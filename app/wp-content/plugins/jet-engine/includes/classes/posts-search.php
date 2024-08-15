@@ -45,7 +45,7 @@ class Jet_Engine_Posts_Search_Handler {
 			's_title'             => $query,
 		);
 
-		if ( in_array( 'attachment', $type ) ) {
+		if ( $type && in_array( 'attachment', $type ) ) {
 			$query_args['post_status'] = array( 'publish', 'inherit' );
 		}
 

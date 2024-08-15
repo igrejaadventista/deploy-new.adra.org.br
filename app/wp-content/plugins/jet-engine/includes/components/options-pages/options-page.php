@@ -72,24 +72,49 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 		public $current_component = false;
 		public $current_panel     = false;
 		public $custom_css        = array();
+		public $storage_type      = 'default';
 
 		/**
 		 * Constructor for the class
 		 */
 		public function __construct( $page ) {
 
-			$this->page     = $page;
-			$this->slug     = $page['slug'];
-			$this->meta_box = $page['fields'];
+			$this->page = $page;
+			$this->slug = $page['slug'];
+
+			if ( ! empty( $page['hide_field_names'] ) ) {
+				$this->hide_field_names = $page['hide_field_names'];
+			}
+
+			if ( ! empty( $page['storage_type'] ) ) {
+				$this->storage_type = $page['storage_type'];
+			}
+
+			$page['fields'] = apply_filters( 'jet-engine/options-pages/raw-fields', $page['fields'], $this );
+
+			$this->meta_box       = $page['fields'];
+			$this->page['fields'] = $this->prepare_meta_fields( $page['fields'] );
+
+			if ( ! empty( $this->show_in_rest ) ) {
+				
+				if ( ! class_exists( 'Jet_Engine_Rest_Settings' ) ) {
+					require jet_engine()->options_pages->component_path( 'rest-api/fields/site-settings.php' );
+				}
+				
+				foreach ( $this->show_in_rest as $field ) {
+					new Jet_Engine_Rest_Settings( $field, $this->slug, $this );
+				}
+			}
 
 			if ( empty( $this->page['position'] ) && 0 !== $this->page['position'] ) {
 				$this->page['position'] = null;
 			}
 
-			add_action( 'admin_menu', array( $this, 'register_menu_page' ) );
+			add_action( 'admin_menu', array( $this, 'register_menu_page' ), 99 );
 
 			if ( $this->is_page_now() ) {
 				add_action( 'admin_enqueue_scripts', array( $this, 'init_builder' ), 0 );
+				add_action( 'admin_enqueue_scripts', array( $this, 'maybe_enqueue_inline_js' ), 20 );
 				add_action( 'admin_init', array( $this, 'save' ), 40 );
 				add_action( 'admin_notices', array( $this, 'saved_notice' ) );
 			}
@@ -164,32 +189,17 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 				return;
 			}
 
-			$current = get_option( $this->slug, array() );
-			$data    = $_REQUEST;
+			$this->update_options( $_REQUEST );
 
-			$fields = $this->get_prepared_fields();
+			/**
+			 * Global hook fires after saving options of the page
+			 */
+			do_action( 'jet-engine/options-pages/after-save', $this );
 
-			if ( ! empty( $fields ) ) {
-				foreach ( $fields as $key => $field ) {
-
-					if ( isset( $data[ $key ] ) ) {
-
-						$value = $data[ $key ];
-						$value = $this->maybe_apply_sanitize_callback( $value, $field );
-
-						if ( $this->to_timestamp( $field ) ) {
-							$value = strtotime( $value );
-						}
-
-						$current[ $key ] = $value;
-
-					} else {
-						$current[ $key ] = null;
-					}
-				}
-			}
-
-			update_option( $this->slug, $current );
+			/**
+			 * Page-specific hook fires after saving options of the page
+			 */
+			do_action( 'jet-engine/options-pages/after-save/' . $this->page['slug'], $this );
 
 			$redirect = add_query_arg(
 				array(
@@ -202,6 +212,74 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 			wp_redirect( $redirect );
 			die();
 
+		}
+
+		/**
+		 * Update options.
+		 *
+		 * @param array $data     Data array.
+		 * @param bool  $rewrite  Rewrite or not fields not isset in data array.
+		 * @param bool  $sanitize Apply or not the sanitize callbacks to raw values.
+		 */
+		public function update_options( $data = array(), $rewrite = true, $sanitize = true ) {
+
+			if ( empty( $data ) ) {
+				return;
+			}
+
+			if ( 'default' === $this->storage_type ) {
+				$current = get_option( $this->slug, array() );
+			}
+
+			$fields = $this->get_prepared_fields();
+
+			if ( ! empty( $fields ) ) {
+				foreach ( $fields as $key => $field ) {
+
+					if ( isset( $data[ $key ] ) ) {
+
+						$value = $data[ $key ];
+
+						if ( $sanitize ) {
+							$value = $this->maybe_apply_sanitize_callback( $value, $field );
+						}
+
+					} else {
+						$value = null;
+					}
+
+					if ( ! isset( $data[ $key ] ) && ! $rewrite ) {
+						continue;
+					}
+
+					if ( 'default' === $this->storage_type ) {
+						$current[ $key ] = $value;
+					} elseif ( 'separate' === $this->storage_type ) {
+						update_option( $this->get_separate_option_name( $key ), $value );
+					}
+				}
+			}
+
+			if ( 'default' === $this->storage_type && isset( $current ) ) {
+				update_option( $this->slug, $current );
+			}
+
+			/**
+			 * Fires after the values of a specific options page has been successfully updated.
+			 * The dynamic portion of the hook name, `$slug`, refers to the slug of options page.
+			 *
+			 * @since 3.2.7
+			 * @param Jet_Engine_Options_Page_Factory $page The options page instance.
+			 */
+			do_action( 'jet-engine/options-pages/updated/' . $this->slug, $this );
+
+			/**
+			 * Fires after the values of an options page has been successfully updated.
+			 *
+			 * @since 3.2.7
+			 * @param Jet_Engine_Options_Page_Factory $page The options page instance.
+			 */
+			do_action( 'jet-engine/options-pages/updated', $this );
 		}
 
 		/**
@@ -261,6 +339,10 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 				}
 
 				return $result;
+			}
+
+			if ( $this->to_timestamp( $field ) ) {
+				return apply_filters( 'jet-engine/options-pages/strtotime', strtotime( $value ), $value );
 			}
 
 			if ( ! empty( $field['sanitize_callback'] ) && is_callable( $field['sanitize_callback'] ) ) {
@@ -348,9 +430,7 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 
 			if ( ! empty( $this->page['fields'] ) ) {
 
-				$this->builder->register_control(
-					$this->get_prepared_fields()
-				);
+				$this->builder->register_control( $this->get_prepared_fields() );
 
 			}
 
@@ -377,21 +457,16 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 		 * @return void
 		 */
 		public function print_custom_css() {
-
-			if ( ! empty( $this->custom_css ) ) {
-
-				// Modifying selectors.
-				$selectors = array_map( function ( $selector ) {
-					return '#settings_top.cx-settings__content ' . $selector;
-				}, array_keys( $this->custom_css ) );
-
-				$values = array_values( $this->custom_css );
-
-				$this->custom_css = array_combine( $selectors, $values );
-			}
-
 			$this->maybe_enqueue_custom_css( null );
+		}
 
+		/**
+		 * Get CSS wrapper selector.
+		 *
+		 * @return string
+		 */
+		public function get_css_wrapper_selector() {
+			return '#settings_top.cx-settings__content ';
 		}
 
 		/**
@@ -403,12 +478,39 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 		 */
 		public function get( $option = '', $default = false, $field = array() ) {
 
+			if ( 'separate' === $this->storage_type ) {
+
+				if ( isset( $this->options[ $option ] ) ) {
+					return $this->options[ $option ];
+				}
+
+				$result = get_option( $this->get_separate_option_name( $option ), $default );
+				$this->options[ $option ] = wp_unslash( $result );
+
+				return $this->options[ $option ];
+			}
+
 			if ( null === $this->options ) {
 				$this->options = get_option( $this->slug, array() );
 			}
 
 			return isset( $this->options[ $option ] ) ? wp_unslash( $this->options[ $option ] ) : $default;
 
+		}
+
+		/**
+		 * Get separate option name.
+		 *
+		 * @param  $option
+		 * @return string
+		 */
+		public function get_separate_option_name( $option ) {
+
+			if ( ! empty( $this->page['option_prefix'] ) ) {
+				return $this->slug . '_' . $option;
+			}
+
+			return $option;
 		}
 
 		/**
@@ -433,7 +535,7 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 				return $this->prepared_fields;
 			}
 
-			$result = $this->prepare_meta_fields( $this->page['fields'] );
+			$result = $this->page['fields'];
 
 			// Prepare fields array to use in Options Page.
 			foreach ( $result as $field_name => $field_args ) {
@@ -446,9 +548,13 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 					$result[ $field_name ]['id']   = $field_name;
 					$result[ $field_name ]['name'] = $field_name;
 
+					if ( isset( $result[ $field_name ]['options_callback'] ) && is_callable( $result[ $field_name ]['options_callback'] ) ) {
+						$result[ $field_name ]['options'] = call_user_func( $result[ $field_name ]['options_callback'] );
+					}
+
 					$result[ $field_name ]['value'] = $this->get(
 						$field_name,
-						false,
+						isset( $result[ $field_name ]['value'] ) ? $result[ $field_name ]['value'] : false,
 						$result[ $field_name ]
 					);
 
@@ -456,6 +562,16 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 						$result[ $field_name ],
 						$result[ $field_name ]['value']
 					);
+
+					if ( 'separate' === $this->storage_type && ! empty( $this->page['option_prefix'] )
+						 && ! empty( $result[ $field_name ]['description'] )
+					) {
+						$result[ $field_name ]['description'] = str_replace(
+							$field_name,
+							$this->get_separate_option_name( $field_name ),
+							$result[ $field_name ]['description']
+						);
+					}
 				}
 			}
 
@@ -519,20 +635,17 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 
 				case 'text':
 
-					if ( ! empty( $field['input_type'] ) && ! empty( $field['is_timestamp'] ) ) {
+					if ( ! empty( $value ) && $this->to_timestamp( $field ) && is_numeric( $value ) ) {
 
-						if ( is_numeric( $value ) ) {
-							switch ( $field['input_type'] ) {
-								case 'date':
-									$value = date( 'Y-m-d', $value );
-									break;
+						switch ( $field['input_type'] ) {
+							case 'date':
+								$value = $this->get_date( 'Y-m-d', $value );
+								break;
 
-								case 'datetime-local':
-									$value = date( 'Y-m-d\TH:i:s', $value );
-									break;
-							}
+							case 'datetime-local':
+								$value = $this->get_date( 'Y-m-d\TH:i', $value );
+								break;
 						}
-
 					}
 
 					break;
@@ -541,8 +654,12 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 			return $value;
 		}
 
+		public function get_date( $format, $time ) {
+			return apply_filters( 'jet-engine/options-pages/date', date( $format, $time ), $time, $format );
+		}
+
 		public function is_allowed_on_current_admin_hook( $hook ) {
-			return true;
+			return $this->is_page_now();
 		}
 
 		/**
@@ -552,10 +669,15 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_Factory' ) ) {
 		 */
 		public function get_options_for_select() {
 
-			$fields = array();
+			$fields     = array();
+			$skip_types = array( 'component-tab-vertical', 'component-tab-horizontal', 'component-accordion', 'settings' );
 
-			if ( ! empty( $this->page['fields'] ) ) {
-				foreach ( $this->page['fields'] as $field ) {
+			if ( ! empty( $this->meta_box ) ) {
+				foreach ( $this->meta_box as $field ) {
+
+					if ( ! empty( $field['type'] ) && in_array( $field['type'], $skip_types ) ) {
+						continue;
+					}
 
 					$key = $this->slug . '::' . $field['name'];
 

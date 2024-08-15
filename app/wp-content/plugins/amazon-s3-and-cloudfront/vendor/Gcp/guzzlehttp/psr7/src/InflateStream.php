@@ -11,13 +11,15 @@ use DeliciousBrains\WP_Offload_Media\Gcp\Psr\Http\Message\StreamInterface;
  * then appends the zlib.inflate filter. The stream is then converted back
  * to a Guzzle stream resource to be used as a Guzzle stream.
  *
- * @link http://tools.ietf.org/html/rfc1950
- * @link http://tools.ietf.org/html/rfc1952
- * @link http://php.net/manual/en/filters.compression.php
+ * @see http://tools.ietf.org/html/rfc1950
+ * @see http://tools.ietf.org/html/rfc1952
+ * @see http://php.net/manual/en/filters.compression.php
  */
 final class InflateStream implements StreamInterface
 {
     use StreamDecoratorTrait;
+    /** @var StreamInterface */
+    private $stream;
     public function __construct(StreamInterface $stream)
     {
         $resource = StreamWrapper::getResource($stream);

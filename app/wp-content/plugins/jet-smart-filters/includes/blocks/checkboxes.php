@@ -9,22 +9,20 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Block_Checkboxes class
 	 */
 	class Jet_Smart_Filters_Block_Checkboxes extends Jet_Smart_Filters_Block_Base {
-
 		/**
 		 * Returns block name
-		 *
-		 * @return string
 		 */
 		public function get_name() {
+
 			return 'checkboxes';
 		}
 
-		public function set_css_scheme(){
+		public function set_css_scheme() {
+
 			$this->css_scheme = apply_filters(
 				'jet-smart-filters/widgets/checkboxes/css-scheme',
 				array(
@@ -48,7 +46,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 			);
 		}
 
-		public function add_style_manager_options(){
+		public function add_style_manager_options() {
 
 			$this->controls_manager->start_section(
 				'style_controls',
@@ -152,10 +150,8 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 				'label'     => esc_html__( 'Space Between', 'jet-smart-filters' ),
 				'separator' => 'after',
 				'css_selector' => [
-					'{{WRAPPER}} ' . $this->css_scheme['child-items'] . ':not(:last-child)'  => 'margin-bottom: calc({{VALUE}}{{UNIT}}/2);',
-					'{{WRAPPER}} ' . $this->css_scheme['child-items'] . ':not(:first-child)' => 'padding-top: calc({{VALUE}}{{UNIT}}/2);',
-					'{{WRAPPER}} ' . $this->css_scheme['item'] . ':not(:last-child)'         => 'margin-bottom: calc({{VALUE}}{{UNIT}}/2);',
-					'{{WRAPPER}} ' . $this->css_scheme['item'] . ':not(:first-child)'        => 'padding-top: calc({{VALUE}}{{UNIT}}/2);',
+					'{{WRAPPER}} ' . $this->css_scheme['child-items'] . ':not(:last-child)' => 'margin-bottom: {{SIZE}}{{UNIT}};',
+					'{{WRAPPER}} ' . $this->css_scheme['item'] . ':not(:last-child)'        => 'margin-bottom: {{SIZE}}{{UNIT}};'
 				],
 				'attributes' => [
 					'default' => [
@@ -229,7 +225,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 					'false' => 'none',
 				],
 				'css_selector' => [
-					'{{WRAPPER}} .jet-checkboxes-list__item ' . $this->css_scheme['checkbox'] => 'display: {{VALUE}};',
+					'{{WRAPPER}} .jet-checkboxes-list .jet-checkboxes-list__item ' . $this->css_scheme['checkbox'] => 'display: {{VALUE}};',
 				],
 				'attributes' => [
 					'default' => [
@@ -303,7 +299,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 				),
 			]);
 
-
 			$this->controls_manager->add_control([
 				'id'       => 'item_checked_background_color',
 				'type'     => 'color-picker',
@@ -357,7 +352,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 					'{{WRAPPER}} ' . $this->css_scheme['disable_button'] => 'color: {{VALUE}}',
 				),
 			]);
-
 
 			$this->controls_manager->add_control([
 				'id'       => 'item_disable_background_color',
@@ -429,7 +423,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 				'label'     => esc_html__( 'Size', 'jet-smart-filters' ),
 				'separator' => 'after',
 				'css_selector' => [
-					'{{WRAPPER}} .jet-checkboxes-list__item ' . $this->css_scheme['checkbox'] => 'width: {{VALUE}}{{UNIT}}; height: {{VALUE}}{{UNIT}}; min-width: {{VALUE}}{{UNIT}}; min-height: {{VALUE}}{{UNIT}};',
+					'{{WRAPPER}} .jet-checkboxes-list .jet-checkboxes-list__item ' . $this->css_scheme['checkbox'] => 'width: {{VALUE}}{{UNIT}}; height: {{VALUE}}{{UNIT}}; min-width: {{VALUE}}{{UNIT}}; min-height: {{VALUE}}{{UNIT}};',
 				],
 				'attributes' => [
 					'default' => [
@@ -455,7 +449,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 				'label'        => esc_html__( 'Offset Top', 'jet-smart-filters' ),
 				'separator'    => 'none',
 				'css_selector' => [
-					'{{WRAPPER}} .jet-checkboxes-list__item ' . $this->css_scheme['checkbox'] => 'margin-top: {{VALUE}}{{UNIT}};',
+					'{{WRAPPER}} .jet-checkboxes-list .jet-checkboxes-list__item ' . $this->css_scheme['checkbox'] => 'margin-top: {{VALUE}}{{UNIT}};',
 				],
 				'attributes' => [
 					'default' => [
@@ -522,7 +516,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 				'type'     => 'color-picker',
 				'label'     => esc_html__( 'Background Color', 'jet-smart-filters' ),
 				'css_selector' => array(
-					'{{WRAPPER}} .jet-checkboxes-list__item ' . $this->css_scheme['checkbox'] => 'background-color: {{VALUE}}',
+					'{{WRAPPER}} .jet-checkboxes-list .jet-checkboxes-list__item ' . $this->css_scheme['checkbox'] => 'background-color: {{VALUE}}',
 				),
 				'attributes' => [
 					'default' => [
@@ -547,7 +541,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 				'label'     => esc_html__( 'Background Color', 'jet-smart-filters' ),
 				'separator'  => 'after',
 				'css_selector' => array(
-					'{{WRAPPER}} .jet-checkboxes-list__item .jet-checkboxes-list__input:checked ~ ' . $this->css_scheme['button'] . ' ' . $this->css_scheme['checkbox'] => 'background-color: {{VALUE}}',
+					'{{WRAPPER}} .jet-checkboxes-list .jet-checkboxes-list__item .jet-checkboxes-list__input:checked ~ ' . $this->css_scheme['button'] . ' ' . $this->css_scheme['checkbox'] => 'background-color: {{VALUE}}',
 				),
 				'attributes' => [
 					'default' => [
@@ -561,7 +555,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 				'type'     => 'color-picker',
 				'label'     => esc_html__( 'Border Color', 'jet-smart-filters' ),
 				'css_selector' => array(
-					'{{WRAPPER}} .jet-checkboxes-list__item .jet-checkboxes-list__input:checked ~ ' . $this->css_scheme['button'] . ' ' . $this->css_scheme['checkbox'] => 'border-color: {{VALUE}}',
+					'{{WRAPPER}} .jet-checkboxes-list .jet-checkboxes-list__item .jet-checkboxes-list__input:checked ~ ' . $this->css_scheme['button'] . ' ' . $this->css_scheme['checkbox'] => 'border-color: {{VALUE}}',
 				),
 			]);
 
@@ -608,7 +602,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 				'type'       => 'border',
 				'label'       => esc_html__( 'Border', 'jet-smart-filters' ),
 				'css_selector'  => array(
-					'{{WRAPPER}} .jet-checkboxes-list__item ' . $this->css_scheme['checkbox'] => 'border-style: {{STYLE}}; border-width: {{WIDTH}}; border-radius: {{RADIUS}}; border-color: {{COLOR}}',
+					'{{WRAPPER}} .jet-checkboxes-list .jet-checkboxes-list__item ' . $this->css_scheme['checkbox'] => 'border-style: {{STYLE}}; border-width: {{WIDTH}}; border-radius: {{RADIUS}}; border-color: {{COLOR}}',
 				),
 				'attributes' => [
 					'default' => [
@@ -970,6 +964,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 					],
 				],
 			]);
+
 			$this->controls_manager->add_control([
 				'id'           => 'counter_padding',
 				'type'         => 'dimensions',
@@ -992,6 +987,9 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Checkboxes' ) ) {
 			]);
 
 			$this->controls_manager->end_section();
+
+			// Include Collapse Icon Settings Style
+			include jet_smart_filters()->plugin_path( 'includes/blocks/common-controls/collapse-icon-style.php' );
 
 			// Include Additional Filter Settings Style
 			include jet_smart_filters()->plugin_path( 'includes/blocks/common-controls/additional-filter-style.php' );

@@ -20,8 +20,18 @@ class Terms extends Base {
 		return get_term_meta( $obj->term_id, $field, true );
 	}
 
-	public function update_field_value( $obj, $key, $value ) {
-		update_term_meta( $obj->term_id, $key, $value );
+	public function delete_field_value( $obj, $field ) {
+		delete_term_meta( $obj->term_id, $field );
+	}
+
+	public function update_field_value( $obj, $field, $value ) {
+
+		$hash = md5( $field );
+
+		update_term_meta( $obj->term_id, $hash . '_hash', $value['key'] );
+		update_term_meta( $obj->term_id, $hash . '_lat', $value['coord']['lat'] );
+		update_term_meta( $obj->term_id, $hash . '_lng', $value['coord']['lng'] );
+
 	}
 
 	public function get_failure_key( $obj ) {
@@ -35,7 +45,7 @@ class Terms extends Base {
 
 			if ( 1 === count( $fields ) ) {
 				$field = str_replace( 'tax::', '', $field );
-				add_action( 'cx_term_meta/before_save_meta/' . $field, array( $this, 'preload' ), 10, 2 );
+				add_action( 'cx_term_meta/before_save_meta/' . $field, array( $this, 'preload' ), 10, 3 );
 			} else {
 				$this->field_groups[] = array_map( function ( $item ) {
 					return str_replace( 'tax::', '', $item );

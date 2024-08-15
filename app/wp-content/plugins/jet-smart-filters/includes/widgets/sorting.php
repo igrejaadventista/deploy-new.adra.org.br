@@ -5,29 +5,35 @@ namespace Elementor;
 use Elementor\Group_Control_Border;
 use Elementor\Core\Schemes\Typography as Scheme_Typography;
 
+// Exit if accessed directly
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
-} // Exit if accessed directly
+}
 
 class Jet_Smart_Filters_Sorting_Widget extends Widget_Base {
 
 	public function get_name() {
+
 		return 'jet-smart-filters-sorting';
 	}
 
 	public function get_title() {
+
 		return __( 'Sorting Filter', 'jet-smart-filters' );
 	}
 
 	public function get_icon() {
+
 		return 'jet-smart-filters-icon-sorting-filter';
 	}
 
 	public function get_categories() {
+
 		return array( jet_smart_filters()->widgets->get_category() );
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
+
 		$css_scheme = apply_filters(
 			'jet-smart-filters/widgets/sorting/css-scheme',
 			array(
@@ -739,6 +745,7 @@ class Jet_Smart_Filters_Sorting_Widget extends Widget_Base {
 
 		jet_smart_filters()->set_filters_used();
 
+		$base_class          = $this->get_name();
 		$settings            = $this->get_settings();
 		$sorting_filter_type = jet_smart_filters()->filter_types->get_filter_types( 'sorting' );
 		$sorting_options     = $sorting_filter_type->sorting_options( $settings['sorting_list'] );
@@ -746,9 +753,11 @@ class Jet_Smart_Filters_Sorting_Widget extends Widget_Base {
 		$placeholder         = ! empty( $settings['placeholder'] ) ? $settings['placeholder'] : __( 'Sort...', 'jet-smart-filters' );
 		$label               = $settings['label'];
 
+		printf( '<div class="%1$s jet-filter">', $base_class );
+
 		include jet_smart_filters()->get_template( 'filters/sorting.php' );
 		include jet_smart_filters()->get_template( 'common/apply-filters.php' );
 
+		echo '</div>';
 	}
-
 }

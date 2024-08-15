@@ -5,7 +5,8 @@
 	var JetEngineElementorPreview = {
 
 		selectors: {
-			document: '.elementor[data-elementor-type="jet-listing-items"]'
+			document: '.elementor[data-elementor-type="jet-listing-items"]',
+			newLising: '.jet-new-listing-item',
 		},
 
 		init: function() {
@@ -23,6 +24,40 @@
 			$( document )
 				.on( 'click', '.jet-engine-document-handle',      JetEngineElementorPreview.documentHandleClick )
 				.on( 'click', '.jet-engine-document-back-handle', JetEngineElementorPreview.documentBackHandleClick );
+
+
+			// Re-Init the masonry js on change the columns setting
+			window.elementor.on( 'document:loaded', () => {
+				window.elementor.channels.editor.on(
+					'change:jet-listing-grid',
+					JetEngineElementorPreview.reInitMasonryOnChangeColumns
+				);
+			} );
+		},
+
+		reInitMasonryOnChangeColumns: function( childView, editedElement ) {
+
+			const settingName = childView.model.get( 'name' );
+
+			if ( 'columns' !== settingName && -1 === settingName.indexOf( 'columns_' ) ) {
+				return;
+			}
+
+			if ( ! editedElement.model.getSetting( 'is_masonry' ) ) {
+				return;
+			}
+
+			const $masonry = editedElement.$el.find( '.jet-listing-grid__masonry' );
+
+			if ( ! $masonry.length ) {
+				return;
+			}
+
+			if ( window.JetEngine ) {
+				window.JetEngine.runMasonry( $masonry );
+			} else {
+				editedElement.renderHTML();
+			}
 		},
 
 		loadHandlesOnLazyLoad: function( event, args ) {

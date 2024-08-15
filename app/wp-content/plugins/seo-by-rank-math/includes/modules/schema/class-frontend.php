@@ -12,7 +12,7 @@ namespace RankMath\Schema;
 
 use RankMath\Helper;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
+use RankMath\Helpers\Str;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -48,6 +48,7 @@ class Frontend {
 		$this->action( 'rank_math/json_ld', 'connect_schema_entities', 99, 2 );
 		$this->filter( 'rank_math/snippet/rich_snippet_event_entity', 'validate_event_schema', 11, 2 );
 		$this->filter( 'rank_math/snippet/rich_snippet_article_entity', 'add_name_property', 11, 2 );
+		$this->action( 'rank_math/schema/validated_data', 'remove_person_entity', 999 );
 
 		new Opengraph();
 	}
@@ -126,6 +127,11 @@ class Frontend {
 		}
 
 		$schema['name'] = $schema['headline'];
+		if ( ! isset( $schema['articleSection'] ) ) {
+			global $post;
+			$schema['articleSection'] = Helper::replace_vars( '%primary_taxonomy_terms%', $post );
+		}
+
 		return $schema;
 	}
 
@@ -137,12 +143,12 @@ class Frontend {
 	 */
 	public function validate_event_schema( $schema ) {
 		if ( ! empty( $schema['startDate'] ) ) {
-			$start_date          = Helper::convert_date( strtotime( $schema['startDate'] ), true );
+			$start_date          = date_i18n( 'Y-m-d H:i:sP', strtotime( $schema['startDate'] ) );
 			$schema['startDate'] = str_replace( ' ', 'T', $start_date );
 		}
 
 		if ( ! empty( $schema['endDate'] ) ) {
-			$end_date          = Helper::convert_date( strtotime( $schema['endDate'] ), true );
+			$end_date          = date_i18n( 'Y-m-d H:i:sP', strtotime( $schema['endDate'] ) );
 			$schema['endDate'] = str_replace( ' ', 'T', $end_date );
 		}
 
@@ -164,7 +170,7 @@ class Frontend {
 		}
 
 		// Remove empty ImageObject.
-		if ( isset( $schema['image'] ) && empty( $schema['image']['url'] ) ) {
+		if ( isset( $schema['image'] ) && empty( $schema['image']['url'] ) && ! is_array( $schema['image'] ) ) {
 			unset( $schema['image'] );
 		}
 
@@ -182,11 +188,11 @@ class Frontend {
 			$props = [
 				'is_part_of' => [
 					'key'   => 'webpage',
-					'value' => ! in_array( $type, [ 'jobposting', 'musicgroup', 'person', 'product', 'restaurant', 'service' ], true ) && ! $is_event,
+					'value' => ! in_array( $type, [ 'jobposting', 'musicgroup', 'person', 'product', 'productgroup', 'restaurant', 'service' ], true ) && ! $is_event,
 				],
 				'publisher'  => [
 					'key'   => 'publisher',
-					'value' => ! in_array( $type, [ 'jobposting', 'musicgroup', 'person', 'product', 'restaurant', 'service' ], true ) && ! $is_event,
+					'value' => ! in_array( $type, [ 'jobposting', 'musicgroup', 'person', 'product', 'productgroup', 'restaurant', 'service' ], true ) && ! $is_event,
 				],
 				'thumbnail'  => [
 					'key'   => 'image',
@@ -194,9 +200,13 @@ class Frontend {
 				],
 				'language'   => [
 					'key'   => 'inLanguage',
-					'value' => ! in_array( $type, [ 'person', 'service', 'restaurant', 'product', 'musicgroup', 'musicalbum', 'jobposting' ], true ),
+					'value' => ! in_array( $type, [ 'person', 'service', 'restaurant', 'product', 'productgroup', 'musicgroup', 'musicalbum', 'jobposting' ], true ),
 				],
 			];
+
+			if ( isset( $schema['image'] ) && 'product' === $type && is_array( $schema['image'] ) ) {
+				$props['thumbnail']['value'] = false;
+			}
 
 			foreach ( $props as $prop => $data ) {
 				if ( ! $data['value'] ) {
@@ -224,6 +234,43 @@ class Frontend {
 		}
 
 		unset( $schema['isPrimary'] );
+	}
+
+	/**
+	 * Remove Person entity if it is not referenced in any other entities.
+	 *
+	 * @param array $data Array of json-ld data.
+	 *
+	 * @return array
+	 */
+	public function remove_person_entity( $data ) {
+		if ( empty( $data['ProfilePage'] ) || empty( $data['ProfilePage']['@id'] ) || ! is_singular() ) {
+			return $data;
+		}
+
+		if ( function_exists( 'bp_is_user' ) && bp_is_user() ) {
+			return $data;
+		}
+
+		$temp_data = $data;
+		$id        = $temp_data['ProfilePage']['@id'];
+		$ids       = [];
+
+		unset( $temp_data['ProfilePage'] );
+		array_walk_recursive(
+			$temp_data,
+			function( $value, $key ) use ( &$ids, $id ) {
+				if ( '@id' === $key && $value === $id ) {
+					$ids[] = $value;
+				}
+			}
+		);
+
+		if ( empty( $ids ) ) {
+			unset( $data['ProfilePage'] );
+		}
+
+		return $data;
 	}
 
 	/**

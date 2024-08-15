@@ -9,44 +9,44 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Date_Range_Filter' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Date_Range_Filter class
 	 */
 	class Jet_Smart_Filters_Date_Range_Filter extends Jet_Smart_Filters_Filter_Base {
-
 		/**
 		 * Get provider name
-		 *
-		 * @return string
 		 */
 		public function get_name() {
+
 			return __( 'Date Range', 'jet-smart-filters' );
 		}
 
 		/**
 		 * Get provider ID156
-		 *
-		 * @return string
 		 */
 		public function get_id() {
+
 			return 'date-range';
 		}
 
 		/**
+		 * Get icon URL
+		 */
+		public function get_icon_url() {
+
+			return jet_smart_filters()->plugin_url( 'admin/assets/img/filter-types/date-range.png' );
+		}
+
+		/**
 		 * Get provider wrapper selector
-		 *
-		 * @return string
 		 */
 		public function get_scripts() {
+
 			return array( 'jquery-ui-datepicker' );
 		}
 
 		/**
 		 * Prepare filter template argumnets
-		 *
-		 * @param  [type] $args [description]
-		 * @return [type]       [description]
 		 */
 		public function prepare_args( $args ) {
 
@@ -63,13 +63,14 @@ if ( ! class_exists( 'Jet_Smart_Filters_Date_Range_Filter' ) ) {
 				return false;
 			}
 
-			$query_type  = get_post_meta( $filter_id, '_date_source', true );
-			$query_var   = $query_type === 'meta_query' ? get_post_meta( $filter_id, '_query_var', true ) : '';
-			$date_format = get_post_meta( $filter_id, '_date_format', true );
-			$from        = get_post_meta( $filter_id, '_date_from_placeholder', true );
-			$to          = get_post_meta( $filter_id, '_date_to_placeholder', true );
+			$query_type       = get_post_meta( $filter_id, '_date_source', true );
+			$query_var        = $query_type === 'meta_query' ? get_post_meta( $filter_id, '_query_var', true ) : '';
+			$date_format      = get_post_meta( $filter_id, '_date_format', true );
+			$from             = get_post_meta( $filter_id, '_date_from_placeholder', true );
+			$to               = get_post_meta( $filter_id, '_date_to_placeholder', true );
+			$predefined_value = $this->get_predefined_value( $filter_id );
 
-			return array(
+			$result = array(
 				'options'              => false,
 				'query_type'           => $query_type,
 				'query_var'            => $query_var,
@@ -85,10 +86,43 @@ if ( ! class_exists( 'Jet_Smart_Filters_Date_Range_Filter' ) ) {
 				'date_format'          => $date_format,
 				'from_placeholder'     => $from,
 				'to_placeholder'       => $to,
+				'accessibility_label'  => $this->get_accessibility_label( $filter_id )
 			);
 
+			// available dates args in datepicker
+			$available_range = get_post_meta( $filter_id, '_date_available_range', true );
+
+			if ( $available_range && $available_range !== 'all' ) {
+				switch ( $available_range ) {
+					case 'future':
+						$result['min_date'] = 'today';
+						break;
+					
+					case 'past':
+						$result['max_date'] = 'today';
+						break;
+
+					case 'custom':
+						$min_date = get_post_meta( $filter_id, '_date_available_range_custom_min', true );
+						$max_date = get_post_meta( $filter_id, '_date_available_range_custom_max', true );
+
+						if ( $min_date ) {
+							$result['min_date'] = $min_date;
+						}
+		
+						if ( $max_date ) {
+							$result['max_date'] = $max_date;
+						}
+
+						break;
+				}
+			}
+
+			if ( $predefined_value !== false ) {
+				$result['predefined_value'] = $predefined_value;
+			}
+
+			return $result;
 		}
-
 	}
-
 }

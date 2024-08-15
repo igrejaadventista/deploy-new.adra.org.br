@@ -49,7 +49,10 @@ class Jet_Engine_CPT_Rest_Edit_Post_Type extends Jet_Engine_Base_API_Endpoint {
 			'id'                    => $params['id'],
 			'name'                  => $this->safe_get( $params, 'general_settings', 'name' ),
 			'slug'                  => $this->safe_get( $params, 'general_settings', 'slug' ),
+			'custom_storage'        => $this->safe_get( $params, 'general_settings', 'custom_storage' ),
 			'show_edit_link'        => $this->safe_get( $params, 'general_settings', 'show_edit_link' ),
+			'hide_field_names'      => $this->safe_get( $params, 'general_settings', 'hide_field_names' ),
+			'delete_metadata'       => $this->safe_get( $params, 'general_settings', 'delete_metadata' ),
 			'singular_name'         => $this->safe_get( $params, 'labels', 'singular_name' ),
 			'menu_name'             => $this->safe_get( $params, 'labels', 'menu_name' ),
 			'name_admin_bar'        => $this->safe_get( $params, 'labels', 'name_admin_bar' ),
@@ -80,6 +83,7 @@ class Jet_Engine_CPT_Rest_Edit_Post_Type extends Jet_Engine_Base_API_Endpoint {
 			'query_var'             => $this->safe_get( $params, 'advanced_settings', 'query_var' ),
 			'rewrite'               => $this->safe_get( $params, 'advanced_settings', 'rewrite' ),
 			'with_front'            => $this->safe_get( $params, 'advanced_settings', 'with_front' ),
+			'map_meta_cap'          => $this->safe_get( $params, 'advanced_settings', 'map_meta_cap' ),
 			'has_archive'           => $this->safe_get( $params, 'advanced_settings', 'has_archive' ),
 			'hierarchical'          => $this->safe_get( $params, 'advanced_settings', 'hierarchical' ),
 			'rewrite_slug'          => $this->safe_get( $params, 'advanced_settings', 'rewrite_slug' ),
@@ -92,7 +96,15 @@ class Jet_Engine_CPT_Rest_Edit_Post_Type extends Jet_Engine_Base_API_Endpoint {
 			'meta_fields'           => ! empty( $params['meta_fields'] ) ? $params['meta_fields'] : array(),
 		) );
 
-		$updated = jet_engine()->cpt->data->edit_item( false );
+		try {
+			$updated = jet_engine()->cpt->data->edit_item( false );
+		} catch ( \Exception $e ) {
+			return rest_ensure_response( array(
+				'success' => false,
+				'item_id' => false,
+				'notices' => [ [ 'message' => $e->getMessage() ] ],
+			) );
+		}
 
 		if ( $updated && $update_posts && $initial_slug && $new_slug !== $initial_slug ) {
 
@@ -108,6 +120,10 @@ class Jet_Engine_CPT_Rest_Edit_Post_Type extends Jet_Engine_Base_API_Endpoint {
 				)
 			);
 
+		}
+
+		if ( $updated && $initial_slug && $new_slug !== $initial_slug ) {
+			do_action( 'jet-engine/post-types/updated-post-type-slug', $new_slug, $initial_slug );
 		}
 
 		return rest_ensure_response( array(

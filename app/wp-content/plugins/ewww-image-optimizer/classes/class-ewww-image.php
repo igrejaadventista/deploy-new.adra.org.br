@@ -22,77 +22,160 @@ if ( ! defined( 'ABSPATH' ) ) {
 class EWWW_Image {
 
 	/**
-	 * The id number in the database.
-	 *
-	 * @var int $id
-	 */
-	public $id = 0;
-	/**
 	 * The id number of the related attachment.
 	 *
 	 * @var int $attachment_id
 	 */
 	public $attachment_id = null;
+
 	/**
-	 * The path to the image.
+	 * The backup reference for a given file.
 	 *
-	 * @var string $file
+	 * @var string|bool $backup
 	 */
-	public $file = '';
+	public $backup = '';
+
 	/**
 	 * The name of the original file if the image was converted. False if not converted.
 	 *
 	 * @var string|bool $converted
 	 */
 	public $converted = false;
+
 	/**
-	 * The original size of the image.
+	 * The path to the image.
 	 *
-	 * @var int $orig_size
+	 * @var string $file
 	 */
-	public $orig_size = 0;
-	/**
-	 * The optimized size of the image.
-	 *
-	 * @var int $opt_size
-	 */
-	public $opt_size = 0;
-	/**
-	 * The size/type of the image, like 'thumbnail', 'medium', 'large'.
-	 *
-	 * @var string $resize
-	 */
-	public $resize = null;
+	public $file = '';
+
 	/**
 	 * The gallery of the image, if applicable. Accepts 'media', 'nextgen', etc.
 	 *
 	 * @var string $gallery
 	 */
 	public $gallery = '';
+
+	/**
+	 * The id number in the database.
+	 *
+	 * @var int $id
+	 */
+	public $id = 0;
+
 	/**
 	 * To be appended to converted files if necessary.
 	 *
 	 * @var int|bool $increment
 	 */
 	public $increment = false;
-	/**
-	 * The url to the image.
-	 *
-	 * @var string $url
-	 */
-	public $url = '';
+
 	/**
 	 * Compression level as an integer.
 	 *
 	 * @var int $level
 	 */
 	public $level = 0;
+
+	/**
+	 * Whether an image is connected to a new image upload or not.
+	 *
+	 * @var bool $new
+	 */
+	public $new = false;
+
+	/**
+	 * The optimized size of the image.
+	 *
+	 * @var int $opt_size
+	 */
+	public $opt_size = 0;
+
+	/**
+	 * The original size of the image.
+	 *
+	 * @var int $orig_size
+	 */
+	public $orig_size = 0;
+
 	/**
 	 * Raw db record.
 	 *
 	 * @var array $record
 	 */
 	public $record = array();
+
+	/**
+	 * The size/type of the image, like 'thumbnail', 'medium', 'large'.
+	 *
+	 * @var string $resize
+	 */
+	public $resize = null;
+
+	/**
+	 * An error code from when this image was last attempted to be resized.
+	 *
+	 * 0 = No error, 1 = WP_Image_Editor error, 2 = scaled version was too large,
+	 * 3 = some other error, like an unwritable or missing image.
+	 *
+	 * @var int $resize_error
+	 */
+	public $resize_error = 0;
+
+	/**
+	 * The height setting (in pixels) when this image was last attempted to be resized.
+	 *
+	 * This is not the actual height of the image, but used to check if the settings
+	 * have changed since the last attempt.
+	 *
+	 * @var int $resized_height
+	 */
+	public $resized_height = 0;
+
+	/**
+	 * The width setting (in pixels) when this image was last attempted to be resized.
+	 *
+	 * This is not the actual width of the image, but used to check if the settings
+	 * have changed since the last attempt.
+	 *
+	 * @var int $resized_width
+	 */
+	public $resized_width = 0;
+
+	/**
+	 * The size of the corresponding WebP image, if it exists.
+	 *
+	 * @var int $webp_size
+	 */
+	public $webp_size = 0;
+
+	/**
+	 * An error code from WebP conversion.
+	 *
+	 * @var int $webp_error
+	 */
+	public $webp_error = 0;
+
+	/**
+	 * A retrieval ID for an API-optimized image that hasn't yet completed.
+	 *
+	 * @var string $retrieve
+	 */
+	public $retrieve = '';
+
+	/**
+	 * The suffix added to the converted file, to be applied also to thumbs.
+	 *
+	 * @var string $suffix
+	 */
+	private $suffix = '';
+
+	/**
+	 * The url to the image.
+	 *
+	 * @var string $url
+	 */
+	public $url = '';
 
 	/**
 	 * Creates an image record, either from a pending record in the database, or from a file path.
@@ -102,9 +185,10 @@ class EWWW_Image {
 	 *
 	 * @param int    $id Optional. The attachment ID to search for.
 	 * @param string $gallery Optional. The type of image to work with. Accepts 'media', 'nextgen', 'flag', or 'nextcellent'.
+	 *                        Otherwise, $id is the direct record id in ewwwio_images.
 	 * @param string $path Optional. The absolute path to an image.
 	 */
-	function __construct( $id = 0, $gallery = '', $path = '' ) {
+	public function __construct( $id = 0, $gallery = '', $path = '' ) {
 		if ( ! is_numeric( $id ) ) {
 			$id = 0;
 		}
@@ -161,6 +245,8 @@ class EWWW_Image {
 				// Pull a random image.
 				$new_image = $ewwwdb->get_row( "SELECT * FROM $ewwwdb->ewwwio_images WHERE pending = 1 LIMIT 1", ARRAY_A );
 			}
+		} elseif ( $id ) {
+			$new_image = $ewwwdb->get_row( $ewwwdb->prepare( "SELECT * FROM $ewwwdb->ewwwio_images WHERE id = %d LIMIT 1", $id ), ARRAY_A );
 		} else {
 			ewwwio_debug_message( 'no id or path, just pulling next image' );
 			$new_image = $ewwwdb->get_row( "SELECT * FROM $ewwwdb->ewwwio_images WHERE pending = 1 LIMIT 1", ARRAY_A );
@@ -173,17 +259,23 @@ class EWWW_Image {
 		if ( ewww_image_optimizer_get_option( 'ewww_image_optimizer_debug' ) && ewww_image_optimizer_function_exists( 'print_r' ) ) {
 			ewwwio_debug_message( print_r( $new_image, true ) );
 		}
-		$this->id            = $new_image['id'];
-		$this->file          = ewww_image_optimizer_absolutize_path( $new_image['path'] );
-		$this->attachment_id = (int) $new_image['attachment_id'];
-		$this->opt_size      = (int) $new_image['image_size'];
-		$this->orig_size     = (int) $new_image['orig_size'];
-		$this->resize        = $new_image['resize'];
-		$this->converted     = ewww_image_optimizer_absolutize_path( $new_image['converted'] );
-		$this->gallery       = ( empty( $gallery ) || empty( $new_image['attachment_id'] ) ? $new_image['gallery'] : $gallery );
-		$this->backup        = $new_image['backup'];
-		$this->level         = (int) $new_image['level'];
-		$this->record        = $new_image;
+		$this->id             = $new_image['id'];
+		$this->file           = ewww_image_optimizer_absolutize_path( $new_image['path'] );
+		$this->attachment_id  = (int) $new_image['attachment_id'];
+		$this->opt_size       = (int) $new_image['image_size'];
+		$this->orig_size      = (int) $new_image['orig_size'];
+		$this->resize         = $new_image['resize'];
+		$this->converted      = ewww_image_optimizer_absolutize_path( $new_image['converted'] );
+		$this->resized_width  = (int) $new_image['resized_width'];
+		$this->resized_height = (int) $new_image['resized_height'];
+		$this->resize_error   = (int) $new_image['resize_error'];
+		$this->webp_size      = (int) $new_image['webp_size'];
+		$this->webp_error     = (int) $new_image['webp_error'];
+		$this->gallery        = ( empty( $gallery ) || empty( $new_image['attachment_id'] ) ? $new_image['gallery'] : $gallery );
+		$this->backup         = $new_image['backup'];
+		$this->retrieve       = $new_image['retrieve'];
+		$this->level          = (int) $new_image['level'];
+		$this->record         = $new_image;
 	}
 
 	/**
@@ -222,6 +314,20 @@ class EWWW_Image {
 				'post_mime_type' => $mime,
 			)
 		);
+
+		// Possibly update translated replicas (WPML and the like).
+		$translated_ids = ewww_image_optimizer_get_translated_media_ids( $this->attachment_id );
+		if ( ewww_image_optimizer_iterable( $translated_ids ) ) {
+			foreach ( $translated_ids as $translated_id ) {
+				update_attached_file( $translated_id, $meta['file'] );
+				wp_update_post(
+					array(
+						'ID'             => $translated_id,
+						'post_mime_type' => $mime,
+					)
+				);
+			}
+		}
 	}
 
 	/**
@@ -245,12 +351,8 @@ class EWWW_Image {
 		}
 		$sizes_queried = $ewwwdb->get_results( "SELECT * FROM $ewwwdb->ewwwio_images WHERE attachment_id = $this->attachment_id AND resize <> 'full' AND resize <> ''", ARRAY_A );
 		/* ewwwio_debug_message( 'found some images in the db: ' . count( $sizes_queried ) ); */
-		$sizes = array();
-		if ( 'ims_image' === get_post_type( $this->attachment_id ) ) {
-			$base_dir = trailingslashit( dirname( $this->file ) ) . '_resized/';
-		} else {
-			$base_dir = trailingslashit( dirname( $this->file ) );
-		}
+		$sizes    = array();
+		$base_dir = trailingslashit( dirname( $this->file ) );
 		ewwwio_debug_message( 'about to process db results' );
 		foreach ( $sizes_queried as $size_queried ) {
 			$size_queried['path'] = ewww_image_optimizer_absolutize_path( $size_queried['path'] );
@@ -264,7 +366,7 @@ class EWWW_Image {
 
 				if ( ewww_image_optimizer_iterable( $meta['sizes'] ) && is_array( $meta['sizes'][ $size_queried['resize'] ] ) ) {
 					ewwwio_debug_message( 'updating regular size' );
-					$meta['sizes'][ $size_queried['resize'] ]['file']      = basename( $new_name );
+					$meta['sizes'][ $size_queried['resize'] ]['file']      = \wp_basename( $new_name );
 					$meta['sizes'][ $size_queried['resize'] ]['mime-type'] = ewww_image_optimizer_quick_mimetype( $new_name );
 					// Store height/width in $sizes to make sure we catch meta dups.
 					$sizes[ $size_queried['resize'] ]['width']  = $meta['sizes'][ $size_queried['resize'] ]['width'];
@@ -273,7 +375,7 @@ class EWWW_Image {
 					$dimensions = str_replace( 'custom-size-', '', $size_queried['resize'] );
 					if ( is_array( $meta['custom_sizes'][ $dimensions ] ) ) {
 						ewwwio_debug_message( 'updating custom size' );
-						$meta['custom_sizes'][ $dimensions ]['file'] = basename( $new_name );
+						$meta['custom_sizes'][ $dimensions ]['file'] = \wp_basename( $new_name );
 					}
 				}
 			}
@@ -282,7 +384,6 @@ class EWWW_Image {
 
 		ewwwio_debug_message( 'next up for conversion search: meta' );
 		if ( isset( $meta['sizes'] ) && ewww_image_optimizer_iterable( $meta['sizes'] ) ) {
-			$disabled_sizes = ewww_image_optimizer_get_option( 'ewww_image_optimizer_disable_resizes_opt', false, true );
 			foreach ( $meta['sizes'] as $size => $data ) {
 				/* ewwwio_debug_message( "checking to see if we should convert $size" ); */
 				if ( strpos( $size, 'webp' ) === 0 ) {
@@ -292,10 +393,6 @@ class EWWW_Image {
 				// Skip sizes that were already in ewwwio_images.
 				if ( isset( $sizes[ $size ] ) ) {
 					/* ewwwio_debug_message( 'skipping size that was in db results' ); */
-					continue;
-				}
-				if ( ! empty( $disabled_sizes[ $size ] ) ) {
-					/* ewwwio_debug_message( 'skipping disabled size' ); */
 					continue;
 				}
 				if ( empty( $data['file'] ) ) {
@@ -319,7 +416,7 @@ class EWWW_Image {
 				if ( $new_name ) {
 					$this->convert_retina( $base_dir . $data['file'] );
 					$this->convert_db_path( $base_dir . $data['file'], $new_name );
-					$meta['sizes'][ $size ]['file']      = basename( $new_name );
+					$meta['sizes'][ $size ]['file']      = \wp_basename( $new_name );
 					$meta['sizes'][ $size ]['mime-type'] = ewww_image_optimizer_quick_mimetype( $new_name );
 				}
 				ewwwio_debug_message( "converted $size from meta" );
@@ -358,12 +455,78 @@ class EWWW_Image {
 				if ( $new_name ) {
 					$this->convert_retina( $custom_size_path );
 					$this->convert_db_path( $custom_size_path, $new_name );
-					$meta['custom_sizes'][ $dimensions ]['file'] = basename( $new_name );
+					$meta['custom_sizes'][ $dimensions ]['file'] = \wp_basename( $new_name );
 				}
+			}
+		}
+
+		// Possibly update translated replicas (WPML and the like).
+		$translated_ids = ewww_image_optimizer_get_translated_media_ids( $this->attachment_id );
+		if ( ewww_image_optimizer_iterable( $translated_ids ) ) {
+			foreach ( $translated_ids as $translated_id ) {
+				$this->sync_translated_meta( $translated_id, $meta );
 			}
 		}
 		ewwwio_debug_message( 'end ' . __METHOD__ . '()' );
 		return $meta;
+	}
+
+	/**
+	 * Syncs metadata for translated replicas after successful conversion an image.
+	 *
+	 * @param int   $translated_id The attachment ID of a translated replica.
+	 * @param array $meta The (source) attachment metadata that will be copied to the replica.
+	 */
+	public function sync_translated_meta( $translated_id, $meta ) {
+		ewwwio_debug_message( '<b>' . __METHOD__ . '()</b>' );
+
+		ewwwio_debug_message( "syncing $translated_id" );
+		$tr_meta = wp_get_attachment_metadata( $translated_id );
+		$changed = false;
+		if ( ! ewww_image_optimizer_iterable( $tr_meta ) ) {
+			return;
+		}
+
+		if ( ! empty( $meta['file'] ) && isset( $tr_meta['file'] ) ) {
+			$tr_meta['file'] = $meta['file'];
+			$changed         = true;
+		}
+		if ( isset( $meta['sizes'] ) && ewww_image_optimizer_iterable( $meta['sizes'] ) ) {
+			foreach ( $meta['sizes'] as $size => $data ) {
+				ewwwio_debug_message( "checking to see if we should sync $size" );
+				if ( strpos( $size, 'webp' ) === 0 ) {
+					/* ewwwio_debug_message( 'skipping webp' ); */
+					continue;
+				}
+				if ( ! empty( $data['file'] ) && isset( $tr_meta['sizes'][ $size ]['file'] ) ) {
+					$tr_meta['sizes'][ $size ]['file'] = $data['file'];
+					$changed                           = true;
+				}
+				if ( ! empty( $data['mime-type'] ) && isset( $tr_meta['sizes'][ $size ]['mime-type'] ) ) {
+					$tr_meta['sizes'][ $size ]['mime-type'] = $data['mime-type'];
+					$changed                                = true;
+				}
+				ewwwio_debug_message( "copied $size from meta for $translated_id" );
+			} // End foreach().
+		} // End if().
+
+		// Another custom theme.
+		if ( isset( $meta['custom_sizes'] ) && ewww_image_optimizer_iterable( $meta['custom_sizes'] ) ) {
+			ewwwio_debug_message( 'next up for conversion sync: custom_sizes' );
+			foreach ( $meta['custom_sizes'] as $dimensions => $custom_size ) {
+				ewwwio_debug_message( "checking to see if we should sync $custom_size" );
+				if ( ! empty( $custom_size['file'] ) && isset( $tr_meta['custom_sizes'][ $dimensions ]['file'] ) ) {
+					$tr_meta['custom_sizes'][ $dimensions ]['file'] = $custom_size['file'];
+					$changed                                        = true;
+				}
+			}
+		}
+
+		if ( $changed ) {
+			ewwwio_debug_message( 'meta updated, saving' );
+			wp_update_attachment_metadata( $translated_id, $tr_meta );
+		}
+		ewwwio_debug_message( 'end ' . __METHOD__ . '()' );
 	}
 
 	/**
@@ -387,7 +550,7 @@ class EWWW_Image {
 		ewwwio_delete_file( $this->file );
 		$this->file      = $this->converted;
 		$this->converted = $converted_path;
-		$meta['file']    = trailingslashit( dirname( $meta['file'] ) ) . basename( $this->file );
+		$meta['file']    = trailingslashit( dirname( $meta['file'] ) ) . \wp_basename( $this->file );
 		$this->update_converted_attachment( $meta );
 		$meta = $this->restore_sizes( $meta );
 		return $meta;
@@ -429,13 +592,13 @@ class EWWW_Image {
 				$this->replace_url( $new_name, $size_queried['path'] );
 				if ( ewww_image_optimizer_iterable( $meta['sizes'] ) && is_array( $meta['sizes'][ $size_queried['resize'] ] ) ) {
 					ewwwio_debug_message( 'updating regular size' );
-					$meta['sizes'][ $size_queried['resize'] ]['file']      = basename( $new_name );
+					$meta['sizes'][ $size_queried['resize'] ]['file']      = \wp_basename( $new_name );
 					$meta['sizes'][ $size_queried['resize'] ]['mime-type'] = ewww_image_optimizer_quick_mimetype( $new_name );
 				} elseif ( ewww_image_optimizer_iterable( $meta['custom_sizes'] ) ) {
 					$dimensions = str_replace( 'custom-size-', '', $size_queried['resize'] );
 					if ( is_array( $meta['custom_sizes'][ $dimensions ] ) ) {
 						ewwwio_debug_message( 'updating custom size' );
-						$meta['custom_sizes'][ $dimensions ]['file'] = basename( $new_name );
+						$meta['custom_sizes'][ $dimensions ]['file'] = \wp_basename( $new_name );
 					}
 				}
 				ewwwio_delete_file( $size_queried['path'] );
@@ -453,6 +616,13 @@ class EWWW_Image {
 			/* ewwwio_debug_message( print_r( $meta, true ) ); */
 		} // End foreach().
 
+		// Possibly update translated replicas (WPML and the like).
+		$translated_ids = ewww_image_optimizer_get_translated_media_ids( $this->attachment_id );
+		if ( ewww_image_optimizer_iterable( $translated_ids ) ) {
+			foreach ( $translated_ids as $translated_id ) {
+				$this->sync_translated_meta( $translated_id, $meta );
+			}
+		}
 		return $meta;
 	}
 
@@ -479,11 +649,12 @@ class EWWW_Image {
 	 * @access public
 	 *
 	 * @param string $file The name of the file to convert.
-	 * @param bool   $replace_url Default true. Run function to update database with new url.
-	 * @param bool   $check_size Default false. Whether the converted filesize be compared to the original.
+	 * @param bool   $replace_url Default true. Run function to update database with new URL.
+	 * @param bool   $check_size Default false. Whether the converted filesize should be compared to the original.
+	 * @param string $newfile The name to be used for the converted file. Optional.
 	 * @return string The name of the new file.
 	 */
-	public function convert( $file, $replace_url = true, $check_size = false ) {
+	public function convert( $file, $replace_url = true, $check_size = false, $newfile = '' ) {
 		ewwwio_debug_message( '<b>' . __METHOD__ . '()</b>' );
 		if ( empty( $file ) ) {
 			ewwwio_debug_message( 'no file provided to convert' );
@@ -509,10 +680,10 @@ class EWWW_Image {
 		switch ( $type ) {
 			case 'image/jpeg':
 				$png_size = 0;
-				$newfile  = $this->unique_filename( $file, '.png' );
+				$newfile  = ! empty( $newfile ) && ! ewwwio_is_file( $newfile ) ? $newfile : $this->unique_filename( $file, '.png' );
 				ewwwio_debug_message( "attempting to convert JPG to PNG: $newfile" );
 				// Convert the JPG to PNG.
-				if ( ewww_image_optimizer_gmagick_support() ) {
+				if ( \ewwwio()->gmagick_support() ) {
 					try {
 						$gmagick = new Gmagick( $file );
 						$gmagick->stripimage();
@@ -523,7 +694,7 @@ class EWWW_Image {
 					}
 					$png_size = ewww_image_optimizer_filesize( $newfile );
 				}
-				if ( ! $png_size && ewww_image_optimizer_imagick_support() ) {
+				if ( ! $png_size && \ewwwio()->imagick_support() ) {
 					try {
 						$imagick = new Imagick( $file );
 						$imagick->stripImage();
@@ -534,7 +705,7 @@ class EWWW_Image {
 					}
 					$png_size = ewww_image_optimizer_filesize( $newfile );
 				}
-				if ( ! $png_size && ewww_image_optimizer_gd_support() ) {
+				if ( ! $png_size && \ewwwio()->gd_support() ) {
 					ewwwio_debug_message( 'converting with GD' );
 					imagepng( imagecreatefromjpeg( $file ), $newfile );
 					$png_size = ewww_image_optimizer_filesize( $newfile );
@@ -565,7 +736,7 @@ class EWWW_Image {
 				break;
 			case 'image/png':
 				$jpg_size = 0;
-				$newfile  = $this->unique_filename( $file, '.jpg' );
+				$newfile  = ! empty( $newfile ) && ! ewwwio_is_file( $newfile ) ? $newfile : $this->unique_filename( $file, '.jpg' );
 				ewwwio_debug_message( "attempting to convert PNG to JPG: $newfile" );
 				// If the user set a fill background for transparency.
 				$background = ewww_image_optimizer_jpg_background();
@@ -588,7 +759,7 @@ class EWWW_Image {
 					$magick_background = '000000';
 				}
 				// Convert the PNG to a JPG with all the proper options.
-				if ( ewww_image_optimizer_gmagick_support() ) {
+				if ( \ewwwio()->gmagick_support() ) {
 					try {
 						if ( ewww_image_optimizer_png_alpha( $file ) ) {
 							$gmagick_overlay = new Gmagick( $file );
@@ -606,22 +777,22 @@ class EWWW_Image {
 					}
 					$jpg_size = ewww_image_optimizer_filesize( $newfile );
 				}
-				if ( ! $jpg_size && ewww_image_optimizer_imagick_support() ) {
+				if ( ! $jpg_size && \ewwwio()->imagick_support() ) {
 					try {
 						$imagick = new Imagick( $file );
 						if ( ewww_image_optimizer_png_alpha( $file ) ) {
 							$imagick->setImageBackgroundColor( new ImagickPixel( '#' . $magick_background ) );
-							$imagick->setImageAlphaChannel( 11 );
+							$imagick->setImageAlphaChannel( imagick::ALPHACHANNEL_REMOVE );
 						}
 						$imagick->setImageFormat( 'JPG' );
-						$imagick->setCompressionQuality( $quality );
+						$imagick->setImageCompressionQuality( $quality );
 						$imagick->writeImage( $newfile );
 					} catch ( Exception $imagick_error ) {
 						ewwwio_debug_message( $imagick_error->getMessage() );
 					}
 					$jpg_size = ewww_image_optimizer_filesize( $newfile );
 				}
-				if ( ! $jpg_size && ewww_image_optimizer_gd_support() ) {
+				if ( ! $jpg_size && \ewwwio()->gd_support() ) {
 					ewwwio_debug_message( 'converting with GD' );
 					// Retrieve the data from the PNG.
 					$input = imagecreatefrompng( $file );
@@ -670,10 +841,10 @@ class EWWW_Image {
 				break;
 			case 'image/gif':
 				$png_size = 0;
-				$newfile  = $this->unique_filename( $file, '.png' );
+				$newfile  = ! empty( $newfile ) && ! ewwwio_is_file( $newfile ) ? $newfile : $this->unique_filename( $file, '.png' );
 				ewwwio_debug_message( "attempting to convert GIF to PNG: $newfile" );
 				// Convert the GIF to PNG.
-				if ( ewww_image_optimizer_gmagick_support() ) {
+				if ( \ewwwio()->gmagick_support() ) {
 					try {
 						$gmagick = new Gmagick( $file );
 						$gmagick->stripimage();
@@ -684,7 +855,7 @@ class EWWW_Image {
 					}
 					$png_size = ewww_image_optimizer_filesize( $newfile );
 				}
-				if ( ! $png_size && ewww_image_optimizer_imagick_support() ) {
+				if ( ! $png_size && \ewwwio()->imagick_support() ) {
 					try {
 						$imagick = new Imagick( $file );
 						$imagick->stripImage();
@@ -695,7 +866,7 @@ class EWWW_Image {
 					}
 					$png_size = ewww_image_optimizer_filesize( $newfile );
 				}
-				if ( ! $png_size && ewww_image_optimizer_gd_support() ) {
+				if ( ! $png_size && \ewwwio()->gd_support() ) {
 					ewwwio_debug_message( 'converting with GD' );
 					imagepng( imagecreatefromgif( $file ), $newfile );
 					$png_size = ewww_image_optimizer_filesize( $newfile );
@@ -741,19 +912,41 @@ class EWWW_Image {
 	 * @return string The new filename.
 	 */
 	public function unique_filename( $file, $fileext ) {
+		ewwwio_debug_message( '<b>' . __METHOD__ . '()</b>' );
 		// Strip the file extension.
 		$filename = preg_replace( '/\.\w+$/', '', $file );
-		if ( ! ewwwio_is_file( $filename . $fileext ) ) {
+		if ( ! empty( $this->converted ) && empty( $this->suffix ) ) {
+			ewwwio_debug_message( "comparing original {$this->converted} and new {$this->file} to find suffix" );
+			$original_basename  = preg_replace( '/\.\w+$/', '', $this->converted );
+			$converted_basename = preg_replace( '/\.\w+$/', '', $this->file );
+			if ( 0 === strpos( $converted_basename, $original_basename ) ) {
+				$potential_suffix = str_replace( $original_basename, '', $converted_basename );
+				ewwwio_debug_message( "original and new basenames are aligned, diff is '$potential_suffix'" );
+				if ( strlen( $potential_suffix ) < 20 ) {
+					$this->suffix = $potential_suffix;
+				}
+			}
+		}
+		ewwwio_debug_message( "current basename is $filename" );
+		if ( empty( $this->suffix ) && ! ewwwio_is_file( $filename . $fileext ) ) {
 			return $filename . $fileext;
 		}
-		// Set the increment to 1 ( but allow the user to override it ).
+		ewwwio_debug_message( 'name collision or pre-existing suffix in play, taking evasive measures' );
+		// Set the suffix to 1 ( but allow the user to override it ).
 		$filenum = apply_filters( 'ewww_image_optimizer_converted_filename_suffix', $this->increment );
 		// But it must be only letters, numbers, or underscores.
-		$filenum              = ( preg_match( '/^[\w\d]+$/', $filenum ) ? $filenum : 1 );
-		$suffix               = ( ! empty( $filenum ) ? '-' . $filenum : '' );
+		$filenum = ( preg_match( '/^[\w\d]+$/', $filenum ) ? $filenum : 1 );
+		$suffix  = ( ! empty( $filenum ) ? '-' . $filenum : '' );
+		if ( ! empty( $this->suffix ) ) {
+			$suffix            = $this->suffix;
+			$potential_filenum = str_replace( '-', '', $suffix );
+			if ( is_numeric( $potential_filenum ) ) {
+				$filenum = $potential_filenum;
+			}
+		}
 		$dimensions           = '';
-		$default_hidpi_suffix = apply_filters( 'ewww_image_optimizer_hidpi_suffix', '@2x' );
 		$hidpi_suffix         = '';
+		$default_hidpi_suffix = apply_filters( 'ewww_image_optimizer_hidpi_suffix', '@2x' );
 		// See if this is a retina image, and strip the suffix.
 		if ( preg_match( "/$default_hidpi_suffix$/", $filename ) ) {
 			// Strip the dimensions.
@@ -766,25 +959,25 @@ class EWWW_Image {
 			$filename   = str_replace( $fileresize[0], '', $filename );
 			$dimensions = $fileresize[0];
 		}
-		// While a file exists with the current increment.
-		while ( file_exists( $filename . $suffix . $dimensions . $hidpi_suffix . $fileext ) ) {
-			// Increment the increment...
-			$filenum++;
+		// While a file exists with the current iterator.
+		while ( \ewwwio_is_file( $filename . $suffix . $dimensions . $hidpi_suffix . $fileext ) ) {
+			ewwwio_debug_message( "$filenum is not good enough, bumping" );
+			// Bump the numerical appendage.
+			++$filenum;
 			$suffix = '-' . $filenum;
 		}
 		// All done, let's reconstruct the filename.
 		ewwwio_memory( __METHOD__ );
 		$this->increment = $filenum;
+		$this->suffix    = $suffix;
 		return $filename . $suffix . $dimensions . $hidpi_suffix . $fileext;
 	}
 
 	/**
-	 * Update urls in the WP database.
+	 * Update URLs for a converted image, and check alternate domains/sub-folders.
 	 *
-	 * @global object $wpdb
-	 *
-	 * @param string $new_path Optional. The url to the newly converted image.
-	 * @param string $old_path Optional. The url to the old version of the image.
+	 * @param string $new_path Optional. The URL to the newly converted image.
+	 * @param string $old_path Optional. The URL to the old version of the image.
 	 */
 	public function replace_url( $new_path = '', $old_path = '' ) {
 		ewwwio_debug_message( '<b>' . __METHOD__ . '()</b>' );
@@ -795,30 +988,71 @@ class EWWW_Image {
 			return;
 		}
 		if ( empty( $new_path ) && empty( $old_path ) ) {
-			$old_guid = $this->url;
+			$old_url = $this->url;
 		} else {
-			$old_guid = trailingslashit( dirname( $this->url ) ) . basename( $old );
+			$old_url = trailingslashit( dirname( $this->url ) ) . \wp_basename( $old );
 		}
-		$guid = trailingslashit( dirname( $this->url ) ) . basename( $new );
-		// Construct the new guid based on the filename from the attachment metadata.
-		ewwwio_debug_message( "old guid: $old_guid" );
-		ewwwio_debug_message( "new guid: $guid" );
-		if ( substr( $old_guid, -1 ) === '/' || substr( $guid, -1 ) === '/' ) {
+		$new_url = trailingslashit( dirname( $this->url ) ) . \wp_basename( $new );
+		// Construct the new URL based on the filename from the attachment metadata.
+		ewwwio_debug_message( "old URL: $old_url" );
+		ewwwio_debug_message( "new URL: $new_url" );
+		if ( substr( $old_url, -1 ) === '/' || substr( $new_url, -1 ) === '/' ) {
 			ewwwio_debug_message( 'could not obtain full url for current and previous image, bailing' );
 			return;
 		}
 
+		$this->update_db_urls( $new_url, $old_url );
+
+		if ( 2 === (int) \apply_filters( 'wpml_setting', false, 'language_negotiation_type' ) ) {
+			$default_domain = wp_parse_url( get_site_url(), PHP_URL_HOST );
+			$wpml_domains   = \apply_filters( 'wpml_setting', array(), 'language_domains' );
+			if ( ewww_image_optimizer_iterable( $wpml_domains ) ) {
+				foreach ( $wpml_domains as $wpml_domain ) {
+					$image_domain = wp_parse_url( $old_url, PHP_URL_HOST );
+					if ( empty( $wpml_domain ) || empty( $image_domain ) ) {
+						continue;
+					}
+					ewwwio_debug_message( "checking image URLs with $wpml_domain" );
+					if ( $image_domain === $wpml_domain ) {
+						// Check the default domain if/when we detect that one of the language domains matches the domain we already had.
+						$new_wpml_url = str_replace( $image_domain, $default_domain, $new_url );
+						$old_wpml_url = str_replace( $image_domain, $default_domain, $old_url );
+					} else {
+						$new_wpml_url = str_replace( $image_domain, $wpml_domain, $new_url );
+						$old_wpml_url = str_replace( $image_domain, $wpml_domain, $old_url );
+					}
+					if ( $new_url !== $new_wpml_url ) {
+						$this->update_db_urls( $new_wpml_url, $old_wpml_url );
+					}
+				}
+			}
+		}
+		do_action( 'ewwwio_conversion_replace_url_post', $new_url, $old_url );
+	}
+
+	/**
+	 * Do the actual URL replacement in the database.
+	 *
+	 * @global object $wpdb
+	 *
+	 * @param string $new_url The URL to the newly converted image.
+	 * @param string $old_url The URL to the old version of the image.
+	 */
+	public function update_db_urls( $new_url, $old_url ) {
+		ewwwio_debug_message( '<b>' . __METHOD__ . '()</b>' );
+
 		global $wpdb;
 		// Retrieve any posts that link the image.
-		$esql = $wpdb->prepare( "SELECT ID, post_content FROM $wpdb->posts WHERE post_content LIKE %s", '%' . $wpdb->esc_like( $old_guid ) . '%' );
+		$esql = "SELECT ID, post_content FROM $wpdb->posts WHERE post_content LIKE %" . $wpdb->esc_like( $old_url ) . '%';
+		ewwwio_debug_message( "replacing $old_url with $new_url in $wpdb->posts" );
 		ewwwio_debug_message( "using query: $esql" );
-		$rows = $wpdb->get_results( $esql, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT ID, post_content FROM $wpdb->posts WHERE post_content LIKE %s", '%' . $wpdb->esc_like( $old_url ) . '%' ), ARRAY_A );
 		if ( ewww_image_optimizer_iterable( $rows ) ) {
 			// While there are posts to process.
 			foreach ( $rows as $row ) {
-				// Replace all occurences of the old guid with the new guid.
-				$post_content = str_replace( $old_guid, $guid, $row['post_content'] );
-				ewwwio_debug_message( "replacing $old_guid with $guid in post " . $row['ID'] );
+				// Replace all occurences of the old URL with the new URL.
+				$post_content = str_replace( $old_url, $new_url, $row['post_content'] );
+				ewwwio_debug_message( "replacing $old_url with $new_url in post " . $row['ID'] );
 				// Send the updated content back to the database.
 				$wpdb->update(
 					$wpdb->posts,
@@ -866,7 +1100,6 @@ class EWWW_Image {
 						'converted'     => ewww_image_optimizer_relativize_path( $path ),
 						'orig_size'     => ewww_image_optimizer_filesize( $new_path ),
 						'attachment_id' => $this->attachment_id,
-						'results'       => __( 'No savings', 'ewww-image-optimizer' ),
 						'updated'       => gmdate( 'Y-m-d H:i:s' ),
 						'updates'       => 0,
 					)
@@ -879,7 +1112,6 @@ class EWWW_Image {
 			array(
 				'path'      => ewww_image_optimizer_relativize_path( $new_path ),
 				'converted' => ewww_image_optimizer_relativize_path( $path ),
-				'results'   => ewww_image_optimizer_image_results( $record['orig_size'], ewww_image_optimizer_filesize( $new_path ) ),
 				'updates'   => 0,
 				'trace'     => '',
 			),
@@ -915,7 +1147,7 @@ class EWWW_Image {
 			if ( ! empty( $image_record ) && is_array( $image_record ) && ! empty( $image_record['id'] ) ) {
 				$id = $image_record['id'];
 			} else {
-				return false;
+				return;
 			}
 		}
 		$ewwwdb->update(
@@ -924,7 +1156,6 @@ class EWWW_Image {
 				'path'       => ewww_image_optimizer_relativize_path( $new_path ),
 				'converted'  => '',
 				'image_size' => 0,
-				'results'    => __( 'Original Restored', 'ewww-image-optimizer' ),
 				'updates'    => 0,
 				'trace'      => '',
 				'level'      => null,
@@ -981,7 +1212,7 @@ class EWWW_Image {
 						$time += 2;
 					}
 				} else {
-					$time++;
+					++$time;
 					if ( 40 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_jpg_level' ) ) {
 						if ( $image_size > 200000 ) { // greater than 200k.
 							$time += 11;
@@ -997,7 +1228,7 @@ class EWWW_Image {
 				break;
 			case 'image/png':
 				if ( ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) > 10 && ewww_image_optimizer_get_option( 'ewww_image_optimizer_cloud_key' ) ) {
-					$time++;
+					++$time;
 				}
 				if ( $image_size > 2500000 ) { // greater than 2.5MB.
 					$time += 35;
@@ -1010,7 +1241,7 @@ class EWWW_Image {
 					} elseif ( 30 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) ) {
 						$time += 10;
 					} elseif ( 20 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) ) {
-						$time++;
+						++$time;
 					}
 				} elseif ( $image_size > 500000 ) { // greater than 500kb.
 					$time += 7;
@@ -1021,7 +1252,7 @@ class EWWW_Image {
 					} elseif ( 30 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) ) {
 						$time += 8;
 					} elseif ( 20 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) ) {
-						$time++;
+						++$time;
 					}
 				} elseif ( $image_size > 100000 ) { // greater than 100kb.
 					$time += 4;
@@ -1032,25 +1263,25 @@ class EWWW_Image {
 					} elseif ( 30 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) ) {
 						$time += 9;
 					} elseif ( 20 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) ) {
-						$time++;
+						++$time;
 					}
 				} else {
-					$time++;
+					++$time;
 					if ( 50 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) ) {
 						$time += 2;
 					} elseif ( 40 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) ) {
-						$time ++;
+						++$time;
 					} elseif ( 30 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) ) {
 						$time += 3;
 					} elseif ( 20 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_png_level' ) ) {
-						$time++;
+						++$time;
 					}
 				} // End if().
 				break;
 			case 'image/gif':
-				$time++;
+				++$time;
 				if ( 10 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_gif_level' ) && ewww_image_optimizer_get_option( 'ewww_image_optimizer_cloud_key' ) ) {
-					$time++;
+					++$time;
 				}
 				if ( $image_size > 1000000 ) { // greater than 1MB.
 					$time += 5;
@@ -1076,7 +1307,7 @@ class EWWW_Image {
 						$time += 12;
 					}
 				} elseif ( $image_size > 1000000 ) { // greater than 1MB.
-					$time++;
+					++$time;
 					if ( 20 === (int) ewww_image_optimizer_get_option( 'ewww_image_optimizer_pdf_level' ) ) {
 						$time += 10;
 					}
@@ -1088,5 +1319,4 @@ class EWWW_Image {
 		ewwwio_debug_message( "estimated time for this image is $time" );
 		return $time;
 	}
-
 }

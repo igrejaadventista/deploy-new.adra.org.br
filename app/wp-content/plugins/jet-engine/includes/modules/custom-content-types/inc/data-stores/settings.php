@@ -25,21 +25,24 @@ class Settings {
 			$stores_by_types = array();
 			$data_stores = jet_engine()->modules->get_module( 'data-stores' );
 
-			foreach ( $data_stores->instance->stores->get_stores() as $store ) {
+			if ( $data_stores && $data_stores->instance && $data_stores->instance->stores ) {
 
-				$related_cct = $store->get_arg( 'related_cct' );
-				$is_cct      = $store->get_arg( 'is_cct' );
+				foreach ( $data_stores->instance->stores->get_stores() as $store ) {
 
-				if ( ! $is_cct || ! $related_cct ) {
-					continue;
+					$related_cct = $store->get_arg( 'related_cct' );
+					$is_cct      = $store->get_arg( 'is_cct' );
+
+					if ( ! $is_cct || ! $related_cct ) {
+						continue;
+					}
+
+					if ( empty( $stores_by_types[ $related_cct ] ) ) {
+						$stores_by_types[ $related_cct ] = array();
+					}
+
+					$stores_by_types[ $related_cct ][] = $store;
+
 				}
-
-				if ( empty( $stores_by_types[ $related_cct ] ) ) {
-					$stores_by_types[ $related_cct ] = array();
-				}
-
-				$stores_by_types[ $related_cct ][] = $store;
-
 			}
 
 			$this->stores_by_types = $stores_by_types;

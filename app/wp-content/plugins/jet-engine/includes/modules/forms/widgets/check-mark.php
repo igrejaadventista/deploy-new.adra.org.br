@@ -31,10 +31,10 @@ class Jet_Engine_Check_Mark_Widget extends Widget_Base {
 	}
 
 	public function get_help_url() {
-		return 'https://crocoblock.com/knowledge-base/articles/how-to-enable-booking-forms-functionality-in-jetengine/?utm_source=jetengine&utm_medium=booking-form&utm_campaign=need-help';
+		return 'https://crocoblock.com/knowledge-base/articles/how-to-create-a-booking-form-layout/?utm_source=jetengine&utm_medium=booking-form&utm_campaign=need-help';
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->start_controls_section(
 			'section_general',
@@ -169,6 +169,7 @@ class Jet_Engine_Check_Mark_Widget extends Widget_Base {
 				'type' => Controls_Manager::COLOR,
 				'selectors' => array(
 					$this->css_selector( '--default' ) => 'color: {{VALUE}};',
+					$this->css_selector( '--default :is(svg, path)' ) => 'fill: {{VALUE}};',
 				),
 			)
 		);

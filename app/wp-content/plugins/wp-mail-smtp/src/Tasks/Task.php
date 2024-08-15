@@ -87,6 +87,15 @@ class Task {
 	private $interval;
 
 	/**
+	 * Whether this task is unique.
+	 *
+	 * @since 4.0.0
+	 *
+	 * @var bool
+	 */
+	private $unique = false;
+
+	/**
 	 * Task constructor.
 	 *
 	 * @since 2.1.0
@@ -160,6 +169,20 @@ class Task {
 	}
 
 	/**
+	 * Set this task as unique.
+	 *
+	 * @since 4.0.0
+	 *
+	 * @return Task
+	 */
+	public function unique() {
+
+		$this->unique = true;
+
+		return $this;
+	}
+
+	/**
 	 * Pass any number of params that should be saved to Meta table.
 	 *
 	 * @since 2.1.0
@@ -191,22 +214,24 @@ class Task {
 		}
 
 		// Save data to tasks meta table.
-		$task_meta = new Meta();
+		if ( ! is_null( $this->params ) ) {
+			$task_meta = new Meta();
 
-		// No processing if meta table was not created on multisite subsite.
-		if ( is_multisite() && ! $task_meta->table_exists() ) {
-			return $action_id;
-		}
+			// No processing if meta table was not created.
+			if ( ! $task_meta->table_exists() ) {
+				return $action_id;
+			}
 
-		$this->meta_id = $task_meta->add(
-			[
-				'action' => $this->action,
-				'data'   => isset( $this->params ) ? $this->params : [],
-			]
-		);
+			$this->meta_id = $task_meta->add(
+				[
+					'action' => $this->action,
+					'data'   => isset( $this->params ) ? $this->params : [],
+				]
+			);
 
-		if ( empty( $this->meta_id ) ) {
-			return $action_id;
+			if ( empty( $this->meta_id ) ) {
+				return $action_id;
+			}
 		}
 
 		// Prevent 500 errors when Action Scheduler tables don't exist.
@@ -247,7 +272,8 @@ class Task {
 		return as_enqueue_async_action(
 			$this->action,
 			[ $this->meta_id ],
-			Tasks::GROUP
+			Tasks::GROUP,
+			$this->unique
 		);
 	}
 
@@ -269,7 +295,8 @@ class Task {
 			$this->interval,
 			$this->action,
 			[ $this->meta_id ],
-			Tasks::GROUP
+			Tasks::GROUP,
+			$this->unique
 		);
 	}
 
@@ -290,7 +317,8 @@ class Task {
 			$this->timestamp,
 			$this->action,
 			[ $this->meta_id ],
-			Tasks::GROUP
+			Tasks::GROUP,
+			$this->unique
 		);
 	}
 
@@ -313,5 +341,39 @@ class Task {
 		as_unschedule_all_actions( $this->action );
 
 		return true;
+	}
+
+	/**
+	 * Cancel all occurrences of this task,
+	 * preventing it from re-registering itself.
+	 *
+	 * @since 4.0.0
+	 */
+	public function cancel_force() { // phpcs:ignore WPForms.PHP.HooksMethod.InvalidPlaceForAddingHooks
+
+		add_action( 'shutdown', [ $this, 'cancel' ], PHP_INT_MAX );
+	}
+
+	/**
+	 * Remove completed occurrences of this task.
+	 *
+	 * @since 4.1.0
+	 *
+	 * @param int $limit The amount of rows to remove.
+	 */
+	protected function remove_completed( $limit = 0 ) {
+
+		global $wpdb;
+
+		$limit = max( 0, intval( $limit ) );
+		$query = 'DELETE FROM ' . $wpdb->prefix . 'actionscheduler_actions WHERE hook = "' . $this->action . '" AND status = "complete"';
+
+		if ( $limit > 0 ) {
+			$query .= " LIMIT {$limit}";
+		}
+
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
+		$wpdb->query( $query );
+		// phpcs:enable WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared
 	}
 }

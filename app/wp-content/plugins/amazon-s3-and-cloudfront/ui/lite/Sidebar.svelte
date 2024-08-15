@@ -22,15 +22,4 @@
 		<a href={$urls.sidebar_discount} class="button btn-lg btn-primary">Get the discount</a>
 		<p class="discount-applied">* Discount applied automatically.</p>
 	</div>
-	<div class="credits">
-		<h4>Created and maintained by</h4>
-		<ul>
-			<li>
-				<a href={$urls.sidebar_dbi}>
-					<img src={$urls.assets + "img/sidebar/logo-dbi.svg"} alt="Delicious Brains Inc. Logo">
-					<span>Delicious Brains</span>
-				</a>
-			</li>
-		</ul>
-	</div>
 </div>

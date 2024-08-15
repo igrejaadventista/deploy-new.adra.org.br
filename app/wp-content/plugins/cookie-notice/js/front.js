@@ -94,7 +94,7 @@
 			var laterDate = new Date();
 
 			// remove listening to scroll event
-			if ( cnArgs.onScroll === '1' )
+			if ( cnArgs.onScroll )
 				window.removeEventListener( 'scroll', this.handleScroll );
 
 			// set cookie type and expiry time in seconds
@@ -106,7 +106,7 @@
 				laterDate.setTime( parseInt( date.getTime() ) + parseInt( cnArgs.cookieTimeRejected ) * 1000 );
 			}
 
-			if ( cnArgs.globalCookie === '1' )
+			if ( cnArgs.globalCookie )
 				cookieDomain = this.getDomain( document.location.hostname );
 
 			// get domain path in localhost
@@ -157,12 +157,12 @@
 			}
 
 			// redirect?
-			if ( cnArgs.redirection === '1' && ( ( cookieValue === 'true' && this.cookiesAccepted === null ) || ( cookieValue !== this.cookiesAccepted && this.cookiesAccepted !== null ) ) ) {
+			if ( cnArgs.redirection && ( ( cookieValue === 'true' && this.cookiesAccepted === null ) || ( cookieValue !== this.cookiesAccepted && this.cookiesAccepted !== null ) ) ) {
 				var url = window.location.protocol + '//',
 					hostname = window.location.host + '/' + window.location.pathname;
 
-				// enabled cache?
-				if ( cnArgs.cache === '1' ) {
+				// is cache enabled?
+				if ( cnArgs.cache ) {
 					url = url + hostname.replace( '//', '/' ) + ( window.location.search === '' ? '?' : window.location.search + '&' ) + 'cn-reloaded=1' + window.location.hash;
 
 					window.location.href = url;
@@ -416,13 +416,13 @@
 			// check cookies status
 			if ( this.cookiesAccepted === null ) {
 				// handle on scroll
-				if ( cnArgs.onScroll === '1' )
+				if ( cnArgs.onScroll )
 					window.addEventListener( 'scroll', function ( e ) {
 						_this.handleScroll();
 					} );
 
 				// handle on click
-				if ( cnArgs.onClick === '1' )
+				if ( cnArgs.onClick )
 					window.addEventListener( 'click', function ( e ) {
 						var outerContainer = _this.getClosest( e.target, '#cookie-notice' );
 
@@ -439,7 +439,7 @@
 				this.setBodyClass( [ 'cookies-set', this.cookiesAccepted === true ? 'cookies-accepted' : 'cookies-refused' ] );
 
 				// show revoke notice if enabled
-				if ( cnArgs.revokeCookies === '1' && cnArgs.revokeCookiesOpt === 'automatic' )
+				if ( cnArgs.revokeCookies && cnArgs.revokeCookiesOpt === 'automatic' )
 					this.showRevokeNotice();
 			}
 

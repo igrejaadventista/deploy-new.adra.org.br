@@ -6,6 +6,7 @@ use Jet_Engine\Query_Builder\Manager;
 class Users_Query extends Base_Query {
 
 	use Traits\Meta_Query_Trait;
+	use Traits\Date_Query_Trait;
 
 	public $current_wp_query = null;
 
@@ -33,10 +34,23 @@ class Users_Query extends Base_Query {
 			return $this->current_wp_query;
 		}
 
+		if ( null === $this->final_query ) {
+			$this->setup_query();
+		}
+
 		$args = $this->final_query;
+
+		// Prevent php error if `paged` argument is empty string.
+		if ( empty( $args['paged'] ) ) {
+			unset( $args['paged'] );
+		}
 
 		if ( ! empty( $args['meta_query'] ) ) {
 			$args['meta_query'] = $this->prepare_meta_query_args( $args );
+		}
+
+		if ( ! empty( $args['date_query'] ) ) {
+			$args['date_query'] = $this->prepare_date_query_args( $args );
 		}
 
 		$this->current_wp_query = new \WP_User_Query( $args );
@@ -148,10 +162,58 @@ class Users_Query extends Base_Query {
 				$this->replace_meta_query_row( $value );
 				break;
 
+			case 's':
+				$this->final_query['search'] = '*' . $value . '*';
+				$this->final_query['search_columns'] = array( 'user_login', 'user_nicename', 'user_email' );
+				break;
+
 			default:
-				$this->final_query[ $prop ] = $value;
+				$this->merge_default_props( $prop, $value );
 				break;
 		}
+
+	}
+
+	/**
+	 * Adds date range query arguments to given query parameters.
+	 * Required to allow ech query to ensure compatibility with Dynamic Calendar
+	 * 
+	 * @param array $args [description]
+	 */
+	public function add_date_range_args( $args = array(), $dates_range = array(), $settings = array() ) {
+
+		$group_by = $settings['group_by'];
+
+		switch ( $group_by ) {
+
+			case 'item_date':
+
+				if ( isset( $args['date_query'] ) ) {
+					$date_query = $args['date_query'];
+				} else {
+					$date_query = array();
+				}
+
+				$date_query = array_merge( $date_query, array(
+					array(
+						'column'    => 'user_registered',
+						'after'     => date( 'Y-m-d', $dates_range['start'] ),
+						'before'    => date( 'Y-m-d', $dates_range['end'] ),
+						'inclusive' => true,
+					),
+				) );
+
+				$args['date_query'] = $date_query;
+
+				break;
+
+			case 'meta_date':
+				$args['meta_query'] = $this->get_dates_range_meta_query( $args, $dates_range, $settings );
+				break;
+
+		}
+
+		return $args;
 
 	}
 

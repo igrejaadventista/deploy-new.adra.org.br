@@ -42,6 +42,10 @@ if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Page_List' ) ) {
 			?></a>
 			<?php
 
+			jet_engine()->get_video_help_popup( array(
+				'popup_title' => __( 'JetEngine meta fields overview', 'jet-engine' ),
+				'embed' => 'https://www.youtube.com/embed/pxV1f4xCw4w',
+			) )->wp_page_popup();
 		}
 
 		/**

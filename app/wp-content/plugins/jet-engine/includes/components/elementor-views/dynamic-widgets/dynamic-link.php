@@ -5,7 +5,13 @@ use Elementor\Group_Control_Typography;
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
+if ( ! trait_exists( '\Jet_Engine_Get_Data_Sources_Trait' ) ) {
+	require_once jet_engine()->plugin_path( 'includes/traits/get-data-sources.php' );
+}
+
+class Jet_Listing_Dynamic_Link_Widget extends \Jet_Listing_Dynamic_Widget {
+
+	use \Jet_Engine_Get_Data_Sources_Trait;
 
 	public function get_name() {
 		return 'jet-listing-dynamic-link';
@@ -27,7 +33,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 		return 'https://crocoblock.com/knowledge-base/articles/jetengine-dynamic-link-widget-overview/?utm_source=jetengine&utm_medium=dynamic-link&utm_campaign=need-help';
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->start_controls_section(
 			'section_general',
@@ -42,7 +48,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 			'dynamic_link_source',
 			array(
 				'label'   => __( 'Source', 'jet-engine' ),
-				'type'    => Controls_Manager::SELECT,
+				'type'    => 'jet-select2',
 				'default' => '_permalink',
 				'groups'  => $meta_fields,
 			)
@@ -57,7 +63,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 					'dynamic_link_option',
 					array(
 						'label'     => __( 'Option', 'jet-engine' ),
-						'type'      => Controls_Manager::SELECT,
+						'type'      => 'jet-select2',
 						'default'   => '',
 						'groups'    => $options_pages_select,
 						'condition' => array(
@@ -77,11 +83,12 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 		$this->add_control(
 			'dynamic_link_source_custom',
 			array(
-				'label'       => __( 'Custom meta field/repeater key', 'jet-engine' ),
+				'label'       => __( 'Custom field/repeater key/component control', 'jet-engine' ),
 				'type'        => Controls_Manager::TEXT,
 				'default'     => '',
 				'label_block' => true,
-				'description' => __( 'Note: this filed will override Meta Field value', 'jet-engine' ),
+				'description' => __( 'Note: this field will override Meta Field value', 'jet-engine' ),
+				'ai'          => [ 'active' => false ],
 				'condition'   => array(
 					'dynamic_link_source!' => 'delete_post_link',
 				),
@@ -109,7 +116,14 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 				'type'        => Controls_Manager::TEXT,
 				'default'     => '',
 				'label_block' => true,
-				'description' => __( 'If empty will redirect to home page', 'jet-engine' ),
+				'description' => __( 'If empty will redirect to home page. Use the %current_page_url% macro to redirect to the current page.', 'jet-engine' ),
+				'dynamic'     => array(
+					'active'     => true,
+					'categories' => array(
+						\Jet_Engine_Dynamic_Tags_Module::TEXT_CATEGORY,
+						\Jet_Engine_Dynamic_Tags_Module::JET_MACROS_CATEGORY,
+					),
+				),
 				'condition'   => array(
 					'dynamic_link_source' => 'delete_post_link',
 				),
@@ -197,6 +211,13 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 				'type'        => Controls_Manager::TEXT,
 				'default'     => '',
 				'description' => __( 'Add anchor to the URL. Without #.', 'jet-engine' ),
+				'dynamic'     => array(
+					'active' => true,
+					'categories' => array(
+						\Jet_Engine_Dynamic_Tags_Module::TEXT_CATEGORY,
+						\Jet_Engine_Dynamic_Tags_Module::JET_MACROS_CATEGORY,
+					),
+				),
 			)
 		);
 
@@ -226,24 +247,26 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 			);
 		}
 
-		$this->add_control(
-			'link_wrapper_tag',
-			array(
-				'label'   => __( 'HTML wrapper', 'jet-engine' ),
-				'type'    => Controls_Manager::SELECT,
-				'default' => 'div',
-				'options' => array(
-					'div'  => 'DIV',
-					'h1'   => 'H1',
-					'h2'   => 'H2',
-					'h3'   => 'H3',
-					'h4'   => 'H4',
-					'h5'   => 'H5',
-					'h6'   => 'H6',
-					'span' => 'SPAN',
-				),
-			)
-		);
+		if ( ! $this->prevent_wrap() ) {
+			$this->add_control(
+				'link_wrapper_tag',
+				array(
+					'label'   => __( 'HTML wrapper', 'jet-engine' ),
+					'type'    => Controls_Manager::SELECT,
+					'default' => 'div',
+					'options' => array(
+						'div'  => 'DIV',
+						'h1'   => 'H1',
+						'h2'   => 'H2',
+						'h3'   => 'H3',
+						'h4'   => 'H4',
+						'h5'   => 'H5',
+						'h6'   => 'H6',
+						'span' => 'SPAN',
+					),
+				)
+			);
+		}
 
 		$this->add_control(
 			'open_in_new',
@@ -263,21 +286,18 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 				'label'   => __( 'Add "rel" attr', 'jet-engine' ),
 				'type'    => Controls_Manager::SELECT,
 				'default' => '',
-				'options' => array(
-					''           => __( 'No', 'jet-engine' ),
-					'alternate'  => __( 'Alternate', 'jet-engine' ),
-					'author'     => __( 'Author', 'jet-engine' ),
-					'bookmark'   => __( 'Bookmark', 'jet-engine' ),
-					'external'   => __( 'External', 'jet-engine' ),
-					'help'       => __( 'Help', 'jet-engine' ),
-					'license'    => __( 'License', 'jet-engine' ),
-					'next'       => __( 'Next', 'jet-engine' ),
-					'nofollow'   => __( 'Nofollow', 'jet-engine' ),
-					'noreferrer' => __( 'Noreferrer', 'jet-engine' ),
-					'noopener'   => __( 'Noopener', 'jet-engine' ),
-					'prev'       => __( 'Prev', 'jet-engine' ),
-					'search'     => __( 'Search', 'jet-engine' ),
-					'tag'        => __( 'Tag', 'jet-engine' ),
+				'options' => \Jet_Engine_Tools::get_rel_attr_options(),
+			)
+		);
+
+		$this->add_control(
+			'aria_label_attr',
+			array(
+				'label'   => __( 'Aria label attr', 'jet-engine' ),
+				'type'    => Controls_Manager::TEXT,
+				'default' => '',
+				'dynamic' => array(
+					'active' => true
 				),
 			)
 		);
@@ -390,7 +410,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 				'type'   => Controls_Manager::COLOR,
 				'selectors' => array(
 					$this->css_selector( '__icon' ) => 'color: {{VALUE}}',
-					$this->css_selector( '__icon svg path' ) => 'fill: {{VALUE}}',
+					$this->css_selector( '__icon :is(svg, path)' ) => 'fill: {{VALUE}}',
 				),
 			)
 		);
@@ -430,7 +450,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 				'type'   => Controls_Manager::COLOR,
 				'selectors' => array(
 					$this->css_selector( '__link:hover .jet-listing-dynamic-link__icon' ) => 'color: {{VALUE}}',
-					$this->css_selector( '__link:hover .jet-listing-dynamic-link__icon svg path' ) => 'fill: {{VALUE}}',
+					$this->css_selector( '__link:hover .jet-listing-dynamic-link__icon :is(svg, path)' ) => 'fill: {{VALUE}}',
 				),
 			)
 		);
@@ -460,7 +480,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 			array(
 				'label'      => __( 'Padding', 'jet-engine' ),
 				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', '%', 'em' ),
+				'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 				'separator'  => 'before',
 				'selectors'  => array(
 					$this->css_selector( '__link' ) => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
@@ -473,7 +493,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 			array(
 				'label'      => __( 'Margin', 'jet-engine' ),
 				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', '%', 'em' ),
+				'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 				'selectors'  => array(
 					$this->css_selector( '__link' ) => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				),
@@ -495,7 +515,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 			array(
 				'label'      => __( 'Border Radius', 'jet-engine' ),
 				'type'       => Controls_Manager::DIMENSIONS,
-				'size_units' => array( 'px', '%' ),
+				'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 				'selectors'  => array(
 					$this->css_selector( '__link' ) => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 				),
@@ -510,14 +530,16 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 			)
 		);
 
+		$low_order = $this->prevent_wrap() ? -1 : 1;
+
 		$this->add_control(
 			'link_icon_position',
 			array(
 				'label'   => __( 'Icon Position', 'jet-engine' ),
 				'type'    => Controls_Manager::SELECT,
-				'default' => 1,
+				'default' => $low_order,
 				'options' => array(
-					1 => __( 'Before Label', 'jet-engine' ),
+					$low_order => __( 'Before Label', 'jet-engine' ),
 					3 => __( 'After Label', 'jet-engine' )
 				),
 				'selectors'  => array(
@@ -577,7 +599,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 					'body.rtl ' . $this->css_selector( '__icon' ) => 'margin-left: {{SIZE}}{{UNIT}};',
 				),
 				'condition' => array(
-					'link_icon_position' => array( '1', 1 ),
+					'link_icon_position' => array( $low_order, '' . $low_order ),
 					'link_icon_orientation!' => 'column',
 				),
 			)
@@ -600,7 +622,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 					'body.rtl ' . $this->css_selector( '__icon' ) => 'margin-right: {{SIZE}}{{UNIT}};',
 				),
 				'condition' => array(
-					'link_icon_position' => array( '3', 3 ),
+					'link_icon_position' => array( '2', 2, '3', 3 ),
 					'link_icon_orientation!' => 'column',
 				),
 			)
@@ -622,7 +644,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 					$this->css_selector( '__icon' ) => 'margin-bottom: {{SIZE}}{{UNIT}};',
 				),
 				'condition' => array(
-					'link_icon_position' => array( '1', 1 ),
+					'link_icon_position' => array( $low_order, '' . $low_order ),
 					'link_icon_orientation' => 'column',
 				),
 			)
@@ -644,7 +666,7 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 					$this->css_selector( '__icon' ) => 'margin-top: {{SIZE}}{{UNIT}};',
 				),
 				'condition' => array(
-					'link_icon_position' => array( '3', 3 ),
+					'link_icon_position' => array( '2', 2, '3', 3 ),
 					'link_icon_orientation' => 'column',
 				),
 			)
@@ -671,33 +693,29 @@ class Jet_Listing_Dynamic_Link_Widget extends Widget_Base {
 	 */
 	public function get_meta_fields_for_post_type() {
 
-		$default = array(
-			'label'   => __( 'General', 'jet-engine' ),
-			'options' => apply_filters( 'jet-engine/elementor-view/dynamic-link/generel-options', array(
-				'_permalink' => __( 'Permalink', 'jet-engine' ),
-				'delete_post_link' => __( 'Delete current post link', 'jet-engine' ),
-			) ),
+		$raw    = $this->get_dynamic_sources( 'plain' );
+		$result = [];
+
+		foreach ( $raw as $group ) {
+			$result[] = [
+				'label'   => $group['label'],
+				'options' => array_combine(
+					array_map( function( $item ) {
+						return $item['value'];
+					}, $group['values'] ),
+					array_map( function( $item ) {
+						return $item['label'];
+					}, $group['values'] )
+				),
+			];
+		}
+
+		$result[0]['options'] = apply_filters( 
+			'jet-engine/elementor-view/dynamic-link/generel-options',
+			$result[0]['options']
 		);
 
-		$result      = array();
-		$meta_fields = array();
-
-		if ( jet_engine()->options_pages ) {
-			$default['options']['options_page'] = __( 'Options', 'jet-engine' );
-		}
-
-		if ( jet_engine()->modules->is_module_active( 'profile-builder' ) ) {
-			$default['options']['profile_page'] = __( 'Profile Page', 'jet-engine' );
-		}
-
-		if ( jet_engine()->meta_boxes ) {
-			$meta_fields = jet_engine()->meta_boxes->get_fields_for_select( 'plain' );
-		}
-
-		return apply_filters(
-			'jet-engine/listings/dynamic-link/fields',
-			array_merge( array( $default ), $meta_fields )
-		);
+		return $result;
 
 	}
 

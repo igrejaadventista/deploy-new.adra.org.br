@@ -95,9 +95,17 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Link' ) ) {
 					'type'    => 'string',
 					'default' => '',
 				),
+				'aria_label_attr' => array(
+					'type'    => 'string',
+					'default' => '',
+				),
 				'hide_if_empty' => array(
 					'type'    => 'boolean',
 					'default' => false,
+				),
+				'object_context' => array(
+					'type' => 'string',
+					'default' => 'default_object',
 				),
 			) );
 		}
@@ -236,19 +244,19 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Link' ) ) {
 					'separator'    => 'before',
 					'options'     => array(
 						'flex-start'    => array(
-							'label' => esc_html__( 'Left', 'jet-engine' ),
+							'shortcut' => esc_html__( 'Left', 'jet-engine' ),
 							'icon'  => ! is_rtl() ? 'dashicons-editor-alignleft' : 'dashicons-editor-alignright',
 						),
 						'center' => array(
-							'label' => esc_html__( 'Center', 'jet-engine' ),
+							'shortcut' => esc_html__( 'Center', 'jet-engine' ),
 							'icon'  => 'dashicons-editor-aligncenter',
 						),
 						'flex-end' => array(
-							'label' => esc_html__( 'Right', 'jet-engine' ),
+							'shortcut' => esc_html__( 'Right', 'jet-engine' ),
 							'icon'  => ! is_rtl() ? 'dashicons-editor-alignright' : 'dashicons-editor-alignleft',
 						),
 						'stretch' => array(
-							'label' => esc_html__( 'Justify', 'jet-engine' ),
+							'shortcut' => esc_html__( 'Justify', 'jet-engine' ),
 							'icon'  => 'dashicons-editor-justify',
 						),
 					),
@@ -308,15 +316,17 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Link' ) ) {
 				)
 			);
 
+			$low_order = $this->prevent_wrap() ? -1 : 1;
+
 			$this->controls_manager->add_control(
 				array(
 					'id'        => 'link_icon_position',
 					'label'     => __( 'Icon Position', 'jet-engine' ),
 					'type'      => 'choose',
 					'separator' => 'before',
-					'default'   => 1,
+					'default'   => $low_order,
 					'options'   => array(
-						'1'    => array(
+						$low_order => array(
 							'label' => esc_html__( 'Before Label', 'jet-engine' ),
 							'icon'  => 'dashicons-editor-outdent',
 						),
@@ -368,71 +378,25 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Link' ) ) {
 
 			$this->controls_manager->add_responsive_control(
 				array(
-					'id'           => 'link_icon_gap_right',
+					'id'           => 'link_icon_gap',
 					'label'        => __( 'Icon Gap', 'jet-engine' ),
 					'type'         => 'range',
 					'separator'    => 'before',
 					'css_selector' => array(
-						'body:not(.rtl) ' . $this->css_selector( ' .jet-listing-dynamic-link__icon' ) => 'margin-right: {{VALUE}}px;',
-						'body.rtl ' . $this->css_selector( ' .jet-listing-dynamic-link__icon' ) => 'margin-left: {{VALUE}}px;',
-					),
-					'condition' => array(
-						'link_icon_position'    => array( '1', 1 ),
-						'link_icon_orientation' => 'row',
-					),
-				)
-			);
-
-			$this->controls_manager->add_responsive_control(
-				array(
-					'id'           => 'link_icon_gap_left',
-					'label'        => __( 'Icon Gap', 'jet-engine' ),
-					'type'         => 'range',
-					'separator'    => 'before',
-					'css_selector' => array(
-						'body:not(.rtl) ' . $this->css_selector( ' .jet-listing-dynamic-link__icon' ) => 'margin-left: {{VALUE}}px;',
-						'body.rtl ' . $this->css_selector( ' .jet-listing-dynamic-link__icon' ) => 'margin-right: {{VALUE}}px;',
-					),
-					'condition' => array(
-						'link_icon_position'    => array( '3', 3 ),
-						'link_icon_orientation' => 'row',
-					),
-				)
-			);
-
-			$this->controls_manager->add_responsive_control(
-				array(
-					'id'           => 'link_icon_gap_left',
-					'label'        => __( 'Icon Gap', 'jet-engine' ),
-					'type'         => 'range',
-					'separator'    => 'before',
-					'css_selector' => array(
-						$this->css_selector( ' .jet-listing-dynamic-link__icon' ) => 'margin-bottom: {{VALUE}}px;',
-					),
-					'condition' => array(
-						'link_icon_position'    => array( '1', 1 ),
-						'link_icon_orientation' => 'column',
-					),
-				)
-			);
-
-			$this->controls_manager->add_responsive_control(
-				array(
-					'id'           => 'link_icon_gap_bottom',
-					'label'        => __( 'Icon Gap', 'jet-engine' ),
-					'type'         => 'range',
-					'separator'    => 'before',
-					'css_selector' => array(
-						$this->css_selector( ' .jet-listing-dynamic-link__icon' ) => 'margin-top: {{VALUE}}px;',
-					),
-					'condition' => array(
-						'link_icon_position' => array( '3', 3 ),
-						'link_icon_orientation' => 'column',
+						$this->css_selector( ' .jet-listing-dynamic-link__link' ) => 'gap: {{VALUE}}px;',
 					),
 				)
 			);
 
 			$this->controls_manager->end_section();
+
+			do_action( 'jet-engine/blocks-views/dynamic-link/style-controls', $this->controls_manager, $this );
+
+		}
+
+		public function render_callback( $attributes = array() ) {
+			$this->_root['class'][] = 'jet-listing-dynamic-link-block';
+			return parent::render_callback( $attributes, false );
 		}
 
 	}

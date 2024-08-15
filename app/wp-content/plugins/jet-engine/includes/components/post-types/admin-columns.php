@@ -13,6 +13,12 @@ if ( ! class_exists( 'Jet_Engine_CPT_Admin_Columns' ) ) {
 	class Jet_Engine_CPT_Admin_Columns {
 
 		/**
+		 * Post type slug
+		 * @var string
+		 */
+		public $post_type = null;
+
+		/**
 		 * Registered admin columns
 		 * @var array
 		 */
@@ -38,6 +44,7 @@ if ( ! class_exists( 'Jet_Engine_CPT_Admin_Columns' ) ) {
 		 */
 		public function __construct( $post_type, $columns ) {
 
+			$this->post_type     = $post_type;
 			$this->admin_columns = $columns;
 
 			add_filter( 'manage_' . $post_type . '_posts_columns', array( $this, 'edit_columns' ) );
@@ -134,9 +141,15 @@ if ( ! class_exists( 'Jet_Engine_CPT_Admin_Columns' ) ) {
 		 */
 		public function sort_columns( $query ) {
 
+			$post_type = $query->get( 'post_type' );
+
+			if ( ! is_string( $post_type ) || $post_type !== $this->post_type ) {
+				return;
+			}
+
 			$orderby = $query->get( 'orderby' );
 
-			if ( ! empty( $this->sortable_columns[ $orderby ] ) ) {
+			if ( is_string( $orderby ) && ! empty( $this->sortable_columns[ $orderby ] ) ) {
 
 				$column = $this->sortable_columns[ $orderby ];
 
@@ -220,7 +233,7 @@ if ( ! class_exists( 'Jet_Engine_CPT_Admin_Columns' ) ) {
 
 					if ( $column_data['taxonomy'] ) {
 
-						$terms     = wp_get_post_terms( $post_id, $column_data['taxonomy'] );
+						$terms     = wp_get_post_terms( $post_id, $column_data['taxonomy'], array( 'orderby' => 'parent' ) );
 						$terms_str = array();
 
 						if ( $terms && ! is_wp_error( $terms ) ) {
@@ -270,8 +283,8 @@ if ( ! class_exists( 'Jet_Engine_CPT_Admin_Columns' ) ) {
 
 			}
 
-			$prefix = isset( $column_data['prefix'] ) ? $column_data['prefix'] : '';
-			$suffix = isset( $column_data['suffix'] ) ? $column_data['suffix'] : '';
+			$prefix = isset( $column_data['prefix'] ) ? do_shortcode( $column_data['prefix'] ) : '';
+			$suffix = isset( $column_data['suffix'] ) ? do_shortcode( $column_data['suffix'] ) : '';
 
 			if ( $result ) {
 				echo $prefix . $result . $suffix;

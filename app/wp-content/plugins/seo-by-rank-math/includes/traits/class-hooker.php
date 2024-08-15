@@ -76,6 +76,8 @@ trait Hooker {
 
 	/**
 	 * Do action with league as prefix
+	 *
+	 * @param array ...$args Action args.
 	 */
 	protected function do_action( ...$args ) {
 		if ( empty( $args[0] ) ) {
@@ -90,6 +92,8 @@ trait Hooker {
 
 	/**
 	 * Do filter with league as prefix
+	 *
+	 * @param array ...$args Action args.
 	 */
 	protected function do_filter( ...$args ) {
 		if ( empty( $args[0] ) ) {
@@ -112,7 +116,7 @@ trait Hooker {
 		if ( empty( $config ) ) {
 			return;
 		}
-		
+
 		foreach ( $config as $key => $value ) {
 			$this->$key = $value;
 		}

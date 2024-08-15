@@ -12,11 +12,11 @@
 
 namespace RankMath\Admin;
 
+use RankMath\KB;
 use RankMath\Helper;
 use RankMath\Data_Encryption;
 use RankMath\Helpers\Security;
-use MyThemeShop\Helpers\Param;
-use MyThemeShop\Helpers\WordPress;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -38,7 +38,7 @@ class Admin_Helper {
 			];
 		}
 
-		$wp_filesystem = WordPress::get_filesystem();
+		$wp_filesystem = Helper::get_filesystem();
 		if ( empty( $wp_filesystem ) ) {
 			return;
 		}
@@ -125,8 +125,12 @@ class Admin_Helper {
 				}
 			}
 
+			Helper::remove_notification( 'rank-math-site-url-mismatch' );
 			update_option( 'rank_math_registration_skip', 1 );
-			return update_option( $row, $data );
+			$connected = update_option( $row, $data );
+
+			do_action( 'rank_math/connect/account_connected', $data );
+			return $connected;
 		}
 
 		// Getter.
@@ -141,7 +145,71 @@ class Admin_Helper {
 			}
 		}
 
+		if ( ! self::is_valid_registration( $options ) ) {
+			// Delete invalid registration data.
+			delete_option( $row );
+
+			// Ask the user to reconnect.
+			Helper::add_notification(
+				__( 'Unable to validate Rank Math SEO registration data.', 'rank-math' ) .
+				' <a href="' . esc_url( self::get_activate_url() ) . '">' . __( 'Please try reconnecting.', 'rank-math' ) . '</a> ' .
+				sprintf(
+					/* translators: KB Link */
+					__( 'If the issue persists, please try the solution described in our Knowledge Base article: %s', 'rank-math' ),
+					'<a href="' . KB::get( 'unable-to-encrypt', 'Registration Data' ) . '" target="_blank">' . __( '[3. Unable to Encrypt]', 'rank-math' ) . '</a>'
+				),
+				[ 'type' => 'error' ]
+			);
+
+			return false;
+		}
+
+		/**
+		 * Filter whether we need to check for URL mismatch or not.
+		 */
+		$do_url_check = apply_filters( 'rank_math/registration/do_url_check', ! get_option( 'rank_math_siteurl_mismatch_notice_dismissed' ) );
+		if ( $do_url_check && isset( $options['site_url'] ) && Helper::get_home_url() !== $options['site_url'] ) {
+			$message = esc_html__( 'Seems like your site URL has changed since you connected to Rank Math.', 'rank-math' ) . ' <a href="' . self::get_activate_url() . '">' . esc_html__( 'Click here to reconnect.', 'rank-math' ) . '</a>';
+			Helper::add_notification(
+				$message,
+				[
+					'type' => 'warning',
+					'id'   => 'rank-math-site-url-mismatch',
+				]
+			);
+		}
+
+		/**
+		 * Ensure the site_url is returned if it is absent, as it is required for the Content AI.
+		 */
+		if ( empty( $options['site_url'] ) ) {
+			$options['site_url'] = Helper::get_home_url();
+		}
+
 		return $options;
+	}
+
+	/**
+	 * Check if registration data is valid.
+	 *
+	 * @param array $data Registration data.
+	 *
+	 * @return bool
+	 */
+	public static function is_valid_registration( $data ) {
+		if ( empty( $data['username'] ) || empty( $data['email'] ) || empty( $data['api_key'] ) || empty( $data['plan'] ) ) {
+			return false;
+		}
+
+		if ( ! filter_var( $data['email'], FILTER_VALIDATE_EMAIL ) ) {
+			return false;
+		}
+
+		if ( strlen( $data['plan'] ) > 32 ) { // This can happen when the decryption fails for some reason.
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
@@ -255,8 +323,8 @@ class Admin_Helper {
 			return;
 		}
 
-		$tw_link = 'https://s.rankmath.com/twitter';
-		$fb_link = rawurlencode( 'https://s.rankmath.com/suite-free' );
+		$tw_link = KB::get( 'logo', 'Setup Wizard Tweet Button' );
+		$fb_link = rawurlencode( KB::get( 'logo', 'Facebook' ) );
 		/* translators: sitename */
 		$tw_message = rawurlencode( sprintf( esc_html__( 'I just installed @RankMathSEO #WordPress Plugin. It looks great! %s', 'rank-math' ), $tw_link ) );
 		/* translators: sitename */
@@ -280,10 +348,10 @@ class Admin_Helper {
 		);
 		?>
 		<span class="wizard-share">
-			<a href="#" onclick="window.open('<?php echo $tweet_url; ?>', 'sharewindow', 'resizable,width=600,height=300'); return false;" class="share-twitter">
+			<a href="#" onclick="window.open('<?php echo esc_url( $tweet_url ); ?>', 'sharewindow', 'resizable,width=600,height=300'); return false;" class="share-twitter">
 				<span class="dashicons dashicons-twitter"></span> <?php esc_html_e( 'Tweet', 'rank-math' ); ?>
 			</a>
-			<a href="#" onclick="window.open('<?php echo $fb_share_url; ?>', 'sharewindow', 'resizable,width=600,height=300'); return false;" class="share-facebook">
+			<a href="#" onclick="window.open('<?php echo esc_url( $fb_share_url ); ?>', 'sharewindow', 'resizable,width=600,height=300'); return false;" class="share-facebook">
 				<span class="dashicons dashicons-facebook-alt"></span> <?php esc_html_e( 'Share', 'rank-math' ); ?>
 			</a>
 		</span>
@@ -323,7 +391,7 @@ class Admin_Helper {
 
 		return apply_filters(
 			'rank_math/license/activate_url',
-			Security::add_query_arg_raw( $args, 'https://rankmath.com/auth' ),
+			Security::add_query_arg_raw( $args, RANK_MATH_SITE_URL . '/auth' ),
 			$args
 		);
 	}
@@ -366,5 +434,35 @@ class Admin_Helper {
 	 */
 	public static function get_trends_icon_svg() {
 		return '<svg viewBox="0 0 610 610"><path d="M18.85,446,174.32,290.48l58.08,58.08L76.93,504a14.54,14.54,0,0,1-20.55,0L18.83,466.48a14.54,14.54,0,0,1,0-20.55Z" style="fill:#4285f4"/><path d="M242.65,242.66,377.59,377.6l-47.75,47.75a14.54,14.54,0,0,1-20.55,0L174.37,290.43l47.75-47.75A14.52,14.52,0,0,1,242.65,242.66Z" style="fill:#ea4335"/><polygon points="319.53 319.53 479.26 159.8 537.34 217.88 377.61 377.62 319.53 319.53" style="fill:#fabb05"/><path d="M594.26,262.73V118.61h0a16.94,16.94,0,0,0-16.94-16.94H433.2a16.94,16.94,0,0,0-12,28.92L565.34,274.71h0a16.94,16.94,0,0,0,28.92-12Z" style="fill:#34a853"/><rect width="610" height="610" style="fill:none"/></svg>';
+	}
+
+	/**
+	 * Check if siteurl & home options are both valid URLs.
+	 *
+	 * @return boolean
+	 */
+	public static function is_site_url_valid() {
+		return (bool) filter_var( get_option( 'siteurl' ), FILTER_VALIDATE_URL ) && (bool) filter_var( get_option( 'home' ), FILTER_VALIDATE_URL );
+	}
+
+	/**
+	 * Maybe show notice about invalid siteurl.
+	 */
+	public static function maybe_show_invalid_siteurl_notice() {
+		if ( ! self::is_site_url_valid() ) {
+			?>
+			<p class="notice notice-warning notice-alt notice-connect-disabled">
+				<?php
+				printf(
+					// Translators: 1 is "WordPress Address (URL)", 2 is "Site Address (URL)", 3 is a link to the General Settings, with "WordPress General Settings" as anchor text.
+					esc_html__( 'Rank Math cannot be connected because your site URL doesn\'t appear to be a valid URL. If the domain name contains special characters, please make sure to use the encoded version in the %1$s &amp; %2$s fields on the %3$s page.', 'rank-math' ),
+					'<strong>' . esc_html__( 'WordPress Address (URL)', 'rank-math' ) . '</strong>',
+					'<strong>' . esc_html__( 'Site Address (URL)', 'rank-math' ) . '</strong>',
+					'<a href="' . esc_url( admin_url( 'options-general.php' ) ) . '">' . esc_html__( 'WordPress General Settings', 'rank-math' ) . '</a>'
+				);
+				?>
+			</p>
+			<?php
+		}
 	}
 }

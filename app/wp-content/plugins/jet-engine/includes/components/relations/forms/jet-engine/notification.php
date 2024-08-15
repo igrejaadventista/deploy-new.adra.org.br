@@ -111,19 +111,21 @@ class Notification {
 	 */
 	public function handle_notification( $args, $notifications ) {
 
-		$config       = ! empty( $args['connect_rel'] ) ? $args['connect_rel'] : array();
-		$relation     = ! empty( $config['relation'] ) ? $config['relation'] : false;
-		$parent_field = ! empty( $config['parent_id'] ) ? $config['parent_id'] : false;
-		$parent_id    = ! empty( $notifications->data[ $parent_field ] ) ? $notifications->data[ $parent_field ] : false;
-		$child_field  = ! empty( $config['child_id'] ) ? $config['child_id'] : false;
-		$context      = ! empty( $config['context'] ) ? $config['context'] : 'child';
-		$child_id     = ! empty( $notifications->data[ $child_field ] ) ? $notifications->data[ $child_field ] : false;
+		$config           = ! empty( $args['connect_rel'] ) ? $args['connect_rel'] : array();
+		$relation         = ! empty( $config['relation'] ) ? $config['relation'] : false;
+		$parent_field     = ! empty( $config['parent_id'] ) ? $config['parent_id'] : false;
+		$parent_id        = ! empty( $notifications->data[ $parent_field ] ) ? $notifications->data[ $parent_field ] : false;
+		$child_field      = ! empty( $config['child_id'] ) ? $config['child_id'] : false;
+		$context          = ! empty( $config['context'] ) ? $config['context'] : 'child';
+		$store_items_type = ! empty( $config['store_items_type'] ) ? $config['store_items_type'] : 'replace';
+		$child_id         = ! empty( $notifications->data[ $child_field ] ) ? $notifications->data[ $child_field ] : false;
 
 		$res = Forms::instance()->update_related_items( array(
-			'relation'  => $relation,
-			'parent_id' => $parent_id,
-			'child_id'  => $child_id,
-			'context'   => $context,
+			'relation'         => $relation,
+			'parent_id'        => $parent_id,
+			'child_id'         => $child_id,
+			'context'          => $context,
+			'store_items_type' => $store_items_type,
 		) );
 
 		if ( is_wp_error( $res ) ) {

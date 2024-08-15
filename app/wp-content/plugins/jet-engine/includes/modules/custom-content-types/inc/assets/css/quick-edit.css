@@ -16,37 +16,86 @@ tbody tr.quick-edit-row:last-child td {
 	border-bottom: none;
 }
 
-tr.quick-edit-row td .cx-section__content {
+tr.quick-edit-row td .cx-settings__content {
 	display: flex;
 	flex-wrap: wrap;
 }
 
-tr.quick-edit-row td .cx-section__content .cx-control {
+tr.quick-edit-row td .cx-settings__content .cx-control {
 	display: inline-flex;
 	padding: 10px 10px 10px 0;
 	width: 25%;
 	min-width: 250px;
 	box-sizing: border-box;
-	justify-content: flex-between;
+	justify-content: space-between;
 }
 
-tr.quick-edit-row td .cx-section__content .cx-control select[multiple] {
+tr.quick-edit-row td .cx-settings__content .cx-control__required {
+	color: #e54343;
+}
+
+tr.quick-edit-row td .cx-settings__content .cx-control textarea {
+	width: 100%;
+}
+
+tr.quick-edit-row td .fields-count-1 .cx-settings__content .cx-control {
+	width: 100%;
+}
+
+tr.quick-edit-row td .fields-count-2 .cx-settings__content .cx-control {
+	width: 50%;
+}
+
+tr.quick-edit-row td .fields-count-3 .cx-settings__content .cx-control {
+	width: 33.3333%;
+}
+
+tr.quick-edit-row td .cx-settings__content .cx-control select[multiple] {
 	height: 120px;
 }
 
-tr.quick-edit-row td .cx-section__content .cx-control__info {
+tr.quick-edit-row td .cx-settings__content .cx-control__info {
 	flex: 0 0 110px;
 }
 
-tr.quick-edit-row td .cx-section__content .cx-ui-kit__description {
+tr.quick-edit-row td .cx-settings__content .cx-ui-kit__description {
 	font-size: 12px;
 	font-style: italic;
 	margin: -5px 0 0 0;
 	opacity: .7;
 }
 
-tr.quick-edit-row td .cx-section__content .cx-ui-kit__content {
+tr.quick-edit-row td .cx-settings__content .cx-ui-kit__content {
 	flex: 0 0 calc( 100% - 115px );
+}
+
+tr.quick-edit-row td form {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: center;
+}
+
+tr.quick-edit-row td .settings_top {
+	width: 100%;
+}
+
+tr.quick-edit-row td .settings_bottom .cx-settings__content {
+	gap: 10px;
+}
+
+tr.quick-edit-row td .settings_bottom .cx-control {
+	width: auto;
+	gap: 5px;
+	align-items: center;
+}
+
+tr.quick-edit-row td .settings_bottom .cx-control__info {
+	flex: 0 0;
+}
+
+tr.quick-edit-row td .settings_bottom .cx-control__content {
+	flex: 1 0;
 }
 
 tr.quick-edit-row div.notice.notice-error {
@@ -59,5 +108,10 @@ tr.quick-edit-row div.notice.notice-error p {
 
 tr.quick-edit-row .submit.inline-edit-save {
 	margin: 0;
-	padding: 15px 0 5px;
+	padding: 5px 0;
+	gap: 10px;
+}
+
+tr.quick-edit-row .inline-edit-save.submit .button {
+	margin: 0;
 }

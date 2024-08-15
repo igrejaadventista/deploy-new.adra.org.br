@@ -4,9 +4,12 @@ const {
 	ToggleControl,
 	PanelBody,
 	SelectControl,
-	ServerSideRender,
 	Disabled
 } = wp.components;
+
+const {
+	serverSideRender: ServerSideRender
+} = wp;
 
 const {
 	Fragment
@@ -91,7 +94,7 @@ const Edit = function( props ) {
 				}
 				<ToggleControl
 					label={ __( 'Add subpage slug to the first page URL' ) }
-					help={ __( 'By default subpage slug is not added to the URL of the first page of menu. If you enable this options subpage slug will be added to all menu page URLs includes first one' ) }
+					help={ __( 'By default, the subpage slug is not added to the URL of the menu\'s first page. If you enable this option subpage slug will be added to all menu page URLs, including the first one' ) }
 					checked={ attributes.add_main_slug }
 					onChange={ () => {
 						props.setAttributes({ add_main_slug: ! attributes.add_main_slug });
@@ -109,21 +112,21 @@ const Edit = function( props ) {
 				/>
 				<SelectControl
 					label={ __( 'Layout Tablet' ) }
-					value={ attributes.menu_layout }
+					value={ attributes.menu_layout_tablet }
 					options={ layoutOptions }
 					onChange={ newValue => {
 						setAttributes({
-							menu_layout: newValue,
+							menu_layout_tablet: newValue,
 						});
 					} }
 				/>
 				<SelectControl
 					label={ __( 'Layout Mobile' ) }
-					value={ attributes.menu_layout }
+					value={ attributes.menu_layout_mobile }
 					options={ layoutOptions }
 					onChange={ newValue => {
 						setAttributes({
-							menu_layout: newValue,
+							menu_layout_mobile: newValue,
 						});
 					} }
 				/>

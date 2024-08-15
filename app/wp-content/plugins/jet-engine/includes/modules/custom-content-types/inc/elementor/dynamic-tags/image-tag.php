@@ -27,7 +27,11 @@ class Image_Tag extends \Elementor\Core\DynamicTags\Data_Tag {
 		);
 	}
 
-	protected function _register_controls() {
+	public function is_settings_required() {
+		return true;
+	}
+
+	protected function register_controls() {
 
 		$groups = array();
 
@@ -56,6 +60,14 @@ class Image_Tag extends \Elementor\Core\DynamicTags\Data_Tag {
 			)
 		);
 
+		$this->add_control(
+			'fallback',
+			array(
+				'label' => __( 'Fallback', 'jet-engine' ),
+				'type'  => \Elementor\Controls_Manager::MEDIA,
+			)
+		);
+
 	}
 
 	/**
@@ -69,13 +81,16 @@ class Image_Tag extends \Elementor\Core\DynamicTags\Data_Tag {
 		$field = $this->get_settings( 'content_type_field' );
 
 		if ( empty( $field ) ) {
-			return;
+			return $this->get_settings( 'fallback' );
 		}
 
 		$img = jet_engine()->listings->data->get_prop( $field );
 
-		return \Jet_Engine_Tools::get_attachment_image_data_array( $img );
+		if ( ! empty( $img ) ) {
+			return \Jet_Engine_Tools::get_attachment_image_data_array( $img );
+		}
 
+		return $this->get_settings( 'fallback' );
 	}
 
 }

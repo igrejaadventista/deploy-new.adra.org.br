@@ -9,22 +9,19 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Block_Active_Tags' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Block_Active_Tags class
 	 */
 	class Jet_Smart_Filters_Block_Active_Tags extends Jet_Smart_Filters_Block_Base {
-
 		/**
 		 * Returns block name
-		 *
-		 * @return string
 		 */
 		public function get_name() {
+
 			return 'active-tags';
 		}
 
-		public function set_css_scheme(){
+		public function set_css_scheme() {
 			$this->css_scheme = apply_filters(
 				'jet-smart-filters/widgets/active-tags/css-scheme',
 				[
@@ -39,7 +36,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Active_Tags' ) ) {
 			);
 		}
 
-		public function add_style_manager_options(){
+		public function add_style_manager_options() {
 
 			$this->controls_manager->start_section(
 				'style_controls',
@@ -426,6 +423,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Active_Tags' ) ) {
 					'title' => esc_html__( 'Normal', 'jet-smart-filters' ),
 				]
 			);
+
 			$this->controls_manager->add_control([
 				'id'           => 'tag_clear_normal_color',
 				'type'         => 'color-picker',
@@ -434,6 +432,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Active_Tags' ) ) {
 					'{{WRAPPER}} ' . $this->css_scheme['tag'] . '--clear ' . $this->css_scheme['tag-value'] => 'color: {{VALUE}}',
 				),
 			]);
+
 			$this->controls_manager->add_control([
 				'id'           => 'tag_clear_normal_background_color',
 				'type'         => 'color-picker',
@@ -452,6 +451,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Active_Tags' ) ) {
 					'title' => esc_html__( 'Hover', 'jet-smart-filters' ),
 				]
 			);
+
 			$this->controls_manager->add_control([
 				'id'           => 'tag_clear_hover_color',
 				'type'         => 'color-picker',
@@ -460,6 +460,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Active_Tags' ) ) {
 					'{{WRAPPER}} ' . $this->css_scheme['tag'] . '--clear' . ':hover ' . $this->css_scheme['tag-value'] => 'color: {{VALUE}}',
 				),
 			]);
+
 			$this->controls_manager->add_control([
 				'id'           => 'tag_clear_hover_background_color',
 				'type'         => 'color-picker',
@@ -486,6 +487,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Active_Tags' ) ) {
 					'{{WRAPPER}} ' . $this->css_scheme[ 'tag-label' ] => 'font-family: {{FAMILY}}; font-weight: {{WEIGHT}}; text-transform: {{TRANSFORM}}; font-style: {{STYLE}}; text-decoration: {{DECORATION}}; line-height: {{LINEHEIGHT}}{{LH_UNIT}}; letter-spacing: {{LETTERSPACING}}{{LS_UNIT}}; font-size: {{SIZE}}{{S_UNIT}};',
 				],
 			]);
+
 			$this->controls_manager->start_tabs(
 				'style_controls',
 				[
@@ -780,8 +782,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Active_Tags' ) ) {
 
 		/**
 		 * Return callback
-		 *
-		 * @return html
 		 */
 		public function render_callback( $settings = array() ) {
 
@@ -791,22 +791,25 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Active_Tags' ) ) {
 				return $this->is_editor() ? __( 'Please select a provider', 'jet-smart-filters' ) : false;
 			}
 
-			$base_class  = 'jet-smart-filters-' . $this->get_name();
-			$provider    = $settings['content_provider'];
-			$query_id    = 'default';
-			$clear_item  = isset( $settings['clear_item'] ) ? filter_var( $settings['clear_item'], FILTER_VALIDATE_BOOLEAN ) : false;
-			$clear_label = ! empty( $settings['clear_item_label'] ) && $clear_item ? $settings['clear_item_label'] : false;
+			$base_class           = 'jet-smart-filters-' . $this->get_name();
+			$provider             = $settings['content_provider'];
+			$query_id             = ! empty( $settings['query_id'] ) ? $settings['query_id'] : 'default';
+			$additional_providers = jet_smart_filters()->utils->get_additional_providers( $settings );
+			$clear_item           = isset( $settings['clear_item'] ) ? filter_var( $settings['clear_item'], FILTER_VALIDATE_BOOLEAN ) : false;
+			$clear_label          = ! empty( $settings['clear_item_label'] ) && $clear_item ? $settings['clear_item_label'] : false;
 
 			ob_start();
 
 			printf(
-				'<div class="%1$s jet-active-tags" data-label="%5$s" data-clear-item-label="%6$s" data-content-provider="%2$s" data-apply-type="%3$s" data-query-id="%4$s">',
+				'<div class="%1$s jet-active-tags jet-filter" data-is-block="jet-smart-filters/%2$s" data-label="%3$s" data-clear-item-label="%4$s" data-content-provider="%5$s" data-apply-type="%6$s" data-query-id="%7$s">',
 				$base_class,
+				$this->get_name(),
+				$settings['tags_label'],
+				$clear_label ? $clear_label : false,
 				$provider,
 				$settings['apply_type'],
 				$query_id,
-				$settings['tags_label'],
-				$clear_label ? $clear_label : false
+				$additional_providers
 			);
 
 			if ( $this->is_editor() ) {
@@ -819,9 +822,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Active_Tags' ) ) {
 			$filter_layout = ob_get_clean();
 
 			return $filter_layout;
-
 		}
-
 	}
-
 }

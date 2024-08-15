@@ -49,7 +49,7 @@ class Render_Links {
 				'type'   => \Elementor\Controls_Manager::COLOR,
 				'selectors' => array(
 					$widget->css_selector( '__link.in-store .jet-listing-dynamic-link__icon' ) => 'color: {{VALUE}}',
-					$widget->css_selector( '__link.in-store .jet-listing-dynamic-link__icon svg path' ) => 'fill: {{VALUE}}',
+					$widget->css_selector( '__link.in-store .jet-listing-dynamic-link__icon :is(svg, path)' ) => 'fill: {{VALUE}}',
 				),
 			)
 		);

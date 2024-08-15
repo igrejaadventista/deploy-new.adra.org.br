@@ -60,7 +60,58 @@
 				editID: false,
 				nonce: JetEngineGlossariesConfig._nonce,
 				deleteID: false,
+				ordersAjaxRequest: null,
+
 			};
+		},
+		directives: { handle: window.VueSlicksort.HandleDirective },
+		components: {
+			'slick-list': window.VueSlicksort.SlickList,
+			'slick-item': window.VueSlicksort.SlickItem,
+		},
+		computed: {
+			itemsOrders: function() {
+				return this.items.map( function( item ) {
+					return item.id;
+				} );
+			}
+		},
+		watch: {
+			itemsOrders: function( value, oldValue ) {
+				var isEqual = value.length && oldValue.length && value.length === oldValue.length;
+
+				if ( isEqual ) {
+					isEqual = value.every( function( element, index ) {
+						return element === oldValue[index];
+					} );
+				}
+
+				if ( isEqual ) {
+					return;
+				}
+
+				var self = this;
+
+				this.ordersAjaxRequest = jQuery.ajax( {
+					url: window.ajaxurl,
+					type: 'POST',
+					dataType: 'json',
+					data: {
+						action: 'jet_engine_glossary_save_orders',
+						orders: value,
+						nonce: self.nonce,
+					},
+					beforeSend: function() {
+						if ( null !== self.ordersAjaxRequest ) {
+							self.ordersAjaxRequest.abort();
+						}
+					},
+				} ).done( function( response ) {
+					//console.log( response );
+				} ).fail( function( jqXHR, textStatus, errorThrown ) {
+
+				} );
+			}
 		},
 		methods: {
 			setEdit: function( itemID ) {
@@ -207,12 +258,24 @@
 				nonce: JetEngineGlossariesConfig._nonce,
 				saveLabel: JetEngineGlossariesConfig.save_label,
 				savingLabel: JetEngineGlossariesConfig.saving_label,
+				isConverting: false,
 			};
 		},
 		mounted: function() {
 			this.settings = this.value;
 		},
 		methods: {
+			isInvalidValue: function( value ) {
+				if ( ! value ) {
+					return false;
+				}
+
+				var validRegex = /^([a-z0-9_-]+)$/;
+				return ! validRegex.test( value );
+			},
+			getWarningIcon: function() {
+				return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" fill="#facc01" aria-hidden="true"><path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path></svg>';
+			},
 			isSaving: function() {
 				return this.saving;
 			},
@@ -327,6 +390,73 @@
 
 				} );
 
+			},
+
+			convertSource: function() {
+				var self = this;
+
+				self.isConverting = true;
+
+				jQuery.ajax( {
+					url: window.ajaxurl,
+					type: 'POST',
+					dataType: 'json',
+					data: {
+						action: 'jet_engine_glossary_get_fields_from_file',
+						nonce: self.nonce,
+						item: self.settings,
+					},
+				} ).done( function( response ) {
+
+					if ( ! response.success ) {
+
+						var errorMessage = response.data ? response.data.message : 'Unknown error. Please try again later or contact our support.';
+
+						self.$CXNotice.add( {
+							message: errorMessage,
+							type: 'error',
+							duration: 15000,
+						} );
+
+					} else {
+
+						if ( response.data && response.data.fields ) {
+
+							self.$set( self.settings, 'source', 'manual' );
+							self.$set( self.settings, 'fields', response.data.fields );
+
+							self.$emit( 'input', self.settings );
+
+							self.$CXNotice.add( {
+								message: response.data.message,
+								type: 'success',
+								duration: 7000,
+							} );
+
+						} else {
+
+							self.$CXNotice.add( {
+								message: 'Unknown error. Please try again later or contact our support.',
+								type: 'error',
+								duration: 15000,
+							} );
+
+						}
+					}
+
+					self.isConverting = false;
+
+				} ).fail( function( jqXHR, textStatus, errorThrown ) {
+
+					self.$CXNotice.add( {
+						message: errorThrown,
+						type: 'error',
+						duration: 15000,
+					} );
+
+					self.isConverting = false;
+
+				} );
 			}
 		}
 	} );

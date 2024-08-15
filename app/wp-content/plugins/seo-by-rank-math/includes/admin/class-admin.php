@@ -12,11 +12,11 @@ namespace RankMath\Admin;
 
 use RankMath\Runner;
 use RankMath\Helper;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Param;
+use RankMath\Admin\Admin_Helper;
 use RankMath\Traits\Ajax;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Param;
-use MyThemeShop\Helpers\Conditional;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -35,10 +35,15 @@ class Admin implements Runner {
 	public function hooks() {
 		$this->action( 'init', 'flush', 999 );
 		$this->filter( 'user_contactmethods', 'update_user_contactmethods' );
+		$this->action( 'admin_footer', 'convert_additional_profile_url_to_textarea' );
 		$this->action( 'save_post', 'canonical_check_notice' );
 		$this->action( 'cmb2_save_options-page_fields', 'update_is_configured_value', 10, 2 );
+		$this->filter( 'action_scheduler_pastdue_actions_check_pre', 'as_exclude_pastdue_actions' );
+		$this->action( 'rank_math/pro_badge', 'offer_icon' );
+		$this->filter( 'load_script_translation_file', 'load_script_translation_file', 10, 3 );
 
 		// AJAX.
+		$this->ajax( 'search_pages', 'search_pages' );
 		$this->ajax( 'is_keyword_new', 'is_keyword_new' );
 		$this->ajax( 'save_checklist_layout', 'save_checklist_layout' );
 		$this->ajax( 'deactivate_plugins', 'deactivate_plugins' );
@@ -52,6 +57,10 @@ class Admin implements Runner {
 			flush_rewrite_rules();
 			delete_option( 'rank_math_flush_rewrite' );
 		}
+
+		if ( 'rank-math' === Param::get( 'page' ) && get_option( 'rank_math_view_modules' ) ) {
+			delete_option( 'rank_math_view_modules' );
+		}
 	}
 
 	/**
@@ -64,8 +73,9 @@ class Admin implements Runner {
 	 * The following code is a derivative work of the code from the Yoast(https://github.com/Yoast/wordpress-seo/), which is licensed under GPL v3.
 	 */
 	public function update_user_contactmethods( $contactmethods ) {
-		$contactmethods['twitter']  = esc_html__( 'Twitter username (without @)', 'rank-math' );
-		$contactmethods['facebook'] = esc_html__( 'Facebook profile URL', 'rank-math' );
+		$contactmethods['twitter']                 = esc_html__( 'Twitter username (without @)', 'rank-math' );
+		$contactmethods['facebook']                = esc_html__( 'Facebook profile URL', 'rank-math' );
+		$contactmethods['additional_profile_urls'] = esc_html__( 'Additional profile URLs', 'rank-math' );
 
 		return $contactmethods;
 	}
@@ -87,7 +97,7 @@ class Admin implements Runner {
 	}
 
 	/**
-	 * Display dashabord tabs.
+	 * Display dashboard tabs.
 	 */
 	public function display_dashboard_nav() {
 		$nav_tabs = new Admin_Dashboard_Nav();
@@ -103,7 +113,7 @@ class Admin implements Runner {
 		$post_type  = get_post_type( $post_id );
 		$is_allowed = in_array( $post_type, Helper::get_allowed_post_types(), true );
 
-		if ( ! $is_allowed || Conditional::is_autosave() || Conditional::is_ajax() || isset( $_REQUEST['bulk_edit'] ) ) {
+		if ( ! $is_allowed || Helper::is_autosave() || Helper::is_ajax() || isset( $_REQUEST['bulk_edit'] ) ) {
 			return $post_id;
 		}
 
@@ -136,6 +146,39 @@ class Admin implements Runner {
 
 		update_user_meta( get_current_user_id(), 'rank_math_metabox_checklist_layout', $layout );
 		exit;
+	}
+
+	/**
+	 * Ajax handler to search pages based on the searched string. Used in the Local SEO Settings.
+	 */
+	public function search_pages() {
+		check_ajax_referer( 'rank-math-ajax-nonce', 'security' );
+		$this->has_cap_ajax( 'general' );
+
+		$term = Param::get( 'term' );
+		if ( empty( $term ) ) {
+			exit;
+		}
+
+		global $wpdb;
+		$pages = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT ID, post_title FROM {$wpdb->prefix}posts WHERE post_type = 'page' AND post_status = 'publish' AND post_title LIKE %s",
+				"%{$wpdb->esc_like( $term )}%"
+			),
+			ARRAY_A
+		);
+
+		$data = [];
+		foreach ( $pages as $page ) {
+			$data[] = [
+				'id'   => $page['ID'],
+				'text' => $page['post_title'],
+				'url'  => get_permalink( $page['ID'] ),
+			];
+		}
+
+		wp_send_json( [ 'results' => $data ] );
 	}
 
 	/**
@@ -283,8 +326,8 @@ class Admin implements Runner {
 			$output .= sprintf(
 				'<div class="suggestion-item">
 					<div class="suggestion-actions">
-						<span class="dashicons dashicons-clipboard suggestion-copy" title="%5$s" data-clipboard-text="%2$s"></span>
-						<span class="dashicons dashicons-admin-links suggestion-insert" title="%6$s" data-url="%2$s" data-text="%7$s"></span>
+						<button class="dashicons dashicons-clipboard suggestion-copy" title="%5$s" data-clipboard-text="%2$s"></button>
+						<button class="dashicons dashicons-admin-links suggestion-insert" title="%6$s" data-url="%2$s" data-text="%7$s"></button>
 					</div>
 					<span class="suggestion-title" data-fk=\'%1$s\'><a target="_blank" href="%2$s" title="%3$s">%4$s</a></span>
 				</div>',
@@ -333,5 +376,118 @@ class Admin implements Runner {
 
 		Importers\Detector::deactivate_all();
 		die( '1' );
+	}
+
+	/**
+	 * Action Scheduler: exclude our actions from the past-due checker.
+	 * Since this is a *_pre hook, it replaces the original checker.
+	 *
+	 * We first do the same check as what ActionScheduler_AdminView->check_pastdue_actions() does,
+	 * but then we also count how many of those past-due actions are ours.
+	 *
+	 * @param null $null Null value.
+	 */
+	public function as_exclude_pastdue_actions( $null ) {
+		$query_args = [
+			'date'     => as_get_datetime_object( time() - DAY_IN_SECONDS ),
+			'status'   => \ActionScheduler_Store::STATUS_PENDING,
+			'per_page' => 1,
+		];
+
+		$store               = \ActionScheduler_Store::instance();
+		$num_pastdue_actions = (int) $store->query_actions( $query_args, 'count' );
+
+		if ( 0 !== $num_pastdue_actions ) {
+			$query_args['group']    = 'rank-math';
+			$num_pastdue_rm_actions = (int) $store->query_actions( $query_args, 'count' );
+
+			$num_pastdue_actions -= $num_pastdue_rm_actions;
+		}
+
+		$threshold_seconds = (int) apply_filters( 'action_scheduler_pastdue_actions_seconds', DAY_IN_SECONDS );
+		$threshhold_min    = (int) apply_filters( 'action_scheduler_pastdue_actions_min', 1 );
+
+		$check = ( $num_pastdue_actions >= $threshhold_min );
+		return (bool) apply_filters( 'action_scheduler_pastdue_actions_check', $check, $num_pastdue_actions, $threshold_seconds, $threshhold_min );
+	}
+
+	/**
+	 * Check and print the Anniversary icon in the header of Rank Math's setting pages.
+	 */
+	public static function offer_icon() {
+		if ( ! current_user_can( 'manage_options' ) || defined( 'RANK_MATH_PRO_FILE' ) ) {
+			return;
+		}
+
+		// Holiday Season related variables.
+		$time                   = time();
+		$current_year           = 2022;
+		$anniversary_start_time = gmmktime( 17, 00, 00, 10, 30, $current_year ); // 30 Oct.
+		$anniversary_end_time   = gmmktime( 17, 00, 00, 11, 30, $current_year ); // 30 Nov.
+		$holiday_start_time     = gmmktime( 17, 00, 00, 12, 20, $current_year ); // 20 Dec.
+		$holiday_end_time       = gmmktime( 17, 00, 00, 01, 07, 2023 ); // 07 Jan.
+
+		if (
+			( $time > $anniversary_start_time && $time < $anniversary_end_time ) ||
+			( $time > $holiday_start_time && $time < $holiday_end_time )
+		) { ?>
+			<a href="https://rankmath.com/pricing/?utm_source=Plugin&utm_medium=Header+Offer+Icon&utm_campaign=WP" target="_blank" class="rank-math-tooltip bottom" style="margin-left:5px;">
+				🎉
+				<span><?php esc_attr_e( 'Exclusive Offer!', 'rank-math' ); ?></span>
+			</a>
+			<?php
+		}
+	}
+
+	/**
+	 * Code to convert Addiontal Profile URLs from input type text to textarea.
+	 */
+	public function convert_additional_profile_url_to_textarea() {
+		if ( ! Admin_Helper::is_user_edit() ) {
+			return;
+		}
+
+		$field_description = __( 'Additional Profiles to add in the <code>sameAs</code> Schema property.', 'rank-math' );
+		?>
+		<script type="text/javascript">
+			( function( $ ) {
+				$( function() {
+					const twitterWrapper = $( '.user-twitter-wrap' );
+					twitterWrapper.before( '<tr><th><h2 style="margin: 0;">Rank Math SEO</h2></th><td></td></tr>' );
+
+					const additionalProfileField = $( '#additional_profile_urls' );
+					if ( ! additionalProfileField.length ) {
+						return
+					}
+
+					var $txtarea = $( '<textarea />' );
+					$txtarea.attr( 'id', additionalProfileField[0].id );
+					$txtarea.attr( 'name', additionalProfileField[0].name );
+					$txtarea.attr( 'rows', 5 );
+					$txtarea.val( additionalProfileField[0].value.replaceAll( " ", "\n" ) );
+					additionalProfileField.replaceWith( $txtarea );
+
+					$( '<p class="description"><?php echo wp_kses_post( $field_description ); ?></p>' ).insertAfter( $txtarea );
+				} );
+			})(jQuery);
+		</script>
+		<?php
+	}
+
+	/**
+	 * Function to replace domain with seo-by-rank-math in translation file.
+	 *
+	 * @param string|false $file   Path to the translation file to load. False if there isn't one.
+	 * @param string       $handle Name of the script to register a translation domain to.
+	 * @param string       $domain The text domain.
+	 */
+	public function load_script_translation_file( $file, $handle, $domain ) {
+		if ( 'rank-math' !== $domain ) {
+			return $file;
+		}
+
+		$data                       = explode( '/', $file );
+		$data[ count( $data ) - 1 ] = preg_replace( '/rank-math/', 'seo-by-rank-math', $data[ count( $data ) - 1 ], 1 );
+		return implode( '/', $data );
 	}
 }

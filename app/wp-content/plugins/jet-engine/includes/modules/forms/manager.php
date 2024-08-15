@@ -13,6 +13,7 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms' ) ) {
 	/**
 	 * Define Jet_Engine_Booking_Forms class
 	 */
+	#[AllowDynamicProperties]
 	class Jet_Engine_Booking_Forms {
 
 		public $post_type = 'jet-engine-booking';
@@ -54,7 +55,8 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms' ) ) {
 			$this->handler = new Jet_Engine_Booking_Forms_Handler( $this );
 			$this->captcha = new Jet_Engine_Booking_Forms_Captcha();
 
-			add_action( 'elementor/widgets/widgets_registered', array( $this, 'register_widgets' ), 11 );
+			add_action( 'jet-engine/elementor-views/widgets/register', array( $this, 'register_widgets' ), 11, 2 );
+
 			add_action( 'wp_enqueue_scripts', array( $this, 'register_assets' ) );
 
 			/**
@@ -124,6 +126,8 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms' ) ) {
 
 				$instances = apply_filters( 'jet-engine/forms/options-generators', $instances, $this );
 
+				$this->generators = array();
+
 				foreach ( $instances as $instance ) {
 					$this->generators[ $instance->get_id() ] = $instance;
 				}
@@ -167,6 +171,7 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms' ) ) {
 			return array(
 				'ID',
 				'post_title',
+				'post_name',
 				'post_content',
 				'post_excerpt',
 				'post_date',
@@ -424,22 +429,29 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms' ) ) {
 		/**
 		 * Register plugin widgets
 		 *
-		 * @param  [type] $widgets_manager [description]
+		 * @param $widgets_manager
+		 * @param $elementor_views
 		 *
-		 * @return [type]                  [description]
+		 * @return void
 		 */
-		public function register_widgets( $widgets_manager ) {
+		public function register_widgets( $widgets_manager, $elementor_views ) {
 
-			$base = jet_engine()->modules->modules_path( 'forms/widgets/' );
+			$elementor_views->register_widget(
+				jet_engine()->modules->modules_path( 'forms/widgets/booking-form.php' ),
+				$widgets_manager,
+				'Elementor\Jet_Engine_Booking_Form_Widget'
+			);
 
-			foreach ( glob( $base . '*.php' ) as $file ) {
-				$slug = basename( $file, '.php' );
-				$this->register_widget( $file, $widgets_manager );
-			}
+			$elementor_views->register_widget(
+				jet_engine()->modules->modules_path( 'forms/widgets/check-mark.php' ),
+				$widgets_manager,
+				'Elementor\Jet_Engine_Check_Mark_Widget'
+			);
 
 		}
 
 		/**
+		 * !!! Deprecated
 		 * Register new widget
 		 *
 		 * @return void
@@ -454,7 +466,12 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms' ) ) {
 			require_once $file;
 
 			if ( class_exists( $class ) ) {
-				$widgets_manager->register_widget_type( new $class );
+
+				if ( method_exists( $widgets_manager, 'register' ) ) {
+					$widgets_manager->register( new $class );
+				} else {
+					$widgets_manager->register_widget_type( new $class );
+				}
 			}
 
 		}

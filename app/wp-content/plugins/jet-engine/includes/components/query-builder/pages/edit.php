@@ -59,6 +59,8 @@ class Edit extends \Jet_Engine_CPT_Page_Base {
 
 		$ui = new \CX_Vue_UI( $module_data );
 
+		\CX_Vue_UI::$templates_path = Manager::instance()->component_path( 'templates/admin/rewrite/' );
+
 		$ui->enqueue_assets();
 
 		wp_enqueue_script(
@@ -97,7 +99,34 @@ class Edit extends \Jet_Engine_CPT_Page_Base {
 			'jet-engine-query-dynamic-args',
 			'JetEngineQueryDynamicArgs',
 			array(
-				'macros_list' => $this->get_macros_for_editor(),
+				'macros_list'  => $this->get_macros_for_editor(),
+				'context_list' => jet_engine()->listings->allowed_context_list( 'blocks' ),
+			)
+		);
+
+		wp_enqueue_script(
+			'jet-engine-query-ai-popup',
+			Manager::instance()->component_url( 'assets/js/admin/ai-popup.js' ),
+			array( 'cx-vue-ui' ),
+			jet_engine()->get_version(),
+			true
+		);
+
+		wp_localize_script(
+			'jet-engine-query-ai-popup',
+			'JetEngineQueryAIPopup',
+			array(
+				'nonce'       => jet_engine()->ai->get_nonce(),
+				'action'      => jet_engine()->ai->get_action(),
+				'has_license' => ( false !== jet_engine()->ai->get_matched_license() ? true : false ),
+				'limit'       => jet_engine()->ai->get_ai_limit(),
+				'is_allowed'  => jet_engine()->ai->is_ai_allowed( 'sql' ),
+				'snippets'    => array(
+					__( 'Get users who published posts in last 2 weeks. Only unique users.', 'jet-engine' ),
+					__( 'Get users who have birthday on current month. Birthday is stored in the meta field with meta key \'birth_date\'. Return only future birthdays and all data from the users table.', 'jet-engine' ),
+					__( 'WooCoomerce. Select product categories with products in stock. Product stock status is stored in \'_stock_status\' meta field. Return only unique terms and all data from terms table.', 'jet-engine' ),
+					__( 'Select posts from \'post\' post type published on this week.', 'jet-engine' ),
+				),
 			)
 		);
 
@@ -141,9 +170,15 @@ class Edit extends \Jet_Engine_CPT_Page_Base {
 				'item_id'                 => $id,
 				'edit_button_label'       => $button_label,
 				'redirect'                => $redirect,
+				'rest_url'                => get_rest_url( null, '/' ),
 				'post_types'              => \Jet_Engine_Tools::get_post_types_for_js(),
 				'operators_list'          => \Jet_Engine_Tools::operators_list(),
 				'data_types'              => \Jet_Engine_Tools::data_types_list(),
+				'orderby_options'         => array(
+					'posts' => $this->manager->get_orderby_options( 'posts' ),
+					'users' => $this->manager->get_orderby_options( 'users' ),
+					'terms' => $this->manager->get_orderby_options( 'terms' ),
+				),
 				'help_links'              => array(
 					array(
 						'url'   => 'https://crocoblock.com/knowledge-base/article-category/jetengine-query-builder/?utm_source=jetengine&utm_medium=query-builder&utm_campaign=need-help',
@@ -158,35 +193,7 @@ class Edit extends \Jet_Engine_CPT_Page_Base {
 	}
 
 	public function get_macros_for_editor() {
-
-		$res = array();
-
-		foreach ( jet_engine()->listings->macros->get_all( false, true ) as $macros_id => $data ) {
-
-			$macros_data = array(
-				'id' => $macros_id,
-			);
-
-			if ( ! is_array( $data ) || empty( $data['label'] ) ) {
-				$macros_data['name'] = $macros_id;
-			} elseif ( ! empty( $data['label'] ) ) {
-				$macros_data['name'] = $data['label'];
-			}
-
-			if ( is_array( $data ) && ! empty( $data['args'] ) ) {
-				$macros_data['controls'] = $data['args'];
-			}
-
-			$res[] = $macros_data;
-
-		}
-
-		usort( $res, function ( $a, $b ) {
-			return strcmp( $a['name'], $b['name'] );
-		} );
-
-		return $res;
-
+		return jet_engine()->listings->macros->get_macros_for_js();
 	}
 
 	/**
@@ -208,6 +215,11 @@ class Edit extends \Jet_Engine_CPT_Page_Base {
 		include Manager::instance()->component_path( 'templates/admin/dynamic-args.php' );
 		$content = ob_get_clean();
 		printf( '<script type="text/x-template" id="jet-query-dynamic-args">%s</script>', $content );
+
+		ob_start();
+		include Manager::instance()->component_path( 'templates/admin/ai-popup.php' );
+		$content = ob_get_clean();
+		printf( '<script type="text/x-template" id="jet-query-ai-popup">%s</script>', $content );
 
 	}
 
