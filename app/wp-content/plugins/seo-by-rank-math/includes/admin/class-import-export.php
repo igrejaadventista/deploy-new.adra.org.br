@@ -14,8 +14,7 @@ use RankMath\Helper;
 use RankMath\Runner;
 use RankMath\Traits\Ajax;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Param;
-use MyThemeShop\Helpers\WordPress;
+use RankMath\Helpers\Param;
 use RankMath\Admin\Importers\Detector;
 
 defined( 'ABSPATH' ) || exit;
@@ -138,15 +137,23 @@ class Import_Export implements Runner {
 			return;
 		}
 
+		\RankMath\Tools\Update_Score::get()->enqueue();
+
 		wp_enqueue_script( 'rank-math-import-export', rank_math()->plugin_url() . 'assets/admin/js/import-export.js', [], rank_math()->version, true );
 		wp_enqueue_style( 'cmb2-styles' );
 		wp_enqueue_style( 'rank-math-common' );
 		wp_enqueue_style( 'rank-math-cmb2' );
 
-		Helper::add_json( 'importConfirm', esc_html__( 'Are you sure you want to import settings into Rank Math? Don\'t worry, your current configuration will be saved as a backup.', 'rank-math' ) );
+		Helper::add_json( 'importSettingsConfirm', esc_html__( 'Are you sure you want to import settings into Rank Math? Don\'t worry, your current configuration will be saved as a backup.', 'rank-math' ) );
+
+		// Translators: %s is the plugin name.
+		Helper::add_json( 'importPluginConfirm', esc_html__( 'Are you sure you want to import data from %s?', 'rank-math' ) );
+		Helper::add_json( 'importPluginSelectAction', esc_html__( 'Select data to import.', 'rank-math' ) );
 		Helper::add_json( 'restoreConfirm', esc_html__( 'Are you sure you want to restore this backup? Your current configuration will be overwritten.', 'rank-math' ) );
 		Helper::add_json( 'deleteBackupConfirm', esc_html__( 'Are you sure you want to delete this backup?', 'rank-math' ) );
-		Helper::add_json( 'cleanPluginConfirm', esc_html__( 'Are you sure you want erase all traces of this plugin?', 'rank-math' ) );
+
+		// Translators: %s is the plugin name.
+		Helper::add_json( 'cleanPluginConfirm', esc_html__( 'Are you sure you want erase all traces of %s?', 'rank-math' ) );
 	}
 
 	/**
@@ -283,7 +290,7 @@ class Import_Export implements Runner {
 	 * @return mixed
 	 */
 	public function run_backup( $action = 'add', $key = null ) {
-		$backups = get_option( 'rank_math_backups', [] );
+		$backups = $this->get_backups();
 
 		// Restore.
 		if ( 'restore' === $action ) {
@@ -340,7 +347,7 @@ class Import_Export implements Runner {
 		}
 
 		// Parse Options.
-		$wp_filesystem = WordPress::get_filesystem();
+		$wp_filesystem = Helper::get_filesystem();
 		if ( is_null( $wp_filesystem ) || ! Helper::is_filesystem_direct() ) {
 			Helper::add_notification( esc_html__( 'Uploaded file could not be read.', 'rank-math' ), [ 'type' => 'error' ] );
 			return false;
@@ -598,7 +605,21 @@ class Import_Export implements Runner {
 	 * @return bool
 	 */
 	private function is_action_allowed( $perform ) {
-		$allowed = [ 'settings', 'postmeta', 'termmeta', 'usermeta', 'redirections', 'blocks', 'deactivate', 'locations', 'news', 'video' ];
+		$allowed = [ 'settings', 'postmeta', 'termmeta', 'usermeta', 'redirections', 'blocks', 'deactivate', 'locations', 'news', 'video', 'recalculate' ];
 		return $perform && in_array( $perform, $allowed, true );
+	}
+
+	/**
+	 * Get backups from the database.
+	 */
+	public function get_backups() {
+		$backups = get_option( 'rank_math_backups', [] );
+		if ( empty( $backups ) ) {
+			$backups = [];
+		} elseif ( ! is_array( $backups ) ) {
+			$backups = (array) $backups;
+		}
+
+		return $backups;
 	}
 }

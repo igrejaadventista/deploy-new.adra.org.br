@@ -31,6 +31,76 @@ if ( ! class_exists( 'Jet_Engine_Skins_Export' ) ) {
 		}
 
 		/**
+		 * Returns export configs.
+		 *
+		 * @return mixed|void
+		 */
+		public function get_export_items() {
+			return apply_filters( 'jet-engine/dashboard/export/items' , array(
+				array(
+					'key'     => 'post_types',
+					'var'     => 'post_types',
+					'cb'      => array( $this, 'export_post_types' ),
+					'default' => array(),
+				),
+				array(
+					'key'     => 'taxonomies',
+					'var'     => 'taxonomies',
+					'cb'      => array( $this, 'export_taxonomies' ),
+					'default' => array(),
+				),
+				array(
+					'key'     => 'listings',
+					'var'     => 'listing_items',
+					'cb'      => array( $this, 'export_listings' ),
+					'default' => array(),
+				),
+				array(
+					'key'     => 'components',
+					'var'     => 'components',
+					'cb'      => array( $this, 'export_components' ),
+					'default' => array(),
+				),
+				array(
+					'key'     => 'meta_boxes',
+					'var'     => 'meta_boxes',
+					'cb'      => array( $this, 'export_meta_boxes' ),
+					'default' => array(),
+				),
+				array(
+					'key'     => 'relations',
+					'var'     => 'relations',
+					'cb'      => array( $this, 'export_relations' ),
+					'default' => array(),
+				),
+				array(
+					'key'     => 'options_pages',
+					'var'     => 'options_pages',
+					'cb'      => array( $this, 'export_options_pages' ),
+					'default' => array(),
+				),
+				array(
+					'key'     => 'glossaries',
+					'var'     => 'glossaries',
+					'cb'      => array( $this, 'export_glossaries' ),
+					'default' => array(),
+				),
+				array(
+					'key'     => 'queries',
+					'var'     => 'queries',
+					'cb'      => array( $this, 'export_queries' ),
+					'default' => array(),
+				),
+				array(
+					'key'     => 'content',
+					'var'     => 'sample_content',
+					'cb'      => array( $this, 'export_content' ),
+					'default' => false,
+				),
+			) );
+		}
+
+		/**
 		 * Export skin
 		 *
 		 * @return [type] [description]
@@ -45,63 +115,18 @@ if ( ! class_exists( 'Jet_Engine_Skins_Export' ) ) {
 				return;
 			}
 
+			do_action( 'jet-engine/dashboard/export-import/process', 'export', $this );
+
 			$this->id = null;
 
-			$map = array(
-				array(
-					'key' => 'post_types',
-					'var' => 'post_types',
-					'cb'  => array( $this, 'export_post_types' ),
-				),
-				array(
-					'key' => 'taxonomies',
-					'var' => 'taxonomies',
-					'cb'  => array( $this, 'export_taxonomies' ),
-				),
-				array(
-					'key' => 'listings',
-					'var' => 'listing_items',
-					'cb'  => array( $this, 'export_listings' ),
-				),
-				array(
-					'key' => 'meta_boxes',
-					'var' => 'meta_boxes',
-					'cb'  => array( $this, 'export_meta_boxes' ),
-				),
-				array(
-					'key' => 'relations',
-					'var' => 'relations',
-					'cb'  => array( $this, 'export_relations' ),
-				),
-				array(
-					'key' => 'options_pages',
-					'var' => 'options_pages',
-					'cb'  => array( $this, 'export_options_pages' ),
-				),
-				array(
-					'key' => 'glossaries',
-					'var' => 'glossaries',
-					'cb'  => array( $this, 'export_glossaries' ),
-				),
-				array(
-					'key' => 'queries',
-					'var' => 'queries',
-					'cb'  => array( $this, 'export_queries' ),
-				),
-				array(
-					'key' => 'content',
-					'var' => 'sample_content',
-					'cb'  => array( $this, 'export_content' ),
-				),
-			);
-
+			$map  = $this->get_export_items();
 			$json = array();
 
 			foreach ( $map as $item ) {
 				if ( empty( $_REQUEST[ $item['var'] ] ) ) {
 					$json[ $item['key'] ] = array();
 				} else {
-					$json[ $item['key'] ] = call_user_func( $item['cb'], $_REQUEST[ $item['var'] ] );
+					$json[ $item['key'] ] = call_user_func( $item['cb'], $_REQUEST[ $item['var'] ], $this );
 				}
 			}
 
@@ -202,8 +227,8 @@ if ( ! class_exists( 'Jet_Engine_Skins_Export' ) ) {
 		 */
 		public function export_queries( $queries = array() ) {
 
-			if ( ! is_array( $post_types ) ) {
-				$post_types = array( $post_types );
+			if ( ! is_array( $queries ) ) {
+				$queries = array( $queries );
 			}
 
 			$this->id .= implode( '', $queries );
@@ -324,6 +349,8 @@ if ( ! class_exists( 'Jet_Engine_Skins_Export' ) ) {
 			if ( ! empty( $options_pages ) ) {
 				$result['options'] = $this->export_sample_options( $options_pages );
 			}
+
+			$result = apply_filters( 'jet-engine/dashboard/export/content', $result );
 
 			return $result;
 		}
@@ -491,6 +518,28 @@ if ( ! class_exists( 'Jet_Engine_Skins_Export' ) ) {
 		}
 
 		/**
+		 * Process components export
+		 * 
+		 * @return [type] [description]
+		 */
+		public function export_components( $components = array() ) {
+			
+			$result = array();
+
+			$this->id .= implode( '', $components );
+
+			if ( ! empty( $components ) ) {
+				foreach ( $components as $c_id ) {
+					$component = jet_engine()->listings->components->get( $c_id, 'id' );
+					$listing = jet_engine()->listings->get_new_doc( [], $c_id );
+					$result[] = array_merge( $listing->to_array(), $component->to_array() );
+				}
+			}
+
+			return $result;
+		}
+
+		/**
 		 * Export listings
 		 *
 		 * @return array
@@ -512,16 +561,14 @@ if ( ! class_exists( 'Jet_Engine_Skins_Export' ) ) {
 			$result = array();
 
 			foreach ( $query as $post ) {
-				$listing_type = get_post_meta( $post->ID, '_listing_type', true );
-				$listing_type = ! empty( $listing_type ) ? $listing_type : 'elementor';
+				
+				$listing = jet_engine()->listings->get_new_doc( [], $post->ID );
 
-				$result[] = array(
+				$result[] = array_merge( array(
 					'title'    => $post->post_title,
 					'slug'     => $post->post_name,
-					'type'     => $listing_type,
 					'settings' => get_post_meta( $post->ID, '_elementor_page_settings', true ),
-					'content'  => ( 'elementor' === $listing_type ) ? get_post_meta( $post->ID, '_elementor_data', true ) : $post->post_content,
-				);
+				), $listing->to_array() );
 			}
 
 			return $result;
@@ -537,6 +584,7 @@ if ( ! class_exists( 'Jet_Engine_Skins_Export' ) ) {
 			$taxonomies    = jet_engine()->taxonomies->get_items();
 			$meta_boxes    = jet_engine()->meta_boxes->get_items();
 			$listing_items = jet_engine()->listings->get_listings();
+			$components    = jet_engine()->listings->components->registry->get_components();
 			$relations     = jet_engine()->relations->get_active_relations();
 			$glossaries    = jet_engine()->glossaries->settings->get();
 			$queries       = Jet_Engine\Query_Builder\Manager::instance()->get_queries_for_options( true, null, true );
@@ -601,6 +649,17 @@ if ( ! class_exists( 'Jet_Engine_Skins_Export' ) ) {
 				$item = $new_item;
 			} );
 
+			array_walk( $components, function( &$item ) {
+
+				$new_item = array(
+					'value' => $item->get_id(),
+					'label' => $item->get_display_name(),
+				);
+
+				$item = $new_item;
+
+			} );
+
 			array_walk( $options_pages, function( &$item ) {
 
 				$new_item = array(
@@ -619,6 +678,7 @@ if ( ! class_exists( 'Jet_Engine_Skins_Export' ) ) {
 			$config['taxonomies']    = array_values( $taxonomies );
 			$config['meta_boxes']    = array_values( $meta_boxes );
 			$config['listing_items'] = array_values( $listing_items );
+			$config['components']    = array_values( $components );
 			$config['relations']     = array_values( $relations );
 			$config['glossaries']    = array_values( $glossaries );
 			$config['queries']       = array_values( $queries );
@@ -628,7 +688,16 @@ if ( ! class_exists( 'Jet_Engine_Skins_Export' ) ) {
 				jet_engine()->dashboard->dashboard_url()
 			);
 
-			return $config;
+			$skin_vars    = array();
+			$export_items = $this->get_export_items();
+
+			foreach ( $export_items as $item ) {
+				$skin_vars[ $item['var'] ] = $item['default'];
+			}
+
+			$config['skin_vars'] = $skin_vars;
+
+			return apply_filters( 'jet-engine/dashboard/export/config', $config );
 		}
 
 		/**

@@ -13,9 +13,9 @@ namespace RankMath\Local_Seo;
 use RankMath\Helper;
 use RankMath\Traits\Ajax;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
+use RankMath\Helpers\Str;
 use RankMath\Sitemap\Router;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -67,12 +67,27 @@ class KML_File {
 	/**
 	 * Add the Local SEO Sitemap to the sitemap index.
 	 *
+	 * @param string $xml String to append to sitemaps index.
+	 *
 	 * @return string $xml The sitemap index with the Local SEO Sitemap added.
 	 */
-	public function add_local_sitemap() {
-		$xml  = $this->newline( '<sitemap>', 1 );
-		$xml .= $this->newline( '<loc>' . htmlspecialchars( Router::get_base_url( 'local-sitemap.xml' ) ) . '</loc>', 2 );
-		$xml .= $this->newline( '<lastmod>' . htmlspecialchars( $this->get_modified_date() ) . '</lastmod>', 2 );
+	public function add_local_sitemap( $xml ) {
+		$item = $this->do_filter(
+			'sitemap/index/entry',
+			[
+				'loc'     => Router::get_base_url( 'local-sitemap.xml' ),
+				'lastmod' => $this->get_modified_date(),
+			],
+			'local',
+		);
+
+		if ( ! $item ) {
+			return $xml;
+		}
+
+		$xml .= $this->newline( '<sitemap>', 1 );
+		$xml .= $this->newline( '<loc>' . htmlspecialchars( $item['loc'] ) . '</loc>', 2 );
+		$xml .= empty( $item['lastmod'] ) ? '' : $this->newline( '<lastmod>' . htmlspecialchars( $item['lastmod'] ) . '</lastmod>', 2 );
 		$xml .= $this->newline( '</sitemap>', 1 );
 
 		return $xml;
@@ -84,14 +99,28 @@ class KML_File {
 	 * @return string $urlset Local SEO Sitemap XML content.
 	 */
 	public function local_sitemap_content() {
-		$urlset = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-			<url>
-				<loc>' . htmlspecialchars( Router::get_base_url( 'locations.kml' ) ) . '</loc>
-				<lastmod>' . htmlspecialchars( $this->get_modified_date() ) . '</lastmod>
-			</url>
-		</urlset>';
+		$item = $this->do_filter(
+			'sitemap/entry',
+			[
+				'loc' => Router::get_base_url( 'locations.kml' ),
+				'mod' => $this->get_modified_date(),
+			],
+			'local',
+			[]
+		);
 
-		return $urlset;
+		if ( ! $item ) {
+			return '';
+		}
+
+		$output  = $this->newline( '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', 1 );
+		$output .= $this->newline( '<url>', 2 );
+		$output .= $this->newline( '<loc>' . htmlspecialchars( $item['loc'] ) . '</loc>', 3 );
+		$output .= empty( $item['mod'] ) ? '' : $this->newline( '<lastmod>' . htmlspecialchars( $item['mod'] ) . '</lastmod>', 3 );
+		$output .= $this->newline( '</url>', 2 );
+		$output .= $this->newline( '</urlset>', 1 );
+
+		return $output;
 	}
 
 	/**
@@ -119,7 +148,7 @@ class KML_File {
 		}
 
 		foreach ( $locations as $location ) {
-			$address   = ! empty( $location['address'] ) ? implode( ', ', array_filter( $location['address'] ) ) : '';
+			$address   = ! empty( $location['address'] ) ? Helper::replace_vars( implode( ', ', array_filter( $location['address'] ) ) ) : '';
 			$has_coord = ! empty( $location['coords']['latitude'] ) && ! empty( $location['coords']['longitude'] );
 
 			$kml .= $this->newline( '<Placemark>', 3 );
@@ -175,8 +204,7 @@ class KML_File {
 		];
 
 		if ( count( array_intersect( $local_seo_fields, $updated ) ) ) {
-			update_option( 'rank_math_local_seo_update', date_i18n( 'c' ) );
-			\RankMath\Sitemap\Sitemap::ping_search_engines( Router::get_base_url( 'local-sitemap.xml' ) );
+			update_option( 'rank_math_local_seo_update', date( 'c' ) );
 		}
 	}
 
@@ -218,7 +246,7 @@ class KML_File {
 	 */
 	private function get_modified_date() {
 		if ( ! $date = get_option( 'rank_math_local_seo_update' ) ) { // phpcs:ignore
-			$date = date_i18n( 'c' );
+			$date = date( 'c' );
 		}
 
 		return $date;

@@ -8,6 +8,7 @@ class WC_Product_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 	use \Jet_Engine\Query_Builder\Queries\Traits\Tax_Query_Trait;
 
 	public $current_wc_query = null;
+	public $current_wp_query = null;
 
 	/**
 	 * Returns queries items
@@ -36,18 +37,14 @@ class WC_Product_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 	}
 
 	/**
-	 * Returns `WC_Product_Query`
+	 * Returns current query arguments
 	 *
-	 * @return \WC_Product_Query|null
+	 * @return array
 	 */
-	public function get_current_wc_query() {
+	public function get_query_args() {
 
 		if ( null === $this->final_query ) {
 			$this->setup_query();
-		}
-
-		if ( null !== $this->current_wc_query ) {
-			return $this->current_wc_query;
 		}
 
 		$args = $this->final_query;
@@ -112,9 +109,13 @@ class WC_Product_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 			$raw               = $args['tax_query'];
 			$args['tax_query'] = [];
 
-			if ( ! empty( $args['tax_query_relation'] ) ) {
-				$args['tax_query']['relation'] = $args['tax_query_relation'];
+			if ( isset( $args['tax_query_relation'] ) ) {
+				unset( $args['tax_query_relation'] );
 			}
+			// Uncomment when WooCommerce will handle `tax_query` relation.
+			/*if ( ! empty( $args['tax_query_relation'] ) ) {
+				$args['tax_query']['relation'] = $args['tax_query_relation'];
+			}*/
 
 			foreach ( $raw as $query_row ) {
 				// 'exclude_children' => true  is replaced to 'include_children' => false
@@ -124,20 +125,62 @@ class WC_Product_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 					unset( $query_row['exclude_children'] );
 				}
 
+				if ( empty( $query_row['operator'] ) || in_array( $query_row['operator'], [ 'IN', 'NOT IN' ] ) ) {
+					if ( ! empty( $query_row['terms'] ) && ! is_array( $query_row['terms'] ) ) {
+						$query_row['terms'] = $this->explode_string( $query_row['terms'] );
+					}
+				}
+
 				if ( empty( $query_row['terms'] ) ) {
 					continue;
 				}
-
-				$query_row['terms'] = $this->explode_string( $query_row['terms'] );
 
 				$args['tax_query'][] = $query_row;
 			}
 		}
 
-		$this->current_wc_query = new \WC_Product_Query( $args );
+		if ( ! empty( $args['search_query'] ) && get_search_query() ) {
+			$args['s'] = get_search_query();
+		}
+
+		return apply_filters( 'jet-engine/query-builder/wc-product-query/args', $args, $this );
+	}
+
+	/**
+	 * Returns `WC_Product_Query`
+	 *
+	 * @since 3.0.8 Added search query handling. Hook `jet-engine/query-builder/wc-product-query/args` for further query
+	 *        arguments transformation.
+	 *
+	 * @return \WC_Product_Query|null
+	 */
+	public function get_current_wc_query() {
+
+		if ( null !== $this->current_wc_query ) {
+			return $this->current_wc_query;
+		}
+
+		$this->current_wc_query = new \WC_Product_Query( $this->get_query_args() );
 
 		return $this->current_wc_query;
+	}
 
+	/**
+	 * Returns WP Query object for current query
+	 *
+	 * @return \WP_Query
+	 */
+	public function get_current_wp_query() {
+
+		if ( null !== $this->current_wp_query ) {
+			return $this->current_wp_query;
+		}
+
+		$wp_query_args = \WC_Data_Store::load( 'product' )->get_wp_query_args( $this->get_query_args() );
+
+		$this->current_wp_query = new \WP_Query( $wp_query_args );
+
+		return $this->current_wp_query;
 	}
 
 	/**
@@ -277,6 +320,31 @@ class WC_Product_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 				$this->final_query['page'] = $value;
 				break;
 
+			case 'post__in':
+
+				if ( ! empty( $this->final_query['include'] ) ) {
+					$this->final_query['include'] = array_intersect( $this->final_query['include'], $value );
+
+					if ( empty( $this->final_query['include'] ) ) {
+						$this->final_query['include'] = array( PHP_INT_MAX );
+					}
+
+				} else {
+					$this->final_query['include'] = $value;
+				}
+
+				break;
+
+			case 'post__not_in':
+
+				if ( ! empty( $this->final_query['exclude'] ) ) {
+					$this->final_query['exclude'] = array_merge( $this->final_query['exclude'], $value );
+				} else {
+					$this->final_query['exclude'] = $value;
+				}
+
+				break;
+
 			case 'orderby':
 			case 'order':
 			case 'meta_key':
@@ -334,6 +402,21 @@ class WC_Product_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 			'parent_exclude',
 			'shipping_class',
 		];
+	}
+
+	/**
+	 * Reset Query.
+	 *
+	 * Reset WC Product Query in the loop.
+	 *
+	 * @since  3.0.6
+	 * @access public
+	 *
+	 * @return void
+	 */
+	public function reset_query() {
+		$this->current_wc_query = null;
+		$this->current_wp_query = null;
 	}
 
 }

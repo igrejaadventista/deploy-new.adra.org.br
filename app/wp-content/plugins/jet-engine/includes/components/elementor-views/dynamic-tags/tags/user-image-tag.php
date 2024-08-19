@@ -24,7 +24,7 @@ class Jet_Engine_User_Image_Tag extends Elementor\Core\DynamicTags\Data_Tag {
 		);
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->add_control(
 			'img_field',

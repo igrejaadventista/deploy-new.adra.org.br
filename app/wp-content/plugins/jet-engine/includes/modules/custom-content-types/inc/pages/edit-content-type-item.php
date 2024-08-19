@@ -88,26 +88,37 @@ class Edit_Item_Page extends \Jet_Engine_Options_Page_Factory {
 	 */
 	public function __construct( $page, $pages_manager ) {
 
-		$this->page          = $page;
-		$this->slug          = $page['slug'];
-		$this->action        = $page['action'];
-		$this->meta_box      = $page['fields'];
-		$this->pages_manager = $pages_manager;
+		$this->page             = $page;
+		$this->slug             = $page['slug'];
+		$this->action           = $page['action'];
+		$this->meta_box         = $page['fields'];
+		$this->pages_manager    = $pages_manager;
+		$this->hide_field_names = $page['hide_field_names'];
 
-		if ( $this->is_page_now() ) {
+		if ( $this->is_page_now() && ! empty( $this->action ) ) {
 
-			foreach ( $this->page['fields'] as $index => $field ) {
-				if ( ! empty( $field['object_type'] ) && 'service_field' === $field['object_type'] ) {
-					unset( $this->meta_box[ $index ] );
-					unset( $this->page['fields'][ $index ] );
-				}
-			}
+			$this->setup_page_fields();
 
 			add_action( 'admin_enqueue_scripts', array( $this, 'init_builder' ), 0 );
+			add_action( 'admin_enqueue_scripts', array( $this, 'maybe_enqueue_inline_js' ), 20 );
+
 			add_action( 'admin_init', array( $this, 'save' ), 40 );
 			add_action( 'admin_notices', array( $this, 'saved_notice' ) );
 		}
 
+	}
+
+	public function setup_page_fields() {
+
+		foreach ( $this->page['fields'] as $index => $field ) {
+			if ( ! empty( $field['object_type'] ) && 'service_field' === $field['object_type'] ) {
+				unset( $this->meta_box[ $index ] );
+				unset( $this->page['fields'][ $index ] );
+			}
+		}
+
+		$this->meta_box       = $this->prepare_meta_fields( $this->meta_box );
+		$this->page['fields'] = $this->meta_box;
 	}
 
 	/**
@@ -306,6 +317,38 @@ class Edit_Item_Page extends \Jet_Engine_Options_Page_Factory {
 				),
 			)
 		);
+
+		if ( 'edit' === $this->page['action'] ) {
+			$value = $this->get( 'cct_created' );
+			$value = strtotime( $value );
+			$value = is_numeric( $value ) ? date( 'Y-m-d\TH:i:s', $value ) : '';
+
+			$time_format = \Jet_Engine_Tools::convert_date_format_php_to_js( 'H:i:s' );
+
+			$this->builder->register_control(
+				array(
+					'cct_created' => array(
+						'type'         => 'text',
+						'input_type'   => 'datetime-local',
+						'autocomplete' => 'off',
+						'parent'       => 'settings_bottom',
+						'id'           => 'cct_created',
+						'name'         => 'cct_created',
+						'label'        => __( 'Item published', 'jet-engine' ),
+						'value'        => $value,
+						'extra_attr'   => array(
+							'data-datetime-settings' => htmlspecialchars( json_encode( array(
+								'timeFormat'    => $time_format,
+								'altTimeFormat' => $time_format,
+								'altSeparator'  => ' ',
+							) ) ),
+						),
+					),
+				)
+			);
+
+			add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_date_assets' ) );
+		}
 
 		$this->builder->register_html(
 			array(

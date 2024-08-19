@@ -25,18 +25,45 @@
 		class="jet-engine-skins__content"
 		v-if="isActive"
 	>
-		<div v-if="log" class="jet-engine-import__log">
+		<template v-if="log">
+			<div class="jet-engine-import__log">
+				<div class="jet-engine-import__log-title">
+					<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.38498 12.0188L13.5962 4.80751L12.4695 3.64319L6.38498 9.7277L3.53052 6.87324L2.40376 8L6.38498 12.0188ZM2.32864 2.3662C3.9061 0.788732 5.79656 0 8 0C10.2034 0 12.0814 0.788732 13.6338 2.3662C15.2113 3.91862 16 5.79656 16 8C16 10.2034 15.2113 12.0939 13.6338 13.6714C12.0814 15.2238 10.2034 16 8 16C5.79656 16 3.9061 15.2238 2.32864 13.6714C0.776213 12.0939 0 10.2034 0 8C0 5.79656 0.776213 3.91862 2.32864 2.3662Z" fill="#46B450"/></svg>
+					<?php _e( 'Imported:', 'jet-engine' ); ?>
+				</div>
+				<div class="jet-engine-import__log-items">
+					<div
+						class="jet-engine-import__log-item"
+						v-for="logItem in log.success"
+					>
+						<b v-html="logItem.label + ':'"></b>
+						<span v-html="logItems( logItem.items )"></span>
+					</div>
+				</div>
+			</div>
+			<div v-if="log.errors.length" class="jet-engine-import__log jet-engine-import__log--error">
+				<div class="jet-engine-import__log-title">
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z" fill="#c92c2c"/></svg>
+					<?php _e( 'Errors:', 'jet-engine' ); ?>
+				</div>
+				<div class="jet-engine-import__log-items">
+					<div
+						class="jet-engine-import__log-item"
+						v-for="logItem in log.errors"
+					>
+						<span v-html="logItem"></span>
+					</div>
+				</div>
+			</div>
+		</template>
+		<div v-else-if="error" class="jet-engine-import__log jet-engine-import__log--error">
 			<div class="jet-engine-import__log-title">
-				<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.38498 12.0188L13.5962 4.80751L12.4695 3.64319L6.38498 9.7277L3.53052 6.87324L2.40376 8L6.38498 12.0188ZM2.32864 2.3662C3.9061 0.788732 5.79656 0 8 0C10.2034 0 12.0814 0.788732 13.6338 2.3662C15.2113 3.91862 16 5.79656 16 8C16 10.2034 15.2113 12.0939 13.6338 13.6714C12.0814 15.2238 10.2034 16 8 16C5.79656 16 3.9061 15.2238 2.32864 13.6714C0.776213 12.0939 0 10.2034 0 8C0 5.79656 0.776213 3.91862 2.32864 2.3662Z" fill="#46B450"/></svg>
-				<?php _e( 'Imported:', 'jet-engine' ); ?>
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z" fill="#c92c2c"/></svg>
+				<?php _e( 'Error:', 'jet-engine' ); ?>
 			</div>
 			<div class="jet-engine-import__log-items">
-				<div
-					class="jet-engine-import__log-item"
-					v-for="logItem in log"
-				>
-					<b v-html="logItem.label + ':'"></b>
-					<span v-html="logItems( logItem.items )"></span>
+				<div class="jet-engine-import__log-item">
+					<span v-html="error"></span>
 				</div>
 			</div>
 		</div>

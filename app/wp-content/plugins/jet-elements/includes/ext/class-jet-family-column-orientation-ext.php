@@ -193,7 +193,7 @@ if ( ! class_exists( 'Jet_Family_Column_Orientation_Ext' ) ) {
 					'default'     => '',
 					'separator'   => 'before',
 					'selectors'   => [
-						'{{WRAPPER}}.elementor-column' => 'overflow-y: auto;',
+						'{{WRAPPER}}.elementor-column > .elementor-widget-wrap' => 'overflow-y: auto;',
 					],
 				]
 			);
@@ -215,7 +215,7 @@ if ( ! class_exists( 'Jet_Family_Column_Orientation_Ext' ) ) {
 						],
 					],
 					'selectors' => [
-						'{{WRAPPER}}.elementor-column' => 'max-height: {{SIZE}}{{UNIT}}',
+						'{{WRAPPER}}.elementor-column > .elementor-widget-wrap' => 'max-height: {{SIZE}}{{UNIT}}',
 					],
 					'condition' => array(
 						'jet_family_column_vertical_scroll' => 'yes',

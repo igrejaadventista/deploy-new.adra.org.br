@@ -1940,7 +1940,7 @@ class Jet_Elements_Headline extends Jet_Elements_Base {
 			if ( method_exists( $this, 'add_link_attributes' ) ) {
 				$this->add_link_attributes( 'url', $settings['link'] );
 			} else {
-				$this->add_render_attribute( 'url', 'href', $settings['link']['url'] );
+				$this->add_render_attribute( 'url', 'href', esc_url( $settings['link']['url'] ) );
 
 				if ( $settings['link']['is_external'] ) {
 					$this->add_render_attribute( 'url', 'target', '_blank' );

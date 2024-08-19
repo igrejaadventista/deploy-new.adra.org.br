@@ -8,6 +8,13 @@
 		<h3 class="cx-vui-subtitle"><?php _e( 'Custom SQL Query', 'jet-engine' ); ?></h3>
 	</div>
 	<div class="cx-vui-panel">
+		<cx-vui-switcher
+			label="<?php _e( 'Advanced/AI mode', 'jet-engine' ); ?>"
+			description="<?php _e( 'Enable this to reset all settings and write SQL query manually or with help of AI.', 'jet-engine' ); ?>"
+			:wrapper-css="[ 'equalwidth' ]"
+			name="query_advanced_mode"
+			v-model="query.advanced_mode"
+		></cx-vui-switcher>
 		<template v-if="!query.advanced_mode">
 			<cx-vui-select
 				label="<?php _e( 'From table', 'jet-engine' ); ?>"
@@ -42,9 +49,10 @@
 							v-for="( clause, index ) in query.join_tables"
 							:collapsed="isCollapsed( clause )"
 							:index="index"
+							:title="getJoinTitle( clause, index )"
 							@clone-item="cloneField( $event, clause._id, query.join_tables )"
 							@delete-item="deleteField( $event, clause._id, query.join_tables )"
-							:key="clause._id"
+							:key="query.table + '_' + clause._id"
 						>
 							<cx-vui-select
 								label="<?php _e( 'Join Type', 'jet-engine' ); ?>"
@@ -91,10 +99,10 @@
 								@input="setFieldProp( clause._id, 'on_current', $event, query.join_tables )"
 							></cx-vui-select>
 							<cx-vui-select
-								label="<?php _e( 'Is equal to base table column', 'jet-engine' ); ?>"
-								description="<?php _e( 'Select columns from the initial table to find match between two tables on value of this columns', 'jet-engine' ); ?>"
+								label="<?php _e( 'Is equal to other table column', 'jet-engine' ); ?>"
+								description="<?php _e( 'Select columns from the initial or previously added table to find match between two tables on value of this columns', 'jet-engine' ); ?>"
 								:wrapper-css="[ 'equalwidth' ]"
-								:options-list="getColumns( query.table )"
+								:groups-list="getJoinColumns( index )"
 								size="fullwidth"
 								:value="query.join_tables[ index ].on_base"
 								@input="setFieldProp( clause._id, 'on_base', $event, query.join_tables )"
@@ -161,6 +169,24 @@
 					</cx-vui-repeater>
 				</div>
 			</cx-vui-component-wrapper>
+			<cx-vui-select
+				v-if="1 < query.where.length"
+				label="<?php _e( 'Where Relation', 'jet-engine' ); ?>"
+				description="<?php _e( 'The logical relationship between where clauses', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:options-list="[
+					{
+						value: 'and',
+						label: '<?php _e( 'And', 'jet-engine' ); ?>',
+					},
+					{
+						value: 'or',
+						label: '<?php _e( 'Or', 'jet-engine' ); ?>',
+					},
+				]"
+				size="fullwidth"
+				v-model="query.where_relation"
+			></cx-vui-select>
 			<cx-vui-switcher
 				label="<?php _e( 'Group Results', 'jet-engine' ); ?>"
 				description="<?php _e( 'Group query result by selected column', 'jet-engine' ); ?>"
@@ -204,7 +230,7 @@
 								label="<?php _e( 'Order By', 'jet-engine' ); ?>"
 								description="<?php _e( 'Sort retrieved items by selected parameter', 'jet-engine' ); ?>"
 								:wrapper-css="[ 'equalwidth' ]"
-								:options-list="availableColumns"
+								:options-list="availableOrderByColumns"
 								size="fullwidth"
 								:value="query.orderby[ index ].orderby"
 								@input="setFieldProp( order._id, 'orderby', $event, query.orderby )"
@@ -334,11 +360,24 @@
 										value: 'AVG',
 										label: 'AVG',
 									},
+									{
+										value: 'custom',
+										label: 'Custom',
+									}
 								]"
 								size="fullwidth"
 								:value="query.calc_cols[ index ].function"
 								@input="setFieldProp( colClause._id, 'function', $event, query.calc_cols )"
 							></cx-vui-select>
+							<cx-vui-input
+								v-if="'custom' === query.calc_cols[ index ].function"
+								label="<?php _e( 'Define custom column', 'jet-engine' ); ?>"
+								description="<?php _e( 'SQL definition of custom calculated column. Use %1$s to pass selected table column name. Also you can use macros as part of custom column definition.', 'jet-engine' ); ?>"
+								:wrapper-css="[ 'equalwidth' ]"
+								size="fullwidth"
+								:value="query.calc_cols[ index ].custom_col"
+								@input="setFieldProp( colClause._id, 'custom_col', $event, query.calc_cols )"
+							></cx-vui-input>
 						</cx-vui-repeater-item>
 					</cx-vui-repeater>
 				</div>
@@ -353,33 +392,22 @@
 				</div>
 			</cx-vui-component-wrapper>
 		</template>
-		<cx-vui-switcher
-			label="<?php _e( 'Advanced mode', 'jet-engine' ); ?>"
-			description="<?php _e( 'Enable this to reset all settings and write SQL query manually.', 'jet-engine' ); ?>"
-			:wrapper-css="[ 'equalwidth' ]"
-			name="query_advanced_mode"
-			v-model="query.advanced_mode"
-		></cx-vui-switcher>
 		<cx-vui-component-wrapper
 			:wrapper-css="[ 'fullwidth' ]"
 			v-if="query.advanced_mode"
 			label="<?php _e( 'Please note:', 'jet-engine' ); ?>"
-			description="<?php _e( 'You need to add WordPress Database Table prefix to all tables used in query. You can find it config.php file. Or you can use string {prefix} beofre table name and it will be automatically replaced with your actual prefix. For example <code>SELECT * FROM {prefix}posts</code>', 'jet-engine' ); ?>"
-		>
-			<div>
-				<code v-for="column in availableColumns" :style="{ display: 'inline-block', marginBottom: '2px' }">{{ column.label }}</code>
-			</div>
-		</cx-vui-component-wrapper>
+			description="<?php _e( 'You need to add WordPress Database Table prefix to all tables used in query. You can find it config.php file. Or you can use string {prefix} before table name and it will be automatically replaced with your actual prefix. For example <code>SELECT * FROM {prefix}posts</code>', 'jet-engine' ); ?>"
+		></cx-vui-component-wrapper>
 		<cx-vui-textarea
 			label="<?php _e( 'SQL Query', 'jet-engine' ); ?>"
 			name="query_manual_query"
-			description="<?php _e( 'Write your SQL query here. You can use JetEgine macros inside you query.', 'jet-engine' ); ?>"
-			:wrapper-css="[ 'equalwidth' ]"
+			description="<?php _e( 'Write your SQL query here. You can use JetEngine macros inside you query.', 'jet-engine' ); ?>"
+			:wrapper-css="[ 'equalwidth', 'has-ai-popup' ]"
 			v-if="query.advanced_mode"
 			size="fullwidth"
 			rows="10"
 			v-model="query.manual_query"
-		></cx-vui-textarea>
+		><jet-query-ai-popup v-model="query.manual_query"></jet-query-ai-popup></cx-vui-textarea>
 		<cx-vui-textarea
 			label="<?php _e( 'Count SQL Query', 'jet-engine' ); ?>"
 			name="query_count_query"
@@ -390,5 +418,13 @@
 			rows="10"
 			v-model="query.count_query"
 		></cx-vui-textarea>
+		<cx-vui-select
+			label="<?php _e( 'Cast result to instance of object', 'jet-engine' ); ?>"
+			description="<?php _e( 'With this option you can use query results as regular posts, users, terms queries etc.', 'jet-engine' ); ?>"
+			:wrapper-css="[ 'equalwidth' ]"
+			:options-list="castObjectsList"
+			size="fullwidth"
+			v-model="query.cast_object_to"
+		></cx-vui-select>
 	</div>
 </div>

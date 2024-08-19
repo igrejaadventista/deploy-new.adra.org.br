@@ -47,4 +47,7 @@ class DataContextControls extends wp.element.Component {
 	}
 }
 
+window.JetEngineBlocksComponents = window.JetEngineBlocksComponents || {};
+window.JetEngineBlocksComponents.DataContextControls = withFilters( 'jetEngine.dynamic.dataContextControls' )( DataContextControls );
+
 export default withFilters( 'jetEngine.dynamic.dataContextControls' )( DataContextControls );

@@ -36,16 +36,28 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Grid' ) ) {
 					'default' => '',
 				),
 				'columns' => array(
-					'type' => 'number',
 					'default' => 3,
+					'type'    => array( 'string', 'number' ),
 				),
 				'columns_tablet' => array(
-					'type' => 'number',
 					'default' => 3,
+					'type'    => array( 'string', 'number' ),
 				),
 				'columns_mobile' => array(
-					'type' => 'number',
 					'default' => 1,
+					'type'    => array( 'string', 'number' ),
+				),
+				'column_min_width' => array(
+					'type' => 'number',
+					'default' => 240,
+				),
+				'column_min_width_tablet' => array(
+					'type' => 'number',
+					'default' => 240,
+				),
+				'column_min_width_mobile' => array(
+					'type' => 'number',
+					'default' => 240,
 				),
 				'is_archive_template' => array(
 					'type' => 'boolean',
@@ -129,6 +141,18 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Grid' ) ) {
 					'type' => 'string',
 					'default' => '',
 				),
+				'load_more_offset' => array(
+					'type' => 'number',
+					'default' => 0,
+				),
+				'loader_text' => array(
+					'type' => 'string',
+					'default' => '',
+				),
+				'loader_spinner' => array(
+					'type' => 'boolean',
+					'default' => false,
+				),
 				'carousel_enabled' => array(
 					'type' => 'boolean',
 					'default' => false,
@@ -152,6 +176,10 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Grid' ) ) {
 				'autoplay_speed' => array(
 					'type' => 'number',
 					'default' => 5000,
+				),
+				'pause_on_hover' => array(
+					'type' => 'boolean',
+					'default' => true,
 				),
 				'infinite' => array(
 					'type' => 'boolean',
@@ -277,6 +305,10 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Grid' ) ) {
 					'type'    => 'string',
 					'default' => '',
 				),
+				'_element_id' => array(
+					'type'    => 'string',
+					'default' => '',
+				),
 			) );
 		}
 
@@ -310,10 +342,26 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Grid' ) ) {
 								'max'  => 100,
 							),
 						),
+						array(
+							'value'     => 'em',
+							'intervals' => array(
+								'step' => 0.1,
+								'min'  => 0,
+								'max'  => 10,
+							),
+						),
+						array(
+							'value'     => 'rem',
+							'intervals' => array(
+								'step' => 0.1,
+								'min'  => 0,
+								'max'  => 10,
+							),
+						),
 					),
 					'css_selector' => array(
-						'{{WRAPPER}} .jet-listing-grid__item' => 'padding-left: calc({{VALUE}}{{UNIT}} / 2); padding-right: calc({{VALUE}}{{UNIT}} / 2);',
-						'{{WRAPPER}} .jet-listing-grid__items' => 'margin-left: calc(-{{VALUE}}{{UNIT}} / 2); margin-right: calc(-{{VALUE}}{{UNIT}} / 2); width: calc(100% + {{VALUE}}{{UNIT}});',
+						':is( {{WRAPPER}} > .jet-listing-grid > .jet-listing-grid__items, {{WRAPPER}} > .jet-listing-grid > .jet-listing-grid__slider > .jet-listing-grid__items > .slick-list > .slick-track, {{WRAPPER}} > .jet-listing-grid > .jet-listing-grid__scroll-slider > .jet-listing-grid__items ) > .jet-listing-grid__item' => 'padding-left: calc({{VALUE}}{{UNIT}} / 2); padding-right: calc({{VALUE}}{{UNIT}} / 2);',
+						':is( {{WRAPPER}} > .jet-listing-grid, {{WRAPPER}} > .jet-listing-grid > .jet-listing-grid__slider, {{WRAPPER}} > .jet-listing-grid > .jet-listing-grid__scroll-slider ) > .jet-listing-grid__items' => 'margin-left: calc(-{{VALUE}}{{UNIT}} / 2); margin-right: calc(-{{VALUE}}{{UNIT}} / 2); width: calc(100% + {{VALUE}}{{UNIT}});',
 					),
 				)
 			);
@@ -332,9 +380,25 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Grid' ) ) {
 								'max'  => 100,
 							),
 						),
+						array(
+							'value'     => 'em',
+							'intervals' => array(
+								'step' => 0.1,
+								'min'  => 0,
+								'max'  => 10,
+							),
+						),
+						array(
+							'value'     => 'rem',
+							'intervals' => array(
+								'step' => 0.1,
+								'min'  => 0,
+								'max'  => 10,
+							),
+						),
 					),
 					'css_selector' => array(
-						'{{WRAPPER}} .jet-listing-grid__item' => 'padding-top: calc({{VALUE}}{{UNIT}} / 2); padding-bottom: calc({{VALUE}}{{UNIT}} / 2);',
+						':is( {{WRAPPER}} > .jet-listing-grid > .jet-listing-grid__items, {{WRAPPER}} > .jet-listing-grid > .jet-listing-grid__slider > .jet-listing-grid__items > .slick-list > .slick-track, {{WRAPPER}} > .jet-listing-grid > .jet-listing-grid__scroll-slider > .jet-listing-grid__items ) > .jet-listing-grid__item' => 'padding-top: calc({{VALUE}}{{UNIT}} / 2); padding-bottom: calc({{VALUE}}{{UNIT}} / 2);',
 					),
 				)
 			);
@@ -346,19 +410,285 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Grid' ) ) {
 				array(
 					'id'    => 'section_loader_style',
 					'title' => esc_html__( 'Loader', 'jet-engine' ),
-					'condition' => array(
-						'lazy_load' => true,
-					),
 				)
 			);
 
 			$this->controls_manager->add_control(
 				array(
 					'id'    => 'loader_color',
-					'label' => esc_html__( 'Color', 'jet-engine' ),
+					'label' => esc_html__( 'Spinner Color', 'jet-engine' ),
 					'type'  => 'color-picker',
 					'css_selector' => array(
-						'{{WRAPPER}} .jet-listing-grid-loading:after' => 'color: {{VALUE}};',
+						'{{WRAPPER}} .jet-listing-grid__loader' => '--spinner-color: {{VALUE}};',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'loader_size',
+					'label'        => __( 'Spinner Size', 'jet-engine' ),
+					'type'         => 'range',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__loader' => '--spinner-size: {{VALUE}}px;'
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'        => 'loader_text_color',
+					'label'     => esc_html__( 'Text Color', 'jet-engine' ),
+					'type'      => 'color-picker',
+					'separator' => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__loader-text' => 'color: {{VALUE}};',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'loader_text_typography',
+					'label'        => __( 'Text Typography', 'jet-engine' ),
+					'type'         => 'typography',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__loader-text' => 'font-family: {{FAMILY}}; font-weight: {{WEIGHT}}; text-transform: {{TRANSFORM}}; font-style: {{STYLE}}; text-decoration: {{DECORATION}}; line-height: {{LINEHEIGHT}}{{LH_UNIT}}; letter-spacing: {{LETTERSPACING}}{{LS_UNIT}}; font-size: {{SIZE}}{{S_UNIT}};',
+					),
+				)
+			);
+
+			$this->controls_manager->end_section();
+
+			$this->controls_manager->start_section(
+				'style_controls',
+				array(
+					'title'     => __( 'Slider', 'jet-engine' ),
+					'id'        => 'section_slider_style',
+					'condition' => array(
+						'carousel_enabled' => true,
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'    => 'center_mode_padding',
+					'label' => __( 'Center Mode Padding', 'jet-engine' ),
+					'type'  => 'range',
+					'units' => array(
+						array(
+							'value'     => 'px',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 0,
+								'max'  => 200,
+							),
+						),
+						array(
+							'value'     => '%',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 0,
+								'max'  => 100,
+							),
+						),
+					),
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider > .jet-listing-grid__items > .slick-list' => 'padding: 0 {{VALUE}}{{UNIT}} !important;',
+					),
+					'condition' => array(
+						'center_mode' => true,
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'arrows_box_size',
+					'label'        => __( 'Slider arrows box size', 'jet-engine' ),
+					'type'         => 'range',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider-icon' => 'width: {{VALUE}}px !important; height: {{VALUE}}px !important; margin-top: calc( -{{VALUE}}px/2 ); line-height: {{VALUE}}px;',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'arrows_size',
+					'label'        => __( 'Slider arrows size', 'jet-engine' ),
+					'type'         => 'range',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider-icon' => 'font-size: {{VALUE}}px;',
+						'{{WRAPPER}} .jet-listing-grid__slider-icon svg' => 'height: {{VALUE}}px;',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'arrows_z_index',
+					'label'        => __( 'Slider arrows Z-Index', 'jet-engine' ),
+					'type'         => 'range',
+					'separator'    => 'before',
+					'units'        => array(
+						array(
+							'value'     => 'px',
+							'intervals' => array(
+								'step' => 1,
+								'min'  => 0,
+								'max'  => 1000,
+							),
+						),
+					),
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider-icon' => 'z-index: {{VALUE}};',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'arrow_color',
+					'label'        => __( 'Arows Color', 'jet-engine' ),
+					'type'         => 'color-picker',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider-icon' => 'color: {{VALUE}}',
+						'{{WRAPPER}} .jet-listing-grid__slider-icon svg path' => 'fill: {{VALUE}}',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'arrow_bg_color',
+					'label'        => __( 'Background', 'jet-engine' ),
+					'type'         => 'color-picker',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider-icon' => 'background: {{VALUE}}',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'arrow_color_hover',
+					'label'     => __( 'Arrow Hover Color', 'jet-engine' ),
+					'type'         => 'color-picker',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider-icon:hover' => 'color: {{VALUE}}',
+						'{{WRAPPER}} .jet-listing-grid__slider-icon:hover svg path' => 'fill: {{VALUE}}',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'arrow_bg_color_hover',
+					'label'        => __( 'Arrow Hover Background', 'jet-engine' ),
+					'type'         => 'color-picker',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider-icon:hover' => 'background: {{VALUE}}',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'dots_size',
+					'label'        => __( 'Dots Size', 'jet-engine' ),
+					'type'         => 'range',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider .jet-slick-dots li' => 'width: {{VALUE}}px; height: {{VALUE}}px;',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'dots_gap',
+					'label'        => __( 'Dots Gap', 'jet-engine' ),
+					'type'         => 'range',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider .jet-slick-dots li' => 'margin-left: calc( {{VALUE}}px/2 ); margin-right: calc( {{VALUE}}px/2 );',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'dots_bg_color',
+					'label'        => __( 'Dot Color', 'jet-engine' ),
+					'type'         => 'color-picker',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider .jet-slick-dots li' => 'background: {{VALUE}}',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'dots_bg_color_hover',
+					'label'        => __( 'Dot Hover Color', 'jet-engine' ),
+					'type'         => 'color-picker',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider .jet-slick-dots li:hover' => 'background: {{VALUE}}',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'dots_bg_color_active',
+					'label'        => __( 'Dot Active Color', 'jet-engine' ),
+					'type'         => 'color-picker',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-grid__slider .jet-slick-dots li.slick-active' => 'background: {{VALUE}}',
+					),
+				)
+			);
+
+			$this->controls_manager->end_section();
+
+			$this->controls_manager->start_section(
+				'style_controls',
+				array(
+					'title' => __( 'Not Found Message', 'jet-engine' ),
+					'id'    => 'section_not_found_style',
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'not_found_typography',
+					'label'        => __( 'Typography', 'jet-engine' ),
+					'type'         => 'typography',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-not-found' => 'font-family: {{FAMILY}}; font-weight: {{WEIGHT}}; text-transform: {{TRANSFORM}}; font-style: {{STYLE}}; text-decoration: {{DECORATION}}; line-height: {{LINEHEIGHT}}{{LH_UNIT}}; letter-spacing: {{LETTERSPACING}}{{LS_UNIT}}; font-size: {{SIZE}}{{S_UNIT}};',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'not_found_color',
+					'label'        => __( 'Color', 'jet-engine' ),
+					'type'         => 'color-picker',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'{{WRAPPER}} .jet-listing-not-found' => 'color: {{VALUE}}',
 					),
 				)
 			);
@@ -403,12 +733,12 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Grid' ) ) {
 
 				echo '<ul class="jet-slick-dots" style="" role="tablist">';
 
-					$number = $widget->get_posts_num( $settings );
+				$number = $widget->get_posts_num( $settings );
 
-					for ( $i = 1;  $i <= $number;  $i++ ) {
-						$active_class = ( 1 === $i ) ? 'slick-active' : '';
-						echo '<li class="' . $active_class . '" role="presentation"><span>' . $i . '</span></li>';
-					}
+				for ( $i = 1;  $i <= $number;  $i++ ) {
+					$active_class = ( 1 === $i ) ? 'slick-active' : '';
+					echo '<li class="' . $active_class . '" role="presentation"><span>' . $i . '</span></li>';
+				}
 
 				echo '</ul>';
 
@@ -429,12 +759,16 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Grid' ) ) {
 				$attributes['columns_mobile'] = 1;
 			}
 
+			$attributes['inline_columns_css'] = true;
+
 			$render     = jet_engine()->listings->get_render_instance( $item, $attributes );
 			$listing_id = $attributes['lisitng_id'];
 
 			if ( ! $render ) {
 				return __( 'Listing renderer class not found', 'jet-engine' );
 			}
+
+			$render->before_listing_grid();
 
 			ob_start();
 
@@ -446,39 +780,28 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Grid' ) ) {
 			remove_action( 'jet-engine/listing/grid-items/before', array( $this, 'slider_before' ), 10, 2 );
 			remove_action( 'jet-engine/listing/grid-items/after', array( $this, 'slider_after' ), 10, 2 );
 
-			if ( $listing_id && ! jet_engine()->blocks_views->is_blocks_listing( $listing_id )
-				&& jet_engine()->has_elementor()
-				&& ! wp_style_is( 'elementor-frontend', 'registered' )
-			) {
-
-				Elementor\Plugin::$instance->frontend->register_styles();
-				Elementor\Plugin::$instance->frontend->enqueue_styles();
-				Elementor\Plugin::$instance->frontend->print_fonts_links();
-
-				wp_print_styles( 'elementor-frontend' );
-
-				$css_file = Elementor\Core\Files\CSS\Post::create( $listing_id );
-				$css_file->print_css();
-			}
-
-			if ( $listing_id && jet_engine()->blocks_views->is_blocks_listing( $listing_id ) ) {
-
-				$style = get_post_meta( $listing_id, '_jet_sm_ready_style', true );
-
-				if ( $style ) {
-					printf( '<style>%s</style>', $style );
-				}
-
-			}
-
 			$content = ob_get_clean();
 
-			return sprintf(
-				'<div class="jet-listing-grid--blocks%3$s" data-element-id="%1$s" data-listing-type="blocks">%2$s</div>',
-				$attributes['_block_id'],
-				$content,
-				! empty( $attributes['className'] ) ? ' ' . $attributes['className'] : ''
+			$this->_root['class'][] = 'jet-listing-grid--blocks';
+			$this->_root['class'][] = ! empty( $attributes['className'] ) ? ' ' . $attributes['className'] : '';
+			$this->_root['data-element-id'] = $attributes['_block_id'];
+			$this->_root['data-listing-type'] = 'blocks';
+			$this->_root['data-is-block'] = $this->get_block_name();
+
+			if ( ! empty( $attributes['_element_id'] ) ) {
+				$this->_root['id'] = $attributes['_element_id'];
+			}
+
+			$result = sprintf(
+				'<div %1$s>%2$s</div>',
+				$this->get_root_attr_string(),
+				$content
 			);
+
+			$render->after_listing_grid();
+
+			return $result;
+
 		}
 
 	}

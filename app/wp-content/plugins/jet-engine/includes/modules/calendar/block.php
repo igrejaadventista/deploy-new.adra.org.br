@@ -28,6 +28,9 @@ class Jet_Listing_Calendar_Block_Type extends \Jet_Engine_Blocks_Views_Type_Base
 	 * @return array
 	 */
 	public function get_attributes() {
+
+		$module = jet_engine()->modules->get_module( 'calendar' );
+
 		return apply_filters( 'jet-engine/blocks-views/listing-calendar/attributes', array(
 			'lisitng_id' => array(
 				'type'    => 'string',
@@ -36,6 +39,7 @@ class Jet_Listing_Calendar_Block_Type extends \Jet_Engine_Blocks_Views_Type_Base
 			'group_by' => array(
 				'type'    => 'string',
 				'default' => 'post_date',
+				'options' => $module->get_calendar_group_keys( true ),
 			),
 			'group_by_key' => array(
 				'type'    => 'string',
@@ -119,6 +123,12 @@ class Jet_Listing_Calendar_Block_Type extends \Jet_Engine_Blocks_Views_Type_Base
 
 			// Block ID
 			'_block_id' => array(
+				'type'    => 'string',
+				'default' => '',
+			),
+
+			// Element ID
+			'_element_id' => array(
 				'type'    => 'string',
 				'default' => '',
 			),
@@ -220,6 +230,27 @@ class Jet_Listing_Calendar_Block_Type extends \Jet_Engine_Blocks_Views_Type_Base
 				'separator' => 'before',
 				'css_selector' => array(
 					'{{WRAPPER}} .jet-calendar-caption' => 'border-radius: {{TOP}} {{RIGHT}} {{BOTTOM}} {{LEFT}};',
+				),
+			)
+		);
+
+		$this->controls_manager->add_responsive_control(
+			array(
+				'id'    => 'caption_gap',
+				'label' => esc_html__( 'Gap between caption elements', 'jet-engine' ),
+				'type'  => 'range',
+				'units' => array(
+					array(
+						'value'     => 'px',
+						'intervals' => array(
+							'step' => 1,
+							'min'  => 0,
+							'max'  => 100,
+						),
+					),
+				),
+				'css_selector' => array(
+					'{{WRAPPER}} .jet-calendar-caption__wrap' => 'gap: {{VALUE}}{{UNIT}};',
 				),
 			)
 		);
@@ -1243,7 +1274,25 @@ class Jet_Listing_Calendar_Block_Type extends \Jet_Engine_Blocks_Views_Type_Base
 
 		jet_engine()->frontend->frontend_scripts();
 
-		return sprintf( '<div class="jet-listing-calendar-block">%s</div>', $render->get_content() );
+		$this->_root['class'][] = 'jet-listing-calendar-block';
+		$this->_root['data-element-id'] = $attributes['_block_id'];
+		$this->_root['data-is-block'] = $this->get_block_name();
+
+		if ( ! empty( $attributes['className'] ) ) {
+			$this->_root['class'][] = $attributes['className'];
+		}
+
+		if ( ! empty( $attributes['_element_id'] ) ) {
+			$this->_root['id'] = $attributes['_element_id'];
+		}
+
+		$result = sprintf(
+			'<div %1$s>%2$s</div>',
+			$this->get_root_attr_string(),
+			$render->get_content()
+		);
+
+		return $result;
 	}
 
 }

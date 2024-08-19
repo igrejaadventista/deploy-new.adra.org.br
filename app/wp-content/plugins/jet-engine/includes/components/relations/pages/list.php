@@ -42,6 +42,11 @@ if ( ! class_exists( 'Jet_Engine_Relations_Page_List' ) ) {
 			?></a>
 			<?php
 
+			jet_engine()->get_video_help_popup( array(
+				'popup_title' => __( 'JetEngine relations overview', 'jet-engine' ),
+				'embed' => 'https://www.youtube.com/embed/4ZNF_BTBQ8M',
+			) )->wp_page_popup();
+
 		}
 
 		/**

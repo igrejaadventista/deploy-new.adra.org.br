@@ -50,6 +50,10 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms_Handler' ) ) {
 
 			}
 
+			if ( $this->is_validate_session_token() && ! session_id() ) {
+				session_start();
+			}
+
 			$this->manager = $manager;
 
 		}
@@ -119,6 +123,50 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms_Handler' ) ) {
 			$this->process_form();
 		}
 
+		public function is_validate_session_token() {
+			return apply_filters( 'jet-engine/forms/validate-session-token', false );
+		}
+
+		public function get_session_token( $form_id ) {
+			
+			if ( ! $this->is_validate_session_token() ) {
+				return false;
+			}
+
+			if ( empty( $_SESSION['_jet_engine_form_token'] ) ) {
+				$_SESSION['_jet_engine_form_token'] = array();
+			}
+
+			if ( empty( $_SESSION['_jet_engine_form_token'][ $form_id ] ) ) {
+				$_SESSION['_jet_engine_form_token'][ $form_id ] = md5( $form_id . time() );
+			}
+			
+			return $_SESSION['_jet_engine_form_token'][ $form_id ];
+
+		}
+
+		/**
+		 * Additional validation for page reload form
+		 */
+		public function validate_reload_form() {
+			
+			//validate refer
+			if ( empty( $_SERVER['HTTP_REFERER'] ) || ( untrailingslashit( $_SERVER['HTTP_REFERER'] ) !== untrailingslashit( $this->refer ) ) ) {
+				$this->redirect( array(
+					'status' => 'failed',
+				) );
+			}
+
+			if ( $this->is_validate_session_token() ) {
+				if ( empty( $_SESSION['_jet_engine_form_token'][ $this->form ] ) || empty( $_POST['_jet_engine_form_token'] ) || $_SESSION['_jet_engine_form_token'][ $this->form ] !== $_POST['_jet_engine_form_token'] ) {
+					$this->redirect( array(
+						'status' => 'failed',
+					) );
+				}
+			}
+
+		}
+
 		/**
 		 * Process current form
 		 *
@@ -142,6 +190,10 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms_Handler' ) ) {
 				$this->redirect( array(
 					'status' => 'failed',
 				) );
+			}
+
+			if ( ! wp_doing_ajax() && empty( $_GET['_jet_form_is_ajax'] ) ) {
+				$this->validate_reload_form();
 			}
 
 			$data = $this->get_form_data();
@@ -229,6 +281,12 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms_Handler' ) ) {
 			}
 
 			$query_args = apply_filters( 'jet-engine/forms/handler/query-args', $query_args, $args, $this );
+
+			if ( 'success' === $args['status'] ) {
+				if ( $this->is_validate_session_token() && ! empty( $_SESSION['_jet_engine_form_token'][ $this->form_id ] ) ) {
+					unset( $_SESSION['_jet_engine_form_token'][ $this->form_id ] );
+				}
+			}
 
 			if ( $this->is_ajax ) {
 
@@ -323,7 +381,7 @@ if ( ! class_exists( 'Jet_Engine_Booking_Forms_Handler' ) ) {
 				return $prepared;
 
 			} else {
-				return $_REQUEST;
+				return $_POST;
 			}
 
 		}

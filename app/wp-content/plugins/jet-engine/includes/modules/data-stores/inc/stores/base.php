@@ -15,7 +15,7 @@ abstract class Base_Store {
 			add_action( 'jet-engine/listings/frontend-scripts', array( $this, 'register_store_js_object' ) );
 		}
 
-		$this->on_init();
+		//$this->on_init(); // moved to Factory class to prevent conflicts with cache plugins
 
 	}
 

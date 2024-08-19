@@ -1,5 +1,9 @@
-import './plugins/sidebar';
+//Unused - import './plugins/sidebar';
+
+// Dynamic Content
 import './dynamic-content';
+
+// Blocks
 import './blocks/dynamic-field';
 import './blocks/dynamic-image';
 import './blocks/dynamic-repeater';
@@ -14,4 +18,9 @@ import './blocks/calendar';
 import './blocks/container';
 import './blocks/section';
 
+// Common
 import './common/styles';
+import './hooks';
+
+import './block-components/settings';
+import './block-components/register';

@@ -28,7 +28,7 @@ if ( is_array( $button_url ) ) {
 	if ( method_exists( $this, 'add_link_attributes' ) ) {
 		$this->add_link_attributes( 'url', $button_url );
 	} else {
-		$this->add_render_attribute( 'url', 'href', $button_url['url'] );
+		$this->add_render_attribute( 'url', 'href', esc_url( $button_url['url'] ) );
 
 		if ( $button_url['is_external'] ) {
 			$this->add_render_attribute( 'url', 'target', '_blank' );
@@ -40,7 +40,7 @@ if ( is_array( $button_url ) ) {
 	}
 
 } else {
-	$this->add_render_attribute( 'url', 'href', $button_url );
+	$this->add_render_attribute( 'url', 'href', esc_url( $button_url ) );
 }
 
 ?>

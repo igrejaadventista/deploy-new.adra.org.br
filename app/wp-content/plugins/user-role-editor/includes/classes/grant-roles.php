@@ -257,8 +257,8 @@ class URE_Grant_Roles {
             $bbp_roles = $bbpress->extract_bbp_roles( $user->roles );
         }
         $user->remove_all_caps();
-        $roles = array_merge(array( $primary_role ), $bbp_roles, $roles );
-        foreach( $roles as $role ) {
+        $roles2 = ure_array_merge( array( $primary_role ), $bbp_roles, $roles );
+        foreach( $roles2 as $role ) {
             $user->add_role( $role );
         }
         
@@ -359,7 +359,7 @@ class URE_Grant_Roles {
         $other_roles = array_values($user->roles);
         $primary_role = array_shift($other_roles);
         
-        $answer = array('result'=>'success', 'primary_role'=>$primary_role, 'other_roles'=>$other_roles);
+        $answer = array('result'=>'success', 'primary_role'=>$primary_role, 'other_roles'=>$other_roles, 'message'=>'User roles were sent');
         
         return $answer;
     }
@@ -478,9 +478,9 @@ class URE_Grant_Roles {
 
         $show_wp_change_role = apply_filters('ure_users_show_wp_change_role', true);
         
-        wp_enqueue_script('jquery-ui-dialog', '', array('jquery-ui-core','jquery-ui-button', 'jquery') );
-        wp_register_script('ure-users-grant-roles', plugins_url('/js/users-grant-roles.js', URE_PLUGIN_FULL_PATH ), array(), URE_VERSION );
-        wp_enqueue_script('ure-users-grant-roles', '', array(), false, true);
+        wp_enqueue_script('jquery-ui-dialog', '', array('jquery-ui-core','jquery-ui-button', 'jquery'), false, true );
+        wp_register_script('ure-users-grant-roles', plugins_url('/js/users-grant-roles.js', URE_PLUGIN_FULL_PATH ), array(), URE_VERSION, true );
+        wp_enqueue_script('ure-users-grant-roles');
         wp_localize_script('ure-users-grant-roles', 'ure_users_grant_roles_data', array(
             'wp_nonce' => wp_create_nonce('user-role-editor'),
             'dialog_title'=> esc_html__('Grant roles to selected users', 'user-role-editor'),

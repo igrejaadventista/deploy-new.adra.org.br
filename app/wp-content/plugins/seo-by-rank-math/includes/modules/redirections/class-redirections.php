@@ -10,12 +10,11 @@
 
 namespace RankMath\Redirections;
 
-use RankMath\Helper;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
+use RankMath\Helper;
+use RankMath\Helpers\Str;
 use RankMath\Helpers\Security;
-use MyThemeShop\Helpers\Param;
-use MyThemeShop\Helpers\Conditional;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -25,6 +24,13 @@ defined( 'ABSPATH' ) || exit;
 class Redirections {
 
 	use Hooker;
+
+	/**
+	 * Admin object.
+	 *
+	 * @var Admin
+	 */
+	public $admin;
 
 	/**
 	 * The Constructor.
@@ -41,7 +47,7 @@ class Redirections {
 		if ( Helper::has_cap( 'redirections' ) ) {
 			$this->action( 'rank_math/admin_bar/items', 'admin_bar_items', 11 );
 
-			if ( Conditional::is_rest() ) {
+			if ( Helper::is_rest() ) {
 				$this->action( 'rank_math/dashboard/widget', 'dashboard_widget', 12 );
 			}
 		}
@@ -59,9 +65,9 @@ class Redirections {
 		?>
 		<h3>
 			<?php esc_html_e( 'Redirections', 'rank-math' ); ?>
-			<a href="<?php echo esc_url( Helper::get_admin_url( 'redirections' ) ); ?>" class="rank-math-view-report" title="<?php esc_html_e( 'View Report', 'rank-math' ); ?>"><i class="dashicons dashicons-ellipsis"></i></a>
+			<a href="<?php echo esc_url( Helper::get_admin_url( 'redirections' ) ); ?>" class="rank-math-view-report" title="<?php esc_html_e( 'View Report', 'rank-math' ); ?>"><i class="dashicons dashicons-chart-bar"></i></a>
 		</h3>
-		<div class="rank-math-dashabord-block">
+		<div class="rank-math-dashboard-block">
 			<div>
 				<h4>
 					<?php esc_html_e( 'Redirection Count', 'rank-math' ); ?>
@@ -88,7 +94,7 @@ class Redirections {
 			$this->admin = new Admin();
 		}
 
-		if ( is_admin() || Conditional::is_rest() ) {
+		if ( is_admin() || Helper::is_rest() ) {
 			new Watcher();
 		}
 	}
@@ -100,7 +106,7 @@ class Redirections {
 		if (
 			$this->is_wp_login() ||
 			is_customize_preview() ||
-			Conditional::is_ajax() ||
+			Helper::is_ajax() ||
 			! isset( $_SERVER['REQUEST_URI'] ) ||
 			empty( $_SERVER['REQUEST_URI'] ) ||
 			$this->is_script_uri_or_http_x() ||

@@ -1,6 +1,6 @@
 <?php
 /**
- * The SEO Analysis module.
+ * The SEO Analyzer module.
  *
  * @since      0.9.0
  * @package    RankMath
@@ -12,8 +12,7 @@ namespace RankMath\SEO_Analysis;
 
 use RankMath\Helper;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Param;
-use MyThemeShop\Helpers\Conditional;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -25,10 +24,17 @@ class SEO_Analysis {
 	use Hooker;
 
 	/**
+	 * Admin object.
+	 *
+	 * @var Admin
+	 */
+	public $admin;
+
+	/**
 	 * The Constructor.
 	 */
 	public function __construct() {
-		if ( Conditional::is_heartbeat() ) {
+		if ( Helper::is_heartbeat() ) {
 			return;
 		}
 
@@ -39,6 +45,8 @@ class SEO_Analysis {
 		if ( Helper::has_cap( 'rank_math_site_analysis' ) ) {
 			$this->action( 'rank_math/admin_bar/items', 'admin_bar_items', 11 );
 		}
+
+		$this->filter( 'rank_math/seo_analysis/admin_tab_view', 'add_tab_previews', 10, 2 );
 	}
 
 	/**
@@ -50,7 +58,7 @@ class SEO_Analysis {
 		$menu->add_sub_menu(
 			'seo-analysis',
 			[
-				'title'    => esc_html__( 'SEO Analysis', 'rank-math' ),
+				'title'    => esc_html__( 'SEO Analyzer', 'rank-math' ),
 				'href'     => Helper::get_admin_url( 'seo-analysis' ),
 				'meta'     => [ 'title' => esc_html__( 'Site-wide analysis', 'rank-math' ) ],
 				'priority' => 50,
@@ -63,12 +71,28 @@ class SEO_Analysis {
 			$menu->add_sub_menu(
 				'analyze',
 				[
-					'title' => $link ? esc_html__( 'Analyze this Page', 'rank-math' ) : esc_html__( 'SEO Analysis', 'rank-math' ),
+					'title' => $link ? esc_html__( 'Analyze this Page', 'rank-math' ) : esc_html__( 'SEO Analyzer', 'rank-math' ),
 					'href'  => Helper::get_admin_url( 'seo-analysis' ) . ( $link ? '&u=' . rawurlencode( $link ) : '' ),
 					'meta'  => [ 'title' => esc_html__( 'SEO Analysis for this page', 'rank-math' ) ],
 				],
 				'seo-analysis'
 			);
 		}
+	}
+
+	/**
+	 * Add PRO tab previews.
+	 *
+	 * @param string $file        Include file.
+	 * @param string $current_tab Current tab.
+	 *
+	 * @return string
+	 */
+	public function add_tab_previews( $file, $current_tab ) {
+		if ( 'competitor_analyzer' === $current_tab ) {
+			$file = dirname( __FILE__ ) . '/views/competitor-analysis.php';
+		}
+
+		return $file;
 	}
 }

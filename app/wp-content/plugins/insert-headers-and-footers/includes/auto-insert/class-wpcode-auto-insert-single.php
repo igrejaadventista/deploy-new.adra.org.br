@@ -5,10 +5,28 @@
  * @package wpcode
  */
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Class WPCode_Auto_Insert_Single.
  */
 class WPCode_Auto_Insert_Single extends WPCode_Auto_Insert_Type {
+
+	/**
+	 * The type unique name (slug).
+	 *
+	 * @var string
+	 */
+	public $name = 'single';
+
+	/**
+	 * The category of this type.
+	 *
+	 * @var string
+	 */
+	public $category = 'page';
 
 	/**
 	 * Used to make sure we only output the before post code once.
@@ -25,12 +43,30 @@ class WPCode_Auto_Insert_Single extends WPCode_Auto_Insert_Type {
 	public function init() {
 		$this->label     = __( 'Page, Post, Custom Post Type', 'insert-headers-and-footers' );
 		$this->locations = array(
-			'before_post'      => __( 'Insert Before Post', 'insert-headers-and-footers' ),
-			'after_post'       => __( 'Insert After Post', 'insert-headers-and-footers' ),
-			'before_content'   => __( 'Insert Before Content', 'insert-headers-and-footers' ),
-			'after_content'    => __( 'Insert After Content', 'insert-headers-and-footers' ),
-			'before_paragraph' => __( 'Insert Before Paragraph', 'insert-headers-and-footers' ),
-			'after_paragraph'  => __( 'Insert After Paragraph', 'insert-headers-and-footers' ),
+			'before_post'      => array(
+				'label'       => esc_html__( 'Insert Before Post', 'insert-headers-and-footers' ),
+				'description' => esc_html__( 'Insert snippet at the beginning of a post.', 'insert-headers-and-footers' ),
+			),
+			'after_post'       => array(
+				'label'       => esc_html__( 'Insert After Post', 'insert-headers-and-footers' ),
+				'description' => esc_html__( 'Insert snippet at the end of a post.', 'insert-headers-and-footers' ),
+			),
+			'before_content'   => array(
+				'label'       => esc_html__( 'Insert Before Content', 'insert-headers-and-footers' ),
+				'description' => esc_html__( 'Insert snippet at the beginning of the post content.', 'insert-headers-and-footers' ),
+			),
+			'after_content'    => array(
+				'label'       => esc_html__( 'Insert After Content', 'insert-headers-and-footers' ),
+				'description' => esc_html__( 'Insert snippet at the end of the post content.', 'insert-headers-and-footers' ),
+			),
+			'before_paragraph' => array(
+				'label'       => esc_html__( 'Insert Before Paragraph', 'insert-headers-and-footers' ),
+				'description' => esc_html__( 'Insert snippet before paragraph # of the post content.', 'insert-headers-and-footers' ),
+			),
+			'after_paragraph'  => array(
+				'label'       => esc_html__( 'Insert After Paragraph', 'insert-headers-and-footers' ),
+				'description' => esc_html__( 'Insert snippet after paragraph # of the post content.', 'insert-headers-and-footers' ),
+			),
 		);
 	}
 
@@ -68,10 +104,7 @@ class WPCode_Auto_Insert_Single extends WPCode_Auto_Insert_Type {
 		if ( ! did_action( 'get_header' ) || get_the_ID() !== $post_object->ID || $this->did_before_post_output ) {
 			return;
 		}
-		$snippets = $this->get_snippets_for_location( 'before_post' );
-		foreach ( $snippets as $snippet ) {
-			echo wpcode()->execute->get_snippet_output( $snippet );
-		}
+		$this->output_location( 'before_post' );
 		$this->did_before_post_output = true;
 	}
 
@@ -220,3 +253,5 @@ class WPCode_Auto_Insert_Single extends WPCode_Auto_Insert_Type {
 		return $content_to_add_to;
 	}
 }
+
+new WPCode_Auto_Insert_Single();

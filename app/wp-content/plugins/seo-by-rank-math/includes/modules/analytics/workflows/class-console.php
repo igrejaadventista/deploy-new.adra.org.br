@@ -11,7 +11,8 @@
 namespace RankMath\Analytics\Workflow;
 
 use Exception;
-use MyThemeShop\Helpers\DB;
+use RankMath\Helpers\DB;
+use RankMath\Google\Console as GoogleConsole;
 use function as_unschedule_all_actions;
 
 defined( 'ABSPATH' ) || exit;
@@ -25,8 +26,11 @@ class Console extends Base {
 	 * Constructor.
 	 */
 	public function __construct() {
+
+		$this->create_tables();
+
 		// If console is not connected, ignore all no need to proceed.
-		if ( ! \RankMath\Google\Console::is_console_connected() ) {
+		if ( ! GoogleConsole::is_console_connected() ) {
 			return;
 		}
 
@@ -60,19 +64,19 @@ class Console extends Base {
 		}
 
 		$schema = "CREATE TABLE {$wpdb->prefix}{$table} (
-				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-				created TIMESTAMP NOT NULL,
-				query VARCHAR(1000) NOT NULL,
-				page VARCHAR(500) NOT NULL,
-				clicks MEDIUMINT(6) NOT NULL,
-				impressions MEDIUMINT(6) NOT NULL,
-				position DOUBLE NOT NULL,
-				ctr DOUBLE NOT NULL,
-				PRIMARY KEY (id),
-				INDEX analytics_query (query(190)),
-				INDEX analytics_page (page(190)),
-				INDEX clicks (clicks),
-				INDEX rank_position (position)
+				id bigint(20) unsigned NOT NULL auto_increment,
+				created timestamp NOT NULL,
+				query varchar(1000) NOT NULL,
+				page varchar(500) NOT NULL,
+				clicks mediumint(6) NOT NULL,
+				impressions mediumint(6) NOT NULL,
+				position double NOT NULL,
+				ctr double NOT NULL,
+				PRIMARY KEY  (id),
+				KEY analytics_query (query(190)),
+				KEY analytics_page (page(190)),
+				KEY clicks (clicks),
+				KEY rank_position (position)
 			) $collate;";
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -82,7 +86,9 @@ class Console extends Base {
 			// Will log.
 		}
 
-		\RankMath\Helper::check_collation( $table );
+		// Make sure that collations match the objects table.
+		$objects_coll = DB::get_table_collation( 'rank_math_analytics_objects' );
+		DB::check_collation( $table, 'all', $objects_coll );
 	}
 
 	/**
@@ -98,7 +104,9 @@ class Console extends Base {
 			return;
 		}
 
+		update_option( 'rank_math_analytics_first_fetch', 'fetching' );
+
 		// Fetch now.
-		$this->create_jobs( $days, 'console' );
+		$this->schedule_single_action( $days, 'console' );
 	}
 }

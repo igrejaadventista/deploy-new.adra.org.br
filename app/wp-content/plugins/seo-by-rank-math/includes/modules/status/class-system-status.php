@@ -23,6 +23,13 @@ defined( 'ABSPATH' ) || exit;
 class System_Status {
 
 	/**
+	 * WP Info.
+	 *
+	 * @var array
+	 */
+	private $wp_info = [];
+
+	/**
 	 * Display Database/Tables Details.
 	 */
 	public function display() {
@@ -157,7 +164,7 @@ class System_Status {
 				AND table_name LIKE %s
 				ORDER BY name ASC;",
 				DB_NAME,
-				'%rank_math%'
+				'%rank\\_math%'
 			)
 		);
 
@@ -238,8 +245,7 @@ class System_Status {
 	 */
 	public function get_table_size( $table ) {
 		global $wpdb;
-		$size = (int) $wpdb->get_var( 'SELECT SUM((data_length + index_length)) AS size FROM information_schema.TABLES WHERE table_schema="' . $wpdb->dbname . '" AND (table_name="' . $wpdb->prefix . $table . '")' ); // phpcs:ignore
-
+		$size = (int) $wpdb->get_var( "SELECT SUM((data_length + index_length)) AS size FROM information_schema.TABLES WHERE table_schema='" . $wpdb->dbname . "' AND (table_name='" . $wpdb->prefix . $table . "')" ); // phpcs:ignore
 		return size_format( $size );
 	}
 }

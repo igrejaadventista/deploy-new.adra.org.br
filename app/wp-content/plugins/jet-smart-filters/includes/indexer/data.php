@@ -9,7 +9,6 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Indexer_Data class
 	 */
@@ -19,22 +18,15 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 
 		/**
 		 * Sets up needed actions/filters for the plugin to initialize.
-		 *
-		 * @return void
 		 */
 		public function __construct() {
 
 			add_filter( 'jet-smart-filters/filters/localized-data', array( $this, 'prepare_localized_data' ) );
 			add_filter( 'jet-smart-filters/render/ajax/data', array( $this, 'prepare_ajax_data' ) );
-
 		}
 
 		/**
 		 * Prepare localized data
-		 *
-		 * @param $args
-		 *
-		 * @return mixed
 		 */
 		public function prepare_localized_data( $args ) {
 
@@ -44,6 +36,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 
 			foreach ( jet_smart_filters()->query->get_default_queries() as $provider => $queries ) {
 				foreach ( $queries as $query_id => $query_args ) {
+					$query_args   = jet_smart_filters()->utils->merge_query_args( $query_args, jet_smart_filters()->query->get_query_args() );
 					$provider_key = $provider . '/' . $query_id;
 
 					if ( empty( $this->indexing_data[$provider_key] ) ) {
@@ -65,15 +58,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 			do_action( 'jet-smart-filters/indexer/after-prepare-data' );
 
 			return $args;
-
 		}
 
 		/**
 		 * Prepare data for ajax actions
-		 *
-		 * @param $args
-		 *
-		 * @return mixed
 		 */
 		public function prepare_ajax_data( $args ) {
 
@@ -93,7 +81,11 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 			}
 
 			if ( ! empty( $this->indexing_data[$provider_key] ) ) {
-				$query_args   = jet_smart_filters()->query->get_query_args();
+				$query_args = jet_smart_filters()->utils->merge_query_args(
+					jet_smart_filters()->query->get_default_queries(),
+					jet_smart_filters()->query->get_query_args()
+				);
+				//$query_args   = jet_smart_filters()->query->get_query_args();
 				$indexed_data = $this->get_indexed_data( $provider_key, $query_args );
 			}
 
@@ -104,7 +96,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 			do_action( 'jet-smart-filters/indexer/after-prepare-data' );
 
 			return $args;
-
 		}
 
 		public function get_indexed_data( $provider_key, $query_args ) {
@@ -126,7 +117,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 					case 'tax_query':
 						foreach ( $query_data as $tax_key => $tax_data ) {
 							$sql_and .= $sql_and ? ' OR ' : '';
-							$sql_and .= "( item_query = '$query_type' AND item_key = '$tax_key' AND item_value IN ('" . implode( "','", $tax_data ) . "') )";
+							$sql_and .= "(item_query = '$query_type' AND item_key = '$tax_key' AND item_value IN ('" . implode( "','", $tax_data ) . "'))";
 						}
 
 						break;
@@ -156,7 +147,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 											? "item_key IN ('" . str_replace( [",",' '], ["','". ''], $suffix_data[0] ) . "')"
 											: "item_key = '" . $suffix_data[0] . "'";
 
-										$sql_and .= "( item_query = '$query_type' AND $item_key_condition AND item_value >= " . $range_data['min'] . " AND item_value <= " . $range_data['max'] . " )";
+										$sql_and .= "(item_query = '$query_type' AND $item_key_condition AND item_value >= " . $range_data['min'] . " AND item_value <= " . $range_data['max'] . ")";
 
 									break;
 								}
@@ -165,7 +156,11 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 									? "item_key IN ('" . str_replace( [",",' '], ["','". ''], $meta_key ) . "')"
 									: "item_key = '$meta_key'";
 								if ( $meta_data ) {
-									$sql_and .= "( item_query = '$query_type' AND $item_key_condition AND item_value IN ('" . implode( "','", $meta_data ) . "') )";
+									foreach ( $meta_data as &$value ) {
+										$value = addslashes( $value );
+									}
+
+									$sql_and .= "(item_query = '$query_type' AND $item_key_condition AND item_value IN ('" . implode( "','", $meta_data ) . "'))";
 								}
 							}
 						}
@@ -175,7 +170,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 			}
 
 			if ( $sql_and ) {
-				$sql_and = "AND ( $sql_and )";
+				$sql_and = "AND ($sql_and)";
 			}
 
 			global $wpdb;
@@ -183,7 +178,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 			SELECT MAX(item_query) as item_query, MAX(item_key) as item_key, item_value, COUNT(item_id) as count
 				FROM " . jet_smart_filters()->indexer->table_name . "
 				WHERE item_id IN (" . implode( ",", $queried_ids ) . ")
-				AND ( type = '$type' )
+				AND (type = '$type')
 				$sql_and
 				GROUP BY item_key, item_value
 				ORDER BY item_value ASC";
@@ -242,26 +237,33 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 							}
 						}
 					}
+
+					$indexed_data[ $query_type ] = apply_filters(
+						'jet-smart-filters/filters/indexed-data/query-type-data',
+						$indexed_data[ $query_type ],
+						$query_type,
+						$key,
+						$data,
+						$this,
+						$queried_ids,
+						$provider_key
+					);
 				}
 			}
 
 			return $indexed_data;
-
 		}
 
 		/**
 		 * Add indexing data from filter by id
-		 *
-		 * @param $filter_id
-		 *
-		 * @return void
 		 */
 		public function add_indexing_data_from_filter( $provider_key, $filter_id ) {
 
 			$data        = array();
 			$query_type  = '';
 			$query_var   = '';
-			$source      = get_post_meta( $filter_id );
+			// filter source for getting indexed data
+			$source      = apply_filters( 'jet-smart-filters/indexer/filter-source', get_post_meta( $filter_id ) );
 			$data_source = ! empty( $source['_data_source'] ) ? $source['_data_source'][0] : false;
 
 			if ( $source['_filter_type'][0] === 'check-range' ) {
@@ -309,15 +311,18 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 						$query_type = 'tax_query';
 						$tax        = ! empty( $source['_source_taxonomy'] ) ? $source['_source_taxonomy'][0] : false;
 
-						$exclude_include = $source['_use_exclude_include'][0];
+						$exclude_include      = isset( $source['_use_exclude_include'] ) && isset( $source['_use_exclude_include'][0] ) ? $source['_use_exclude_include'][0] : '';
+						$data_exclude_include = ! empty( $source['_data_exclude_include'][0] ) ? unserialize( $source['_data_exclude_include'][0] ) : false;
 
 						if ( $exclude_include === 'include' ) {
-							$data[$tax] = unserialize( $source['_data_exclude_include'][0] );
+							$data[$tax] = is_array( $data_exclude_include ) && ! empty( $data_exclude_include )
+								? $data_exclude_include
+								: $this->get_terms_by_tax( $tax );
 						} else {
 							$data[$tax] = $this->get_terms_by_tax( $tax );
 
-							if ( $exclude_include === 'exclude' ) {
-								$data[$tax] = array_diff( $data[$tax], unserialize( $source['_data_exclude_include'][0] ) );
+							if ( $exclude_include === 'exclude' && is_array( $data_exclude_include ) && ! empty( $data_exclude_include ) ) {
+								$data[$tax] = array_diff( $data[$tax], $data_exclude_include );
 							}
 						}
 
@@ -395,6 +400,18 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 						$query_type  = isset( $custom_args['query_type'] ) ? $custom_args['query_type'] : 'meta_query';
 						$options     = ! empty( $custom_args['options'] ) ? $custom_args['options'] : false;
 
+						if ( empty( $options ) ) {
+						
+							$options = apply_filters( 'jet-smart-filters/filters/filter-options', $options, $filter_id, false );
+
+							if ( ! empty( $options ) ) {
+								$options = array_filter( array_keys( $options ), function( $value ) {
+									return '' !== $value;
+								} );
+							}
+
+						}
+
 						$data[$query_var] = $options;
 
 						break;
@@ -434,7 +451,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 			}
 
 			return $terms;
-
 		}
 
 		public function get_queried_ids( $args ) {
@@ -444,9 +460,14 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 
 			unset( $args['jet_smart_filters'] );
 			unset( $args['paged'] );
+			unset( $args['nopaging'] );
 
 			switch ( $type ) {
 				case 'posts':
+				case 'current-wp-query':
+					// arguments that are better to remove to optimize the query
+					unset( $args['wc_query'] );
+
 					$post_main_args = [
 						'post_status'    => 'publish',
 						'posts_per_page' => -1,
@@ -493,9 +514,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Indexer_Data' ) ) {
 			}
 
 			return $ids;
-
 		}
-
 	}
-
 }

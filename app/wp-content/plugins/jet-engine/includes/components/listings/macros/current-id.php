@@ -35,6 +35,7 @@ class Current_Id extends \Jet_Engine_Base_Macros {
 		$result = '';
 
 		switch ( $class ) {
+	
 			case 'WP_Post':
 				$result = $object->ID;
 				break;
@@ -44,8 +45,13 @@ class Current_Id extends \Jet_Engine_Base_Macros {
 				break;
 
 			default:
-				$result = apply_filters( 'jet-engine/listings/macros/current-id', $result, $object );
+				$result = apply_filters(
+					'jet-engine/listings/macros/current-id',
+					jet_engine()->listings->data->get_current_object_id( $object ),
+					$object
+				);
 				break;
+
 		}
 
 		return $result;

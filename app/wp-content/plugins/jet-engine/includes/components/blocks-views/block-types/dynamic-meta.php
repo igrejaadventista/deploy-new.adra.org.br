@@ -425,6 +425,24 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Meta' ) ) {
 				)
 			);
 
+			$this->controls_manager->add_responsive_control(
+				array(
+					'id'           => 'icon_size',
+					'label'        => __( 'Icon Size', 'jet-engine' ),
+					'type'         => 'range',
+					'separator'    => 'before',
+					'attributes'   => array(
+						'default' => array(
+							'value' => 16,
+						),
+					),
+					'css_selector' => array(
+						$this->css_selector( '__icon svg' ) => 'width: {{VALUE}}px !important; height: auto !important;',
+						$this->css_selector( '__icon img' ) => 'width: {{VALUE}}px !important; height: auto !important;',
+					),
+				)
+			);
+
 			$this->controls_manager->add_control(
 				array(
 					'id'           => 'icon_gap',

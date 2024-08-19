@@ -15,7 +15,7 @@ use RankMath\Admin\Admin_Helper;
 use RankMath\Redirections\Redirection;
 use RankMath\Schema\JsonLD;
 use RankMath\Schema\Singular;
-use MyThemeShop\Helpers\DB;
+use RankMath\Helpers\DB;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -359,6 +359,17 @@ class SEOPress extends Plugin_Importer {
 			'seopress_social_knowledge_img'              => 'knowledgegraph_logo',
 		];
 		$this->replace( $hash, $social, $this->titles );
+
+		$additional_urls = [];
+		foreach ( [ 'pinterest', 'instagram', 'youtube', 'linkedin' ] as $service ) {
+			if ( ! empty( $social[ "seopress_social_accounts_{$service}" ] ) ) {
+				$additional_urls[] = $social[ "seopress_social_accounts_{$service}" ];
+			}
+		}
+
+		if ( ! empty( $additional_urls ) ) {
+			$this->titles['social_additional_profiles'] = implode( PHP_EOL, $additional_urls );
+		}
 
 		// OpenGraph.
 		if ( isset( $social['og_default_image'] ) ) {
@@ -774,8 +785,13 @@ class SEOPress extends Plugin_Importer {
 
 		if ( ! $is_noindex || ! $is_nofollow ) {
 			$robots    = $this->get_default_robots( $object_id, $object_type );
-			$current[] = ! $is_noindex && ! empty( $robots['noindex'] ) ? 'noindex' : 'index';
 			$current[] = ! $is_nofollow && ! empty( $robots['nofollow'] ) ? 'nofollow' : '';
+
+			// Keep global no index status.
+			if ( ! empty( $robots['noindex'] ) ) {
+				unset( $current['index'] );
+				$current[] = 'noindex';
+			}
 		}
 
 		$this->update_meta( $object_type, $object_id, 'rank_math_robots', array_unique( $current ) );

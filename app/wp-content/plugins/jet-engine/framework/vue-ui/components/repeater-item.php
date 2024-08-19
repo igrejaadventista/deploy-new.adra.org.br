@@ -37,8 +37,10 @@
 			><rect width="14" height="14" transform="matrix(1 0 0 -1 0 14)" fill="white"/><path d="M13 5.32911L7 11L1 5.32911L2.40625 4L7 8.34177L11.5938 4L13 5.32911Z"/></svg>
 			<div class="cx-vui-repeater-item__title" v-html="title"></div>
 			<div class="cx-vui-repeater-item__subtitle" v-html="subtitle"></div>
+			<div class="cx-vui-repeater-item__icon" v-if="showIcon" v-html="icon"></div>
 		</div>
 		<div class="cx-vui-repeater-item__heading-end">
+			<slot name="before-actions"></slot>
 			<div
 				class="cx-vui-repeater-item__copy"
 				@click="handleCopy"
@@ -67,6 +69,7 @@
 					>No</span>
 				</div>
 			</div>
+			<slot name="after-actions"></slot>
 		</div>
 	</div>
 	<div

@@ -6,10 +6,12 @@
 		el: '#jet_cpt_list',
 		template: '#jet-cpt-list',
 		data: {
-			itemsList: [],
 			errorNotices: [],
 			editLink: JetEngineCPTListConfig.edit_link,
+			builtInTypes: JetEngineCPTListConfig.built_in_types,
+			engineTypes: JetEngineCPTListConfig.engine_types,
 			showDeleteDialog: false,
+			showTypes: 'jet-engine',
 			deletedItem: {},
 		},
 		computed: {
@@ -21,65 +23,43 @@
 				}
 
 				return result;
-			}
-		},
-		mounted: function() {
+			},
+			itemsList: function() {
+				var result = [];
 
-			var self = this;
-
-			wp.apiFetch( {
-				method: 'get',
-				path: JetEngineCPTListConfig.api_path,
-			} ).then( function( response ) {
-
-				if ( response.success && response.data ) {
-					self.itemsList = response.data;
+				if ( 'jet-engine' === this.showTypes ) {
+					result = this.engineTypes;
 				} else {
-					if ( response.notices.length ) {
-						response.notices.forEach( function( notice ) {
-							self.errorNotices.push( notice.message );
-						} );
-					}
+					result = this.builtInTypes;
 				}
-			} ).catch( function( e ) {
-				self.errorNotices.push( e.message );
-			} );
+
+				return result;
+			},
 		},
 		methods: {
+			switchType: function() {
+				if ( 'jet-engine' === this.showTypes ) {
+					this.showTypes = 'built-in';
+				} else {
+					this.showTypes = 'jet-engine';
+				}
+			},
 			copyItem: function( item ) {
 
-				if ( !item ) {
+				if ( !item || !item.id ) {
 					return;
 				}
 
-				var self = this,
-					itemData = JSON.parse( JSON.stringify( item ) ),
-					newSlug = itemData.slug + '_copy';
-
-				itemData.slug = -1 === this.slugsList.indexOf( newSlug ) ? newSlug : newSlug + '_' + Math.floor( ( Math.random() * 99 )  + 1 );
-				itemData.labels.name = itemData.labels.name + ' (Copy)';
+				var self = this;
 
 				wp.apiFetch( {
 					method: 'post',
-					path: JetEngineCPTListConfig.api_path_add,
-					data: {
-						general_settings: {
-							name: itemData.labels.name,
-							slug: itemData.slug,
-							object_type: itemData.object_type,
-							show_edit_link: itemData.show_edit_link,
-						},
-						labels: itemData.labels,
-						advanced_settings: itemData.args,
-						meta_fields: itemData.meta_fields,
-					}
+					path: JetEngineCPTListConfig.api_path_copy + item.id,
 				} ).then( function( response ) {
 
-					if ( response.success && response.item_id ) {
+					if ( response.success && response.item ) {
 
-						itemData.id = response.item_id
-
-						self.itemsList.unshift( itemData );
+						self.engineTypes.unshift( response.item );
 
 						self.$CXNotice.add( {
 							message: JetEngineCPTListConfig.notices.copied,
@@ -114,8 +94,16 @@
 				this.deletedItem      = item;
 				this.showDeleteDialog = true;
 			},
-			getEditLink: function( id ) {
-				return this.editLink.replace( /%id%/, id );
+			getEditLink: function( id, slug ) {
+
+				var editLink = this.editLink.replace( /%id%/, id );
+
+				if ( 'built-in' === this.showTypes ) {
+					editLink += '&edit-type=built-in&tax=' + slug;
+				}
+
+				return editLink;
+
 			},
 		}
 	} );

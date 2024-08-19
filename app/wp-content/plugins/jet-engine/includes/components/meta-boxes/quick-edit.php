@@ -26,6 +26,8 @@ if ( ! class_exists( 'Jet_Engine_CPT_Quick_Edit' ) ) {
 	 */
 	class Jet_Engine_CPT_Quick_Edit {
 
+		public static $hook_after_save_all = array();
+
 		public $post_type   = null;
 		public $field       = null;
 		public $trigger_col = 'jet_engine_quick_edit';
@@ -45,6 +47,21 @@ if ( ! class_exists( 'Jet_Engine_CPT_Quick_Edit' ) ) {
 			add_action( 'quick_edit_custom_box', array( $this, 'render_control' ), 10, 2 );
 			add_action( 'save_post_' . $this->post_type, array( $this, 'save_field' ), 5 );
 
+			if ( ! in_array( $this->post_type, self::$hook_after_save_all ) ) {
+				add_action( 'save_post_' . $this->post_type, array( $this, 'after_save_all' ), 6 );
+				self::$hook_after_save_all[] = $this->post_type;
+			}
+
+		}
+
+		/**
+		 * Run cx_post_meta/after_save hook after save all quick edit boxes to better compatibility with Cherry_X_Post_Meta
+		 *
+		 * @return void
+		 */
+		public function after_save_all() {
+			$post_id = ! empty( $_REQUEST['post_ID'] ) ? $_REQUEST['post_ID'] : false;
+			do_action( 'cx_post_meta/after_save', $post_id, get_post( $post_id ) );
 		}
 
 		/**
@@ -182,7 +199,8 @@ if ( ! class_exists( 'Jet_Engine_CPT_Quick_Edit' ) ) {
 
 			$post      = get_post( $post_id );
 			$post_meta = new Cherry_X_Post_Meta();
-			$value     = $post_meta->get_meta( $post, $this->get_field( 'name' ), false, $this->get_field() );
+			$default   = $this->get_field( 'value' );
+			$value     = $post_meta->get_meta( $post, $this->get_field( 'name' ), $default, $this->get_field() );
 
 			if ( 'select' === $this->get_field( 'type' ) && $this->get_field( 'multiple' ) && ! is_array( $value ) ) {
 				$value = array( $value );
@@ -197,12 +215,28 @@ if ( ! class_exists( 'Jet_Engine_CPT_Quick_Edit' ) ) {
 			if ( 'checkbox' === $this->get_field( 'type' ) ) {
 				$this->set_field( 'type', 'checkbox-raw' );
 				$this->set_field( 'value', array() );
+				$this->set_field( 'required', false );
+			}
+
+			if ( 'text' === $this->get_field( 'type' ) && ! empty( $value )
+				 && $post_meta->to_timestamp( $this->get_field() ) && is_numeric( $value )
+			) {
+
+				switch ( $this->get_field( 'input_type' ) ) {
+					case 'date':
+						$value = date( 'Y-m-d', $value );
+						break;
+
+					case 'datetime-local':
+						$value = date( 'Y-m-d\TH:i', $value );
+						break;
+				}
 			}
 
 			printf(
 				'<div data-jet-engine-quick-edit-val="%1$s" data-jet-engine-quick-edit-type="%3$s">%2$s</div>',
 				$this->get_field( 'name' ),
-				json_encode( $value ),
+				htmlentities( json_encode( $value ) ),
 				$this->get_field( 'type' )
 			);
 		}
@@ -255,7 +289,18 @@ if ( ! class_exists( 'Jet_Engine_CPT_Quick_Edit' ) ) {
 			}
 
 			$builder->register_control( $field );
-			$builder->render();
+			$control_html = $builder->render( false );
+
+			$replace_map_attrs = array(
+				'data-required=' => 'required=',
+				'data-min='      => 'min=',
+				'data-max='      => 'max=',
+				'data-step='     => 'step=',
+			);
+
+			$control_html = str_replace( array_keys( $replace_map_attrs ), array_values( $replace_map_attrs ), $control_html );
+
+			echo $control_html;
 
 			printf( '<input type="hidden" name="jet_engine_quick_edit[]" value="%s">', $this->get_trigger_col() );
 
@@ -273,7 +318,7 @@ if ( ! class_exists( 'Jet_Engine_CPT_Quick_Edit' ) ) {
 						width: 24.5%;
 						min-width: 250px;
 						box-sizing: border-box;
-						justify-content: flex-between;
+						justify-content: space-between;
 					}
 					.inline-edit-row .cx-control select[multiple] {
 						height: 120px;
@@ -289,6 +334,9 @@ if ( ! class_exists( 'Jet_Engine_CPT_Quick_Edit' ) ) {
 					}
 					.inline-edit-row .cx-ui-kit__content {
 						flex: 0 0 calc( 100% - 115px );
+					}
+					.inline-edit-row .cx-control__required {
+						color: #e54343;
 					}
 				</style>';
 

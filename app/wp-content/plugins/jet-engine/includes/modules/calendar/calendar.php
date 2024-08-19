@@ -30,7 +30,7 @@ if ( ! class_exists( 'Jet_Engine_Module_Calendar' ) ) {
 		 * @return string
 		 */
 		public function module_name() {
-			return __( 'Calendar', 'jet-engine' );
+			return __( 'Dynamic Calendar', 'jet-engine' );
 		}
 
 		/**
@@ -38,8 +38,8 @@ if ( ! class_exists( 'Jet_Engine_Module_Calendar' ) ) {
 		 * @return [type] [description]
 		 */
 		public function get_module_details() {
-			return '<p>After activation, a <b>Calendar widget</b> will appear in the Elementor widget menu.</p>
-					<p>With help of this widget you\'ll can showcase posts from the any CPT in the events calendar format.</p>
+			return '<p>After activation, the <b>Dynamic Calendar widget</b> will appear in the Elementor widget menu and the <b>Dynamic Calendar block</b> will appear in the Gutenberg editor.</p>
+					<p>With help of this widget, you can showcase posts from any CPT in the events calendar format.</p>
 					<p>You will have to link with a Custom Post Type to show the events.</p>';
 		}
 
@@ -79,12 +79,43 @@ if ( ! class_exists( 'Jet_Engine_Module_Calendar' ) ) {
 		}
 
 		/**
+		 * Get allowed group keys
+		 *
+		 * @return array
+		 */
+		public function get_calendar_group_keys( $blocks = false ) {
+			
+			$keys = apply_filters( 'jet-engine/listing/calendar/group-keys', array(
+				'post_date' => __( 'Post publication date', 'jet-engine' ),
+				'post_mod'  => __( 'Post modification date', 'jet-engine' ),
+				'meta_date' => __( 'Date from custom field', 'jet-engine' ),
+				'item_date' => __( 'Query Item creation date (depends on used query)', 'jet-engine' ),
+			) );
+
+			if ( $blocks ) {
+				
+				foreach ( $keys as $key => $value ) {
+					$keys[ $key ] = array(
+						'value' => $key,
+						'label' => $value,
+					);
+				}
+
+				$keys = array_values( $keys );
+			}
+
+			return $keys;
+		}
+
+		/**
 		 * Module init
 		 *
 		 * @return void
 		 */
 		public function module_init() {
-			add_action( 'elementor/widgets/widgets_registered', array( $this, 'register_calendar_widget' ), 20 );
+
+			add_action( 'jet-engine/elementor-views/widgets/register', array( $this, 'register_calendar_widget' ), 20, 2 );
+			
 			add_action( 'wp_ajax_jet_engine_calendar_get_month', array( $this, 'calendar_get_month' ) );
 			add_action( 'wp_ajax_nopriv_jet_engine_calendar_get_month', array( $this, 'calendar_get_month' ) );
 
@@ -94,6 +125,54 @@ if ( ! class_exists( 'Jet_Engine_Module_Calendar' ) ) {
 			// Blocks Integration
 			add_action( 'jet-engine/blocks-views/register-block-types', array( $this, 'register_block_types' ) );
 			add_filter( 'jet-engine/blocks-views/editor/config',        array( $this, 'add_editor_config' ) );
+
+			add_action( 'jet-engine/register-macros', array( $this, 'register_macros' ) );
+
+			add_filter( 'jet-smart-filters/query/allowed-ajax-actions', array( $this, 'allow_month_action' ) );
+
+			// Bricks Integration
+			require jet_engine()->plugin_path( 'includes/modules/calendar/bricks-views/manager.php' );
+			new Jet_Engine\Modules\Calendar\Bricks_Views\Manager();
+
+			require jet_engine()->plugin_path( 'includes/modules/calendar/advanced-date-field/manager.php' );
+			Jet_Engine_Advanced_Date_Field::instance();
+
+		}
+
+		/**
+		 * Allow month action
+		 *
+		 * @return array
+		 */
+		public function allow_month_action( $allowed_actions = array() ) {
+
+			$allowed_actions[] = 'jet_engine_calendar_get_month';
+			return $allowed_actions;
+
+		}
+
+		/**
+		 * Check if get month request is processed
+		 *
+		 * @return boolean [description]
+		 */
+		public function is_month_request() {
+
+			if ( isset( $_REQUEST['action'] ) && 'jet_engine_calendar_get_month' === $_REQUEST['action'] ) {
+				return true;
+			}
+
+			if ( isset( $_REQUEST['jet_engine_action'] ) && 'jet_engine_calendar_get_month' === $_REQUEST['jet_engine_action'] ) {
+				return true;
+			}
+
+			return false;
+
+		}
+
+		public function register_macros() {
+			require jet_engine()->modules->modules_path( 'calendar/queried-month-macros.php' );
+			new Jet_Engine_Queried_Month_Macros();
 		}
 
 		/**
@@ -111,7 +190,6 @@ if ( ! class_exists( 'Jet_Engine_Module_Calendar' ) ) {
 			if ( $current_post ) {
 				global $post;
 				$post = get_post( $current_post );
-
 				jet_engine()->listings->data->set_current_object( $post );
 			}
 
@@ -131,17 +209,18 @@ if ( ! class_exists( 'Jet_Engine_Module_Calendar' ) ) {
 		/**
 		 * Register calendar widget
 		 *
+		 * @param $widgets_manager
+		 * @param $elementor_views
+		 *
 		 * @return void
 		 */
-		public function register_calendar_widget( $widgets_manager ) {
+		public function register_calendar_widget( $widgets_manager, $elementor_views ) {
 
-			if ( jet_engine()->elementor_views ) {
-				jet_engine()->elementor_views->register_widget(
-					jet_engine()->modules->modules_path( 'calendar/widget.php' ),
-					$widgets_manager,
-					'Elementor\Jet_Listing_Calendar_Widget'
-				);
-			}
+			$elementor_views->register_widget(
+				jet_engine()->modules->modules_path( 'calendar/widget.php' ),
+				$widgets_manager,
+				'Elementor\Jet_Listing_Calendar_Widget'
+			);
 
 		}
 
@@ -151,6 +230,9 @@ if ( ! class_exists( 'Jet_Engine_Module_Calendar' ) ) {
 		 * @param object $listings
 		 */
 		public function register_render_class( $listings ) {
+
+			require jet_engine()->modules->modules_path( 'calendar/query.php' );
+			new Jet_Engine_Calendar_Query();
 
 			$listings->register_render_class(
 				'listing-calendar',
@@ -187,6 +269,24 @@ if ( ! class_exists( 'Jet_Engine_Module_Calendar' ) ) {
 			$config['atts']['listingCalendar'] = jet_engine()->blocks_views->block_types->get_block_atts( 'listing-calendar' );
 
 			return $config;
+		}
+
+		/**
+		 * Returns path to module template file.
+		 *
+		 * @param $name
+		 *
+		 * @return string|bool
+		 */
+		public function get_template( $name ) {
+
+			$template = jet_engine()->get_template( 'calendar/' . $name ); // for back-compatibility
+
+			if ( $template ) {
+				return $template;
+			}
+
+			return jet_engine()->modules->modules_path( 'calendar/templates/' . $name );
 		}
 
 	}

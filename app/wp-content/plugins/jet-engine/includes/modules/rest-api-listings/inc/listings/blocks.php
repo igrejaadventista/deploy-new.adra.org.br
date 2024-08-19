@@ -26,10 +26,14 @@ class Blocks {
 			array( $this, 'get_block_preview_object' ), 10, 3
 		);
 
+		/*
+		Commented out this filter to prevent duplicate fields in source setting because the link source fields are added
+		to blocks editor by `jet-engine/listings/dynamic-link/fields` filter. See: blocks-views/editor.php L473
 		add_filter(
 			'jet-engine/blocks-views/dynamic-link-sources',
 			array( $this, 'add_plain_source_fileds' ), 10, 3
 		);
+		*/
 
 		add_filter(
 			'jet-engine/blocks-views/listing-grid/attributes',

@@ -51,6 +51,8 @@ class Jet_Engine_CPT_Rest_Edit_Taxonomy extends Jet_Engine_Base_API_Endpoint {
 			'slug'                       => $new_slug,
 			'object_type'                => $this->safe_get( $params, 'general_settings', 'object_type' ),
 			'show_edit_link'             => $this->safe_get( $params, 'general_settings', 'show_edit_link' ),
+			'hide_field_names'           => $this->safe_get( $params, 'general_settings', 'hide_field_names' ),
+			'delete_metadata'            => $this->safe_get( $params, 'general_settings', 'delete_metadata' ),
 			'singular_name'              => $this->safe_get( $params, 'labels', 'singular_name' ),
 			'menu_name'                  => $this->safe_get( $params, 'labels', 'menu_name' ),
 			'all_items'                  => $this->safe_get( $params, 'labels', 'all_items' ),
@@ -80,6 +82,7 @@ class Jet_Engine_CPT_Rest_Edit_Taxonomy extends Jet_Engine_Base_API_Endpoint {
 			'capability_type'            => $this->safe_get( $params, 'advanced_settings', 'capability_type' ),
 			'hierarchical'               => $this->safe_get( $params, 'advanced_settings', 'hierarchical' ),
 			'rewrite_slug'               => $this->safe_get( $params, 'advanced_settings', 'rewrite_slug' ),
+			'rewrite_hierarchical'       => $this->safe_get( $params, 'advanced_settings', 'rewrite_hierarchical' ),
 			'description'                => $this->safe_get( $params, 'advanced_settings', 'description' ),
 			'meta_fields'                => ! empty( $params['meta_fields'] ) ? $params['meta_fields'] : array(),
 		) );
@@ -99,6 +102,10 @@ class Jet_Engine_CPT_Rest_Edit_Taxonomy extends Jet_Engine_Base_API_Endpoint {
 					'taxonomy' => $initial_slug,
 				)
 			);
+		}
+
+		if ( $updated && $initial_slug && $new_slug !== $initial_slug ) {
+			do_action( 'jet-engine/taxonomies/updated-taxonomy-slug', $new_slug, $initial_slug );
 		}
 
 		return rest_ensure_response( array(

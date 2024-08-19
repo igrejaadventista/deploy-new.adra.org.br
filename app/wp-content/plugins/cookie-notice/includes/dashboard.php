@@ -109,21 +109,21 @@ class Cookie_Notice_Dashboard {
 		$date_format = get_option( 'date_format' );
 
 		if ( is_multisite() && $cn->is_network_admin() && $cn->is_plugin_network_active() && $cn->network_options['global_override'] )
-			$analytics = get_site_option( 'cookie_notice_app_analytics' );
+			$analytics = get_site_option( 'cookie_notice_app_analytics', [] );
 		else
-			$analytics = get_option( 'cookie_notice_app_analytics' );
+			$analytics = get_option( 'cookie_notice_app_analytics', [] );
 
 		// styles
-		wp_enqueue_style( 'cn-admin-dashboard', COOKIE_NOTICE_URL . '/css/admin-dashboard.css', [], $cn->defaults['version'] );
-		wp_enqueue_style( 'cn-microtip', COOKIE_NOTICE_URL . '/assets/microtip/microtip.min.css', [], $cn->defaults['version'] );
+		wp_enqueue_style( 'cookie-notice-admin-dashboard', COOKIE_NOTICE_URL . '/css/admin-dashboard.css', [], $cn->defaults['version'] );
+		wp_enqueue_style( 'cookie-notice-microtip', COOKIE_NOTICE_URL . '/assets/microtip/microtip.min.css', [], $cn->defaults['version'] );
 
 		// bail if compliance is not active
 		if ( $cn->get_status() !== 'active' )
 			return;
 
 		// scripts
-		wp_enqueue_script( 'cn-admin-chartjs', COOKIE_NOTICE_URL . '/assets/chartjs/chart.min.js', [ 'jquery' ], $cn->defaults['version'], true );
-		wp_enqueue_script( 'cn-admin-dashboard', COOKIE_NOTICE_URL . '/js/admin-dashboard.js', [ 'jquery', 'cn-admin-chartjs' ], $cn->defaults['version'], true );
+		wp_register_script( 'cookie-notice-admin-chartjs', COOKIE_NOTICE_URL . '/assets/chartjs/chart.min.js', [ 'jquery' ], '4.4.3', true );
+		wp_enqueue_script( 'cookie-notice-admin-dashboard', COOKIE_NOTICE_URL . '/js/admin-dashboard.js', [ 'jquery', 'cookie-notice-admin-chartjs' ], $cn->defaults['version'], true );
 
 		// cycle usage data
 		$cycle_usage = [
@@ -131,10 +131,20 @@ class Cookie_Notice_Dashboard {
 			'visits'	=> ! empty( $analytics['cycleUsage']->visits ) ? (int) $analytics['cycleUsage']->visits : 0
 		];
 
+		// no more than threshold available
+		$cycle_usage['visits'] = $cycle_usage['visits'] > $cycle_usage['threshold'] ? $cycle_usage['threshold'] : $cycle_usage['visits'];
+
 		// available visits, -1 for no pro plans
 		$cycle_usage['visits_available'] = $cycle_usage['threshold'] ? $cycle_usage['threshold'] - $cycle_usage['visits'] : -1;
-		$cycle_usage['threshold_used'] = $cycle_usage['threshold'] ? ( $cycle_usage['visits'] / $cycle_usage['threshold'] ) * 100 : 0;
-		$cycle_usage['threshold_used'] = $cycle_usage['threshold_used'] > 100 ? 100 : $cycle_usage['threshold_used'];
+
+		// get used threshold info
+		if ( $cycle_usage['threshold'] > 0 ) {
+			$threshold_used = ( $cycle_usage['visits'] / $cycle_usage['threshold'] ) * 100;
+
+			if ( $threshold_used > 100 )
+				$threshold_used = 100;
+		} else
+			$threshold_used = 0;
 
 		$chartdata = [
 			'usage' => [
@@ -147,7 +157,6 @@ class Cookie_Notice_Dashboard {
 					'datasets'	=> [
 						[
 							'data'				=> [ $cycle_usage['visits'], $cycle_usage['visits_available'] ],
-							// 'borderColor'		=> 'rgb(255, 255, 255)',
 							'backgroundColor'	=> [
 								'rgb(32, 193, 158)',
 								'rgb(235, 233, 235)'
@@ -162,10 +171,10 @@ class Cookie_Notice_Dashboard {
 		];
 
 		// warning usage color
-		if ( $cycle_usage['threshold_used'] > 80 && $cycle_usage['threshold_used'] < 100 )
+		if ( $threshold_used > 80 && $threshold_used < 100 )
 			$chartdata['usage']['data']['datasets'][0]['backgroundColor'][0] = 'rgb(255, 193, 7)';
 		// danger usage color
-		elseif ( $cycle_usage['threshold_used'] == 100 )
+		elseif ( $threshold_used == 100 )
 			$chartdata['usage']['data']['datasets'][0]['backgroundColor'][0] = 'rgb(220, 53, 69)';
 
 		$data = [
@@ -227,28 +236,24 @@ class Cookie_Notice_Dashboard {
 			// set consent records in charts days
 			foreach ( $analytics['consentActivities'] as $index => $entry ) {
 				$time = date_i18n( $chart_date_format, strtotime( $entry->eventdt ) );
-				$records = $entry->totalrecd;
-				$level = $entry->consentlevel;
-
 				$i = array_search( $time, $data['labels'] );
 
 				if ( $i )
-					$data['datasets'][$level - 1]['data'][$i] = $records;
+					$data['datasets'][(int) $entry->consentlevel - 1]['data'][$i] = (int) $entry->totalrecd;
 			}
 		}
 
 		$chartdata['consent-activity']['data'] = $data;
 
-		wp_localize_script(
-			'cn-admin-dashboard',
-			'cnDashboardArgs',
-			[
-				'ajaxURL'	=> admin_url( 'admin-ajax.php' ),
-				'nonce'		=> wp_create_nonce( 'cn-dashboard-widget' ),
-				'nonceUser'	=> wp_create_nonce( 'cn-dashboard-user-options' ),
-				'charts'	=> $chartdata
-			]
-		);
+		// prepare script data
+		$script_data = [
+			'ajaxURL'	=> admin_url( 'admin-ajax.php' ),
+			'nonce'		=> wp_create_nonce( 'cn-dashboard-widget' ),
+			'nonceUser'	=> wp_create_nonce( 'cn-dashboard-user-options' ),
+			'charts'	=> $chartdata
+		];
+
+		wp_add_inline_script( 'cookie-notice-admin-dashboard', 'var cnDashboardArgs = ' . wp_json_encode( $script_data ) . ";\n", 'before' );
 	}
 
 	/**
@@ -285,13 +290,13 @@ class Cookie_Notice_Dashboard {
 			$items = [
 				[
 					'id'			=> 'visits',
-					'title'			=> __( 'Traffic Overview', 'cookie-notice' ),
-					'description'	=> __( 'Displays the general visits information for your domain.', 'cookie-notice' )
+					'title'			=> esc_html__( 'Traffic Overview', 'cookie-notice' ),
+					'description'	=> esc_html__( 'Displays the general visits information for your domain.', 'cookie-notice' )
 				],
 				[
 					'id'			=> 'consent-activity',
-					'title'			=> __( 'Consent Activity', 'cookie-notice' ),
-					'description'	=> __( 'Displays the chart of the domain consent activity in the last 30 days.', 'cookie-notice' )
+					'title'			=> esc_html__( 'Consent Activity', 'cookie-notice' ),
+					'description'	=> esc_html__( 'Displays the chart of the domain consent activity in the last 30 days.', 'cookie-notice' )
 				]
 			];
 
@@ -308,20 +313,27 @@ class Cookie_Notice_Dashboard {
 		} else {
 			$html .= '
 			<div id="cn-dashboard-accordion" class="cn-accordion cn-widget-block">
-				<img src="' . COOKIE_NOTICE_URL . '/img/cookie-compliance-widget.png" alt="Cookie Compliance widget" />
+				<img src="' . esc_url( COOKIE_NOTICE_URL ) . '/img/cookie-compliance-widget.png" alt="Cookie Compliance widget" />
 				<div id="cn-dashboard-upgrade">
 					<div id="cn-dashboard-modal">
-						<h2>' . __( 'View consent activity inside WordPress Dashboard', 'cookie-notice' ) . '</h2>
-						<p>' . __( 'Display information about the visits.', 'cookie-notice' ) . '</p>
-						<p>' . __( 'Get Consent logs data for the last 30 days.', 'cookie-notice' ) . '</p>
-						<p>' . __( 'Enable consent purpose categories, automatic cookie blocking and more.', 'cookie-notice' ) . '</p>
-						<p><a href="' . $upgrade_url . '" class="button button-primary button-hero cn-button">' . __( 'Upgrade to Cookie Compliance', 'cookie-notice' ) . '</a></p>
+						<h2>' . esc_html__( 'View consent activity inside WordPress Dashboard', 'cookie-notice' ) . '</h2>
+						<p>' . esc_html__( 'Display information about the visits.', 'cookie-notice' ) . '</p>
+						<p>' . esc_html__( 'Get Consent logs data for the last 30 days.', 'cookie-notice' ) . '</p>
+						<p>' . esc_html__( 'Enable consent purpose categories, automatic cookie blocking and more.', 'cookie-notice' ) . '</p>
+						<p><a href="' . esc_url( $upgrade_url ) . '" class="button button-primary button-hero cn-button">' . esc_html__( 'Upgrade to Cookie Compliance', 'cookie-notice' ) . '</a></p>
 					</div>
 				</div>
 			</div>';
 		}
 
-		echo $html;
+		// allows a list of html entities such as
+		$allowed_html = wp_kses_allowed_html( 'post' );
+		$allowed_html['canvas'] = [
+			'id'		=> true,
+			'height'	=> true
+		];
+
+		echo wp_kses( $html, $allowed_html );
 	}
 
 	/**
@@ -332,22 +344,15 @@ class Cookie_Notice_Dashboard {
 	 * @return string
 	 */
 	public function widget_item( $item, $menu_items ) {
-		// allows a list of html entities such as
-		$allowed_html = wp_kses_allowed_html( 'post' );
-		$allowed_html['canvas'] = [
-			'id'		=> [],
-			'height'	=> []
-		];
-
 		return '
 		<div id="cn-' . esc_attr( $item['id'] ) . '" class="cn-accordion-item' . ( in_array( $item['id'], $menu_items, true ) ? ' cn-collapsed' : '' ) . '">
 			<div class="cn-accordion-header">
-				<div class="cn-accordion-toggle"><span class="cn-accordion-title">' . esc_html( $item['title'] ) . '</span><span class="cn-tooltip" aria-label="' . esc_html( $item['description'] ) . '" data-microtip-position="top" data-microtip-size="large" role="tooltip"><span class="cn-tooltip-icon"></span></span></div>
+				<div class="cn-accordion-toggle"><span class="cn-accordion-title">' . esc_html( $item['title'] ) . '</span><span class="cn-tooltip" aria-label="' . esc_attr( $item['description'] ) . '" data-microtip-position="top" data-microtip-size="large" role="tooltip"><span class="cn-tooltip-icon"></span></span></div>
 			</div>
 			<div class="cn-accordion-content">
 				<div class="cn-dashboard-container">
 					<div class="cn-data-container">
-						' . wp_kses( $this->widget_item_content( $item['id'] ), $allowed_html ) . '
+						' . $this->widget_item_content( $item['id'] ) . '
 						<span class="spinner"></span>
 					</div>
 				</div>
@@ -359,7 +364,7 @@ class Cookie_Notice_Dashboard {
 	 * Generate dashboard widget item content HTML.
 	 *
 	 * @param array $item
-	 * @return string
+	 * @return void
 	 */
 	public function widget_item_content( $item ) {
 		$html = '';
@@ -373,17 +378,22 @@ class Cookie_Notice_Dashboard {
 
 				// get analytics data options
 				if ( is_multisite() && $cn->is_network_admin() && $cn->is_plugin_network_active() && $cn->network_options['global_override'] )
-					$analytics = get_site_option( 'cookie_notice_app_analytics' );
+					$analytics = get_site_option( 'cookie_notice_app_analytics', [] );
 				else
-					$analytics = get_option( 'cookie_notice_app_analytics' );
+					$analytics = get_option( 'cookie_notice_app_analytics', [] );
 
 				// thirty days data
 				$thirty_days_usage = [
 					'visits'			=> ! empty( $analytics['thirtyDaysUsage']->visits ) ? (int) $analytics['thirtyDaysUsage']->visits : 0,
-					// 'visits_updated'	=> ! empty( $analytics['thirtyDaysUsage']->fetchTime ) ? date_create_from_format( 'Y-m-d H:i:s', $analytics['thirtyDaysUsage']->fetchTime ) : date_create_from_format( 'Y-m-d H:i:s', current_time( 'mysql', true ) ),
 					'consents'			=> 0,
 					'consents_updated'	=> ! empty( $analytics['lastUpdated'] ) ? date_create_from_format( 'Y-m-d H:i:s', $analytics['lastUpdated'] ) : date_create_from_format( 'Y-m-d H:i:s', current_time( 'mysql', true ) )
 				];
+
+				// set current timezone
+				$current_timezone = new DateTimeZone( $this->timezone_string() );
+
+				// update date
+				$thirty_days_usage['consents_updated']->setTimezone( $current_timezone );
 
 				if ( ! empty( $analytics['consentActivities'] ) ) {
 					foreach ( $analytics['consentActivities'] as $index => $entry ) {
@@ -396,34 +406,30 @@ class Cookie_Notice_Dashboard {
 					'threshold'		=> ! empty( $analytics['cycleUsage']->threshold ) ? (int) $analytics['cycleUsage']->threshold : 0,
 					'visits'		=> ! empty( $analytics['cycleUsage']->visits ) ? (int) $analytics['cycleUsage']->visits : 0,
 					'days_to_go'	=> ! empty( $analytics['cycleUsage']->daysToGo ) ? (int) $analytics['cycleUsage']->daysToGo : 0,
-					'start_date'	=> ! empty( $analytics['cycleUsage']->startDate ) ? date_create_from_format( '!Y-m-d', $analytics['cycleUsage']->startDate ) : '',
-					// 'end_date'		=> ! empty( $analytics['cycleUsage']->endDate ) ? date_create_from_format( '!Y-m-d', $analytics['cycleUsage']->endDate ) : ''
+					'start_date'	=> ! empty( $analytics['cycleUsage']->startDate ) ? date_create_from_format( '!Y-m-d', $analytics['cycleUsage']->startDate ) : ''
 				];
 
-				// set current timezone
-				$current_timezone = new DateTimeZone( $cn->timezone_string() );
+				// get used threshold info
+				if ( $cycle_usage['threshold'] > 0 ) {
+					$threshold_used = ( $cycle_usage['visits'] / $cycle_usage['threshold'] ) * 100;
 
-				// update dates
-				// $thirty_days_usage['visits_updated']->setTimezone( $current_timezone );
-				$thirty_days_usage['consents_updated']->setTimezone( $current_timezone );
-
-				// available visits, -1 for no pro plans
-				$cycle_usage['visits_available'] = $cycle_usage['threshold'] ? $cycle_usage['threshold'] - $cycle_usage['visits'] : -1;
-				$cycle_usage['threshold_used'] = $cycle_usage['threshold'] ? ( $cycle_usage['visits'] / $cycle_usage['threshold'] ) * 100 : 0;
-				$cycle_usage['threshold_used'] = $cycle_usage['threshold_used'] > 100 ? 100 : $cycle_usage['threshold_used'];
+					if ( $threshold_used > 100 )
+						$threshold_used = 100;
+				} else
+					$threshold_used = 0;
 
 				$html .= '
-					<div id="cn-dashboard-' . $item . '">
-						<div id="cn-' . $item . '-infobox-traffic-overview" class="cn-infobox-container">
-							<div id="cn-' . $item . '-infobox-visits" class="cn-infobox">
-								<div class="cn-infobox-title">' . __( 'Total Visits', 'cookie-notice' ) . '</div>
-								<div class="cn-infobox-number">' . number_format_i18n( $thirty_days_usage['visits'], 0 ) . '</div>
-								<div class="cn-infobox-subtitle">' . __( 'Last 30 days', 'cookie-notice' ) . '</div>
+					<div id="cn-dashboard-' . esc_attr( $item ) . '">
+						<div id="cn-' . esc_attr( $item ) . '-infobox-traffic-overview" class="cn-infobox-container">
+							<div id="cn-' . esc_attr( $item ) . '-infobox-visits" class="cn-infobox">
+								<div class="cn-infobox-title">' . esc_html__( 'Total Visits', 'cookie-notice' ) . '</div>
+								<div class="cn-infobox-number">' . esc_html( number_format_i18n( $thirty_days_usage['visits'], 0 ) ) . '</div>
+								<div class="cn-infobox-subtitle">' . esc_html__( 'Last 30 days', 'cookie-notice' ) . '</div>
 							</div>
-							<div id="cn-' . $item . '-infobox-consents" class="cn-infobox">
-								<div class="cn-infobox-title">' . __( 'Consent Logs', 'cookie-notice' ) . '</div>
-								<div class="cn-infobox-number">' . number_format_i18n( $thirty_days_usage['consents'], 0 ) . '</div>
-								<div class="cn-infobox-subtitle">' . sprintf( __( 'Updated %s', 'cookie-notice' ), date_i18n( $date_format, $thirty_days_usage['consents_updated']->getTimestamp() ) ) . '</div>
+							<div id="cn-' . esc_attr( $item ) . '-infobox-consents" class="cn-infobox">
+								<div class="cn-infobox-title">' . esc_html__( 'Consent Logs', 'cookie-notice' ) . '</div>
+								<div class="cn-infobox-number">' . esc_html( number_format_i18n( $thirty_days_usage['consents'], 0 ) ) . '</div>
+								<div class="cn-infobox-subtitle">' . esc_html( sprintf( __( 'Updated %s', 'cookie-notice' ), date_i18n( $date_format, $thirty_days_usage['consents_updated']->getTimestamp() ) ) ) . '</div>
 							</div>
 						</div>';
 
@@ -431,25 +437,25 @@ class Cookie_Notice_Dashboard {
 					$usage_class = 'success';
 
 					// warning usage color
-					if ( $cycle_usage['threshold_used'] > 80 && $cycle_usage['threshold_used'] < 100 )
+					if ( $threshold_used > 80 && $threshold_used < 100 )
 						$usage_class = 'warning';
 					// danger usage color
-					elseif ( $cycle_usage['threshold_used'] == 100 )
+					elseif ( $threshold_used === 100 )
 						$usage_class = 'danger';
 
 					$html .= '
-						<div id="cn-' . $item . '-infobox-traffic-usage" class="cn-infobox-container">
-							<div id="cn-' . $item . '-infobox-limits" class="cn-infobox">
-								<div class="cn-infobox-title">' . __( 'Traffic Usage', 'cookie-notice' ) . '</div>
-								<div class="cn-infobox-number cn-text-' . $usage_class . '">' . number_format_i18n( $cycle_usage['threshold_used'], 1 ) . ' %</div>
+						<div id="cn-' . esc_attr( $item ) . '-infobox-traffic-usage" class="cn-infobox-container">
+							<div id="cn-' . esc_attr( $item ) . '-infobox-limits" class="cn-infobox">
+								<div class="cn-infobox-title">' . esc_html__( 'Traffic Usage', 'cookie-notice' ) . '</div>
+								<div class="cn-infobox-number cn-text-' . esc_attr( $usage_class ) . '">' . esc_html( number_format_i18n( $threshold_used, 1 ) ) . ' %</div>
 								<div class="cn-infobox-subtitle">
-									<p>' . sprintf( __( 'Visits usage: %1$s / %2$s', 'cookie-notice' ), $cycle_usage['visits'], $cycle_usage['threshold'] ) . '</p>
-									<p>' . sprintf( __( 'Cycle started: %s', 'cookie-notice' ), date_i18n( $date_format, $cycle_usage['start_date']->getTimestamp() ) ) . '</p>
-									<p>' . sprintf( __( 'Days to go: %s', 'cookie-notice' ), $cycle_usage['days_to_go'] ) . '</p>
+									<p>' . esc_html( sprintf( __( 'Visits usage: %1$s / %2$s', 'cookie-notice' ), $cycle_usage['visits'], $cycle_usage['threshold'] ) ) . '</p>
+									<p>' . esc_html( sprintf( __( 'Cycle started: %s', 'cookie-notice' ), date_i18n( $date_format, $cycle_usage['start_date']->getTimestamp() ) ) ) . '</p>
+									<p>' . esc_html( sprintf( __( 'Days to go: %s', 'cookie-notice' ), $cycle_usage['days_to_go'] ) ) . '</p>
 								</div>
 							</div>
-							<div id="cn-' . $item . '-chart-limits" class="cn-infobox cn-chart-container">
-								<canvas id="cn-usage-chart" style="height: 100px;"></canvas>
+							<div id="cn-' . esc_attr( $item ) . '-chart-limits" class="cn-infobox cn-chart-container">
+								<canvas id="cn-usage-chart" style="height: 100px"></canvas>
 							</div>';
 
 					/*
@@ -469,9 +475,9 @@ class Cookie_Notice_Dashboard {
 
 			case 'consent-activity':
 				$html .= '
-					<div id="cn-dashboard-' . $item . '">
-						<div id="cn-' . $item . '-chart-container cn-chart-container">
-							<canvas id="cn-' . $item . '-chart" style="height: 300px;"></canvas>
+					<div id="cn-dashboard-' . esc_attr( $item ) . '">
+						<div id="cn-' . esc_attr( $item ) . '-chart-container cn-chart-container">
+							<canvas id="cn-' . esc_attr( $item ) . '-chart" style="height: 300px"></canvas>
 						</div>
 					</div>';
 				break;
@@ -488,7 +494,7 @@ class Cookie_Notice_Dashboard {
 	 */
 	public function add_tests( $tests ) {
 		$tests['direct']['cookie_compliance_status'] = [
-			'label'	=> __( 'Cookie Compliance Status', 'cookie-notice' ),
+			'label'	=> esc_html__( 'Cookie Compliance Status', 'cookie-notice' ),
 			'test'	=> [ $this, 'test_cookie_compliance' ]
 		];
 
@@ -503,16 +509,41 @@ class Cookie_Notice_Dashboard {
 	public function test_cookie_compliance() {
 		if ( Cookie_Notice()->get_status() !== 'active' ) {
 			return [
-				'label'			=> __( 'Your site does not have Cookie Compliance', 'cookie-notice' ),
+				'label'			=> esc_html__( 'Your site does not have Cookie Compliance', 'cookie-notice' ),
 				'status'		=> 'recommended',
+				'description'	=> esc_html__( "Run Compliance Check to determine your site's compliance with updated data processing and consent rules under GDPR, CCPA and other international data privacy laws.", 'cookie-notice' ),
+				'actions'		=> sprintf( '<p><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></p>', admin_url( 'admin.php?page=cookie-notice&welcome=1' ), esc_html__( 'Run Compliance Check', 'cookie-notice' ) ),
+				'test'			=> 'cookie_compliance_status',
 				'badge'			=> [
-					'label'	=> __( 'Cookie Notice', 'cookie-notice' ),
+					'label'	=> esc_html__( 'Cookie Notice', 'cookie-notice' ),
 					'color'	=> 'blue'
-				],
-				'description'	=> __( "Run Compliance Check to determine your site's compliance with updated data processing and consent rules under GDPR, CCPA and other international data privacy laws.", 'cookie-notice' ),
-				'actions'		=> sprintf( '<p><a href="%s" target="_blank" rel="noopener noreferrer">%s</a></p>', admin_url( 'admin.php?page=cookie-notice&welcome=1' ), __( 'Run Compliance Check', 'cookie-notice' ) ),
-				'test'			=> 'cookie_compliance_status'
+				]
 			];
 		}
+	}
+
+	/**
+	 * Retrieve the timezone of the site as a string.
+	 *
+	 * @return string
+	 */
+	public function timezone_string() {
+		if ( function_exists( 'wp_timezone_string' ) )
+			return wp_timezone_string();
+
+		$timezone_string = get_option( 'timezone_string' );
+
+		if ( $timezone_string )
+			return $timezone_string;
+
+		$offset = (float) get_option( 'gmt_offset' );
+		$hours = (int) $offset;
+		$minutes = ( $offset - $hours );
+		$sign = ( $offset < 0 ) ? '-' : '+';
+		$abs_hour = abs( $hours );
+		$abs_mins = abs( $minutes * 60 );
+		$tz_offset = sprintf( '%s%02d:%02d', $sign, $abs_hour, $abs_mins );
+
+		return $tz_offset;
 	}
 }

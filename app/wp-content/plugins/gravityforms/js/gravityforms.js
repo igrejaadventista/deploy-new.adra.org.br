@@ -20,7 +20,12 @@ function announceAJAXValidationErrors() {
 	if ( ! jQuery('.gform_validation_errors').length ) {
 		return;
 	}
-	jQuery( '#gf_form_focus' ).focus();
+	const focusableEl = document.querySelector( '[data-js="gform-focus-validation-error"]' );
+	if ( focusableEl ) {
+		// elements with tabindex="-1" are not focusable by default, but can be focused programmatically
+		focusableEl.setAttribute( 'tabindex', '-1' );
+		focusableEl.focus();
+	}
 	setTimeout( function() {
 	  wp.a11y.speak( jQuery( '.gform_validation_errors > h2' ).text() );
 	}, 1000 );
@@ -28,7 +33,7 @@ function announceAJAXValidationErrors() {
 }
 
 //Formatting free form currency fields to currency
-jQuery( document ).bind( 'gform_post_render', gformBindFormatPricingFields );
+jQuery( document ).on( 'gform_post_render', gformBindFormatPricingFields );
 
 function gformBindFormatPricingFields(){
 	// Namespace the event and remove before adding to prevent double binding.
@@ -509,7 +514,6 @@ gform.tools = {
 		el =  this.defaultFor( el, document );
 		native =  this.defaultFor( native, false );
 		data =  this.defaultFor( data, {} );
-
 		if ( native ) {
 			event = document.createEvent( 'HTMLEvents' );
 			event.initEvent( eventName, true, false );
@@ -676,6 +680,16 @@ gform.options = {
         activate: function( event ) {
             gform.tools.setAttr( '.ui-accordion-header', 'tabindex', '0', event.target, 100 );
         },
+	    beforeActivate: function( event ) {
+			// handle advanced tab operations as needed before the tab is revealed in a fields settings
+			if ( event.currentTarget.id === 'advanced_tab_toggle' ) {
+				// handle address field
+				if ( window.field && window.field.type && window.field.type === 'address' ) {
+					// regen the Autocomplete UI on every tab open to handle changes to input visibility from interactions
+					CreateAutocompleteUI( window.field );
+				}
+			}
+	    }
     },
 
 	jqAddFieldAccordions: {
@@ -994,7 +1008,18 @@ var _gformPriceFields = new Array();
 var _anyProductSelected;
 
 function gformIsHidden(element){
-    return element.parents('.gfield').not(".gfield_hidden_product").css("display") == "none";
+	isHidden = element.parents('.gfield').not(".gfield_hidden_product").css("display") == "none";
+
+	/**
+	 * Allows user to filter the logic for determining if a field is hidden by conditional logic..
+	 *
+	 * @since 2.8.10
+	 *
+	 * @param bool            Whether or not the field is hidden.
+	 * @param object $element jQuery object for field input.
+	 */
+	return gform.applyFilters('gform_is_hidden', isHidden, element);
+
 }
 
 /**
@@ -1342,7 +1367,7 @@ function gformGetOptionLabel(element, selected_value, current_price, form_id, fi
     element.attr('price', diff);
 
     //don't add <span> for drop down items (not supported)
-    var price_label = element[0].tagName.toLowerCase() == "option" ? " " + diff : "<span class='ginput_price'>" + diff + "</span>";
+    var price_label = element[0].tagName.toLowerCase() == "option" ? diff : "<span class='ginput_price'>" + diff + "</span>";
     var label = original_label + price_label;
 
     //calling hook to allow for custom option formatting
@@ -1492,12 +1517,12 @@ function gformToggleShowPassword( fieldId ) {
     switch ( currentType ) {
         case 'password':
             $password.attr( 'type', 'text' );
-            $button.attr( 'label', $button.attr( 'data-label-hide' ) );
+            $button.attr( 'aria-label', $button.attr( 'data-label-hide' ) );
             $icon.removeClass( 'dashicons-hidden' ).addClass( 'dashicons-visibility' );
             break;
         case 'text':
             $password.attr( 'type', 'password' );
-            $button.attr( 'label', $button.attr( 'data-label-show' ) );
+            $button.attr( 'aria-label', $button.attr( 'data-label-show' ) );
             $icon.removeClass( 'dashicons-visibility' ).addClass( 'dashicons-hidden' );
             break;
     }
@@ -1666,11 +1691,11 @@ function gformAdjustRowAttributes( $container ) {
         var $input = jQuery( this ).find( 'input, select, textarea' );
         $input.each( function( index, input ) {
             var $this = jQuery( input );
-            $this.attr( 'aria-label', $this.data( 'aria-label-template' ).format( i + 1 ) );
+            $this.attr( 'aria-label', $this.data( 'aria-label-template' ).gformFormat( i + 1 ) );
         } );
 
         var $remove = jQuery( this ).find( '.delete_list_item' );
-        $remove.attr( 'aria-label', $remove.data( 'aria-label-template' ).format( i + 1 ) );
+        $remove.attr( 'aria-label', $remove.data( 'aria-label-template' ).gformFormat( i + 1 ) );
 
     } );
 
@@ -1679,7 +1704,8 @@ function gformAdjustRowAttributes( $container ) {
 function gformToggleIcons( $container, max ) {
 
     var groupCount  = $container.find( '.gfield_list_group' ).length,
-        $addButtons = $container.find( '.add_list_item' );
+        $addButtons = $container.find( '.add_list_item' ),
+        isLegacy    =  typeof gf_legacy !== 'undefined' && gf_legacy.is_legacy;
 
     $container.find( '.delete_list_item' ).css( 'visibility', groupCount == 1 ? 'hidden' : 'visible' );
 
@@ -1689,9 +1715,17 @@ function gformToggleIcons( $container, max ) {
         $addButtons.data( 'title', $container.find( '.add_list_item' ).attr( 'title' ) );
         $addButtons.addClass( 'gfield_icon_disabled' ).attr( 'title', '' );
 
+		if ( ! isLegacy ) {
+			$addButtons.prop( 'disabled', true );
+		}
+
     } else if( max > 0 ) {
 
         $addButtons.removeClass( 'gfield_icon_disabled' );
+
+	    if ( ! isLegacy ) {
+		    $addButtons.prop( 'disabled', false );
+	    }
 
         if( $addButtons.data( 'title' ) )   {
             $addButtons.attr( 'title', $addButtons.data( 'title' ) );
@@ -1723,6 +1757,7 @@ function gformAddRepeaterItem( addButton, max ) {
 		.not( ':checkbox, :radio' ).val( '' );
 	$clone.find( ':checkbox, :radio' ).prop( 'checked', false );
 	$clone.find('.validation_message').remove();
+	$clone.find('.gform-datepicker.initialized').removeClass('initialized');
 
 	$clone = gform.applyFilters( 'gform_repeater_item_pre_add', $clone, $item );
 
@@ -1976,10 +2011,10 @@ function gformToggleCreditCard(){
 //------ CHOSEN DROP DOWN FIELD ----------
 //----------------------------------------
 
-function gformInitChosenFields(fieldList, noResultsText){
-    return jQuery(fieldList).each(function(){
-
-        var element = jQuery( this );
+function gformInitChosenFields( fieldList, noResultsText ) {
+    return jQuery( fieldList ).each( function(){
+		var element = jQuery( this );
+	    var isConvoForm = typeof gfcf_theme_config !== 'undefined' ? ( gfcf_theme_config !== null && typeof gfcf_theme_config.data !== 'undefined' ? gfcf_theme_config.data.is_conversational_form : undefined ) : false;
 
         // RTL support
         if( jQuery( 'html' ).attr( 'dir' ) == 'rtl' ) {
@@ -1987,11 +2022,14 @@ function gformInitChosenFields(fieldList, noResultsText){
         }
 
         // only initialize once
-        if( element.is(":visible") && element.siblings(".chosen-container").length == 0 ){
-            var options = gform.applyFilters( 'gform_chosen_options', { no_results_text: noResultsText }, element );
+        if( ( element.is( ':visible' ) || isConvoForm ) && element.siblings( '.chosen-container' ).length == 0 ) {
+			var chosenOptions = { no_results_text: noResultsText };
+			if ( isConvoForm ) {
+				chosenOptions.width = element.css( 'inline-size' );
+			}
+            var options = gform.applyFilters( 'gform_chosen_options', chosenOptions, element );
             element.chosen( options );
         }
-
     });
 }
 
@@ -2018,10 +2056,10 @@ var GFMergeTag = function() {
 
 	/**
      * Gets the merge tag value for the specified input Id
-	 * @param formId    The current form Id
-	 * @param inputId   The input Id to get the merge tag from. This could be a field id (i.e. 1) or a specific input Id for multi-input fields (i.e. 1.2)
-	 * @param modifier  The merge tag modifier to be used. i.e. value, currency, price, etc...
-	 * @returns         Returns a string containg the merge tag value for the spcified input Id
+	 * @param formId  The current form Id
+	 * @param inputId The input Id to get the merge tag from. This could be a field id (i.e. 1) or a specific input Id for multi-input fields (i.e. 1.2)
+	 * @param modifier The merge tag modifier to be used. i.e. value, currency, price, etc...
+	 * @returns       Returns a string containing the merge tag value for the specified input Id
 	 */
 	GFMergeTag.getMergeTagValue = function( formId, inputId, modifier ) {
 
@@ -2068,8 +2106,11 @@ var GFMergeTag = function() {
 
 		switch ( modifier ) {
 			case 'label':
-				var label = field.find('.gfield_label').text();
-				return label;
+				// Remove screen reader text from product field label.
+				var label = field.find('.gfield_label');
+				label.find( '.screen-reader-text' ).remove();
+				var labelText = label.text();
+				return labelText;
 			    break;
 			case 'qty':
 				if ( field.hasClass('gfield_price') ){
@@ -2256,8 +2297,8 @@ var GFCalc = function(formId, formulaFields){
 
         // @since 2.5.10 - namespace event to avoid multiple bindings.
 	    jQuery(document)
-		    .off("gform_post_conditional_logic.gfCalc_{0}".format(formId))
-		    .on("gform_post_conditional_logic.gfCalc_{0}".format(formId), function(){
+		    .off("gform_post_conditional_logic.gfCalc_{0}".gformFormat(formId))
+		    .on("gform_post_conditional_logic.gfCalc_{0}".gformFormat(formId), function(){
 			    calc.runCalcs( formId, formulaFields );
 	    } );
 
@@ -2529,7 +2570,7 @@ function getMatchGroups(expr, patt) {
 
 function gf_get_field_number_format(fieldId, formId, context) {
 
-    var fieldNumberFormats = rgars(window, 'gf_global/number_formats/{0}/{1}'.format(formId, fieldId)),
+    var fieldNumberFormats = rgars(window, 'gf_global/number_formats/{0}/{1}'.gformFormat(formId, fieldId)),
         format = false;
 
     if (fieldNumberFormats === '') {
@@ -2667,6 +2708,7 @@ jQuery( document ).on( 'gform_post_render', gform.recaptcha.renderOnRecaptchaLoa
 window.renderRecaptcha = gform.recaptcha.renderRecaptcha;
 window.gformIsRecaptchaPending = gform.recaptcha.gformIsRecaptchaPending;
 
+
 //----------------------------------------
 //----- SINGLE FILE UPLOAD FUNCTIONS -----
 //----------------------------------------
@@ -2680,7 +2722,6 @@ function gformValidateFileSize( field, max_file_size ) {
 	} else {
 		validation_element = jQuery( field ).siblings( '.validation_message' );
 	}
-
 
 	// If file API is not supported within browser, return.
 	if ( ! window.FileReader || ! window.File || ! window.FileList || ! window.Blob ) {
@@ -2717,14 +2758,14 @@ function gformValidateFileSize( field, max_file_size ) {
     var imagesUrl = typeof gform_gravityforms != 'undefined' ? gform_gravityforms.vars.images_url : "";
 
 
-	$(document).bind('gform_post_render', function(e, formID){
+	$(document).on('gform_post_render', function(e, formID){
 
 		$("form#gform_" + formID + " .gform_fileupload_multifile").each(function(){
 			setup(this);
 		});
 		var $form = $("form#gform_" + formID);
 		if($form.length > 0){
-			$form.submit(function(){
+			$form.on( 'submit', function(){
 				var pendingUploads = false;
 				$.each(gfMultiFileUploader.uploaders, function(i, uploader){
 					if(uploader.total.queued>0){
@@ -2743,7 +2784,7 @@ function gformValidateFileSize( field, max_file_size ) {
 
 	});
 
-	$(document).bind("gform_post_conditional_logic", function(e,formID, fields, isInit){
+	$(document).on("gform_post_conditional_logic", function(e,formID, fields, isInit){
 		if(!isInit){
 			$.each(gfMultiFileUploader.uploaders, function(i, uploader){
 				uploader.refresh();
@@ -2813,7 +2854,7 @@ function gformValidateFileSize( field, max_file_size ) {
 	    }
 
 		function addMessage( messagesID, message) {
-			$( "#" + messagesID ).prepend( "<li>" + htmlEncode( message ) + "</li>" );
+			$( "#" + messagesID ).prepend( "<li class='gfield_description gfield_validation_message'>" + htmlEncode( message ) + "</li>" );
 			// Announce errors.
 			setTimeout(function () {
 				wp.a11y.speak( $( "#" + messagesID ).text() );
@@ -2874,7 +2915,7 @@ function gformValidateFileSize( field, max_file_size ) {
 
                 var size         = typeof file.size !== 'undefined' ? plupload.formatSize(file.size) : strings.in_progress,
                     removeFileJs = '$this=jQuery(this); var uploader = gfMultiFileUploader.uploaders.' + up.settings.container.id + ';uploader.stop();uploader.removeFile(uploader.getFile(\'' + file.id +'\'));$this.after(\'' + strings.cancelled + '\'); uploader.start();$this.remove();',
-                    statusMarkup = '<div id="{0}" class="ginput_preview">{1} ({2}) <b></b> <a href="javascript:void(0)" title="{3}" onclick="{4}" onkeypress="{4}">{5}</a></div>';
+                    statusMarkup = '<div id="{0}" class="ginput_preview"><span class="gfield_fileupload_filename">{1}</span><span class="gfield_fileupload_filesize">{2}</span><span class="gfield_fileupload_progress"><span class="gfield_fileupload_progressbar"><span class="gfield_fileupload_progressbar_progress"></span></span><span class="gfield_fileupload_percent"></span></span><a class="gfield_fileupload_cancel gform-theme-button gform-theme-button--simple" href="javascript:void(0)" title="{3}" onclick="{4}" onkeypress="{4}">{5}</a>';
 
                 /**
                  *  Filer the file upload markup as it is being uploaded.
@@ -2887,7 +2928,7 @@ function gformValidateFileSize( field, max_file_size ) {
                  *  @param {plupload.Uploader} up           Instance of Uploader responsible for uploading current file. See: https://www.plupload.com/docs/v2/Uploader.
                  */
                 statusMarkup = gform.applyFilters( 'gform_file_upload_status_markup', statusMarkup, file, size, strings, removeFileJs, up )
-                    .format( file.id, htmlEncode( file.name ), size, strings.cancel_upload, removeFileJs, strings.cancel );
+	                .gformFormat( file.id, htmlEncode( file.name ), size, strings.cancel_upload, removeFileJs, strings.cancel );
 
                 $( '#' + up.settings.filelist ).prepend( statusMarkup );
 
@@ -2925,7 +2966,8 @@ function gformValidateFileSize( field, max_file_size ) {
 
         uploader.bind('UploadProgress', function(up, file) {
             var html = file.percent + "%";
-            $('#' + file.id + " b").html(html);
+            $('#' + file.id + ' span.gfield_fileupload_percent').html(html);
+			$('#' + file.id + ' span.gfield_fileupload_progressbar_progress').css('width', file.percent + '%');
         });
 
         uploader.bind('Error', function(up, err) {
@@ -2972,7 +3014,8 @@ function gformValidateFileSize( field, max_file_size ) {
 			}
 
 			var uploadedName = rgars(response, 'data/uploaded_filename');
-			var html = '<strong>' + htmlEncode(uploadedName) + '</strong>';
+			var html = '<span class="gfield_fileupload_filename">' + htmlEncode(uploadedName) + '</span><span class="gfield_fileupload_filesize">' + plupload.formatSize(file.size) + '</span>';
+			html += '<span class="gfield_fileupload_progress gfield_fileupload_progress_complete"><span class="gfield_fileupload_progressbar"><span class="gfield_fileupload_progressbar_progress"></span></span><span class="gfield_fileupload_percent">' + file.percent + '%</span></span>';
 			var formId = up.settings.multipart_params.form_id;
 			var fieldId = up.settings.multipart_params.field_id;
 
@@ -2987,7 +3030,7 @@ function gformValidateFileSize( field, max_file_size ) {
 					+ "' /> "
 					+ html;
 			} else {
-				html = "<button class='gform_delete_file' onclick='gformDeleteUploadedFile(" + formId + "," + fieldId + ", this);'><span class='dashicons dashicons-trash' aria-hidden='true'></span><span class='screen-reader-text'>" + strings.delete_file + ': ' + htmlEncode(uploadedName) + "</span></button> " + html;
+				html = html + "<button class='gform_delete_file gform-theme-button gform-theme-button--simple' onclick='gformDeleteUploadedFile(" + formId + "," + fieldId + ", this);'><span class='dashicons dashicons-trash' aria-hidden='true'></span><span class='screen-reader-text'>" + strings.delete_file + ': ' + htmlEncode(uploadedName) + "</span></button>";
 			}
 
 			/**
@@ -3006,6 +3049,7 @@ function gformValidateFileSize( field, max_file_size ) {
 			html = gform.applyFilters('gform_file_upload_markup', html, file, up, strings, imagesUrl, response);
 
 			$('#' + file.id).html(html);
+			$('#' + file.id + ' span.gfield_fileupload_progressbar_progress').css('width', file.percent + '%');
 
 			if (file.percent == 100) {
 				if (response.status && response.status == 'ok') {
@@ -3095,12 +3139,63 @@ function gformValidateFileSize( field, max_file_size ) {
 //------ GENERAL FUNCTIONS -------
 //----------------------------------------
 
-function gformInitSpinner(formId, spinnerUrl) {
+function gformInitSpinner(formId, spinnerUrl, isLegacy = true) {
 
-	jQuery('#gform_' + formId).submit(function () {
-		gformAddSpinner(formId, spinnerUrl);
+	var spinnerCheck = gform.applyFilters('gform_spinner_url', spinnerUrl, formId);
+
+	if ( spinnerCheck != spinnerUrl ) {
+		isLegacy = true;
+	}
+
+	jQuery('#gform_' + formId).on( 'submit', function () {
+		if ( isLegacy ) {
+			gformAddSpinner(formId, spinnerUrl);
+			return;
+		}
+
+		var $spinnerTarget = gform.applyFilters('gform_spinner_target_elem', jQuery('#gform_submit_button_' + formId + ', #gform_wrapper_' + formId + ' .gform_next_button, #gform_send_resume_link_button_' + formId), formId);
+
+		gformInitializeSpinner(formId, $spinnerTarget);
 	});
 
+}
+
+/**
+ * @description Initializes the theme-framework-based spinner after the provided target.
+ *
+ * @since 2.7
+ *
+ * @param {int}    formId The ID of the form within which to initialize the spinner.
+ * @param {object} target The target element after which to inject the spinner.
+ * @param {string} uniqId A unique ID to use for the spinner - used when removing the spinner.
+ *
+ * @return void
+ */
+function gformInitializeSpinner( formId, target, uniqId = 'gform-ajax-spinner' ) {
+	if (jQuery('#gform_ajax_spinner_' + formId).length == 0) {
+		var loaderHTML = '<span data-js-spinner-id="' + uniqId + '" id="gform_ajax_spinner_' + formId + '" class="gform-loader"></span>';
+		var $spinnerTarget = target instanceof jQuery ? target : jQuery( target );
+		$spinnerTarget.after( loaderHTML );
+	}
+}
+
+/**
+ * @description Removes an existing theme-framework-based spinner.
+ *
+ * @since 2.7
+ *
+ * @param {string} uniqId A unique ID to use for the spinner - used when removing the spinner.
+ *
+ * @return void
+ */
+function gformRemoveSpinner( uniqId = 'gform-ajax-spinner' ) {
+	var spinner = document.querySelector( '[data-js-spinner-id="' + uniqId + '"]' );
+
+	if ( ! spinner ) {
+		return;
+	}
+
+	spinner.remove();
 }
 
 function gformAddSpinner(formId, spinnerUrl) {
@@ -3344,9 +3439,8 @@ jQuery( document ).on( 'submit.gravityforms', '.gform_wrapper form', function( e
                 event.preventDefault();
             }
         }
-    }
-
-} );
+	}
+});
 
 
 
@@ -3377,12 +3471,14 @@ if( ! window['rgar'] ) {
     }
 }
 
-String.prototype.format = function () {
-    var args = arguments;
-    return this.replace(/{(\d+)}/g, function (match, number) {
-        return typeof args[number] != 'undefined' ? args[number] : match;
-    });
-};
+if ( ! String.prototype.gformFormat ) {
+	String.prototype.gformFormat = function() {
+		var args = arguments;
+		return this.replace( /{(\d+)}/g, function( match, number ) {
+			return typeof args[ number ] != 'undefined' ? args[ number ] : match;
+		} );
+	};
+}
 
 
 /**
@@ -3391,16 +3487,18 @@ String.prototype.format = function () {
  * @since 2.5
  */
 jQuery( document ).ready( function() {
-	jQuery( '#gform-form-toolbar__menu > li' )
-		.hover( function() {
+	jQuery( '#gform-form-toolbar__menu' )
+		.on( 'mouseenter', '> li',function() {
 			jQuery( this ).find( '.gform-form-toolbar__submenu' ).toggleClass( 'open' );
 			jQuery( this ).find( '.has_submenu' ).toggleClass( 'submenu-open' );
-		}, function() {
+		} );
+	jQuery( '#gform-form-toolbar__menu' )
+		.on( 'mouseleave', '> li',function() {
 			jQuery( '.gform-form-toolbar__submenu.open' ).removeClass( 'open' );
 			jQuery( '.has_submenu.submenu-open' ).removeClass( 'submenu-open' );
 		} );
 	jQuery( '#gform-form-toolbar__menu .has_submenu' )
-		.click( function( e ) {
+		.on( 'click', function( e ) {
 			e.preventDefault();
 		} );
 } );

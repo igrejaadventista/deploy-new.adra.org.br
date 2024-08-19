@@ -9,45 +9,35 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Filter_Base' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Filter_Base class
 	 */
 	abstract class Jet_Smart_Filters_Filter_Base {
-
 		/**
 		 * Get filter name
-		 *
-		 * @return string
 		 */
 		abstract public function get_name();
 
 		/**
 		 * Get filter ID
-		 *
-		 * @return string
 		 */
 		abstract public function get_id();
 
 		/**
 		 * Get filter JS files
-		 *
-		 * @return string
 		 */
 		abstract public function get_scripts();
 
 		/**
 		 * Return arguments
-		 * @return [type] [description]
 		 */
 		public function get_args() {
+
 			return array();
 		}
 
 		/**
 		 * Get filtered provider content
-		 *
-		 * @return string
 		 */
 		public function get_template( $args = array() ) {
 
@@ -56,22 +46,18 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Base' ) ) {
 			} else {
 				return jet_smart_filters()->get_template( 'filters/' . $this->get_id() . '.php' );
 			}
-
 		}
 
 		/**
 		 * Get filter widget file
-		 *
-		 * @return string
 		 */
 		public function widget() {
+
 			return jet_smart_filters()->plugin_path( 'includes/widgets/' . $this->get_id() . '.php' );
 		}
 
 		/**
 		 * Get custom query variable
-		 *
-		 * @return string
 		 */
 		public function get_custom_query_var( $filter_id ) {
 
@@ -82,9 +68,40 @@ if ( ! class_exists( 'Jet_Smart_Filters_Filter_Base' ) ) {
 			}
 
 			return $custom_query_var;
-
 		}
 
-	}
+		/**
+		 * Get filter accessibility label
+		 */
+		public function get_accessibility_label( $filter_id ) {
 
+			$label = get_post_meta( $filter_id, '_filter_label', true );
+
+			if ( !$label ) {
+				$label = get_the_title( $filter_id );
+			}
+
+			return $label;
+		}
+
+		/**
+		 * Get default filter value
+		 */
+		public function get_predefined_value( $filter_id ) {
+
+			if ( ! filter_var( get_post_meta( $filter_id, '_is_default_filter_value', true ), FILTER_VALIDATE_BOOLEAN ) ) {
+				return false;
+			}
+
+			$predefined_value = apply_filters( 'jet-smart-filters/filters/predefined-value',
+				get_post_meta( $filter_id, '_default_filter_value', true ),
+				$filter_id,
+				$this->get_id()
+			);
+
+			return $predefined_value == ''
+				? false
+				: $predefined_value;
+		}
+	}
 }

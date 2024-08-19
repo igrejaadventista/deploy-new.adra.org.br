@@ -80,9 +80,15 @@ class Export {
 
 				if ( $value ) {
 					$value = $content_type->format_value_by_type( $key, $value );
+
+					// Escaping a double quote.
+					$value = str_replace( '"', '""', $value );
+
 				} elseif ( is_array( $value ) && empty( $value ) ) {
 					$value = null;
 				}
+
+				$value = apply_filters( 'jet-engine/custom-content-types/export/value', $value, $key, $content_type, $item );
 
 				$preapred_item[] = $value;
 			}

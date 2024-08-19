@@ -13,7 +13,7 @@ defined( 'ABSPATH' ) || exit;
 
 global $wp_version;
 
-update_option( 'rank_math_wizard_completed', true );
+update_option( 'rank_math_wizard_completed', true, false );
 
 $php_version           = phpversion();
 $php_version_ok        = version_compare( $php_version, rank_math()->php_version, '>' );
@@ -24,7 +24,8 @@ $simplexml_ext = extension_loaded( 'SimpleXML' );
 $image_ext     = extension_loaded( 'gd' ) || extension_loaded( 'imagick' );
 $mb_string     = extension_loaded( 'mbstring' );
 $openssl       = extension_loaded( 'openssl' );
-$all_good      = $php_version_ok && $dom_ext && $simplexml_ext && $image_ext && $mb_string && $openssl;
+$base64_func   = function_exists( 'base64_encode' ) && function_exists( 'base64_decode' ) && (bool) base64_decode( base64_encode( '1' ) );
+$all_good      = $php_version_ok && $dom_ext && $simplexml_ext && $image_ext && $mb_string && $openssl && $base64_func;
 
 ?>
 
@@ -51,22 +52,22 @@ if ( $all_good ) :
 				<?php
 				if ( $php_version_ok ) {
 					/* translators: php version */
-					printf( esc_html__( 'Your PHP Version: %s', 'rank-math' ), $php_version );
+					printf( esc_html__( 'Your PHP Version: %s', 'rank-math' ), esc_html( $php_version ) );
 					if ( $php_version_recommend ) {
 						?>
 						<?php echo ' | ' . esc_html__( 'Recommended: PHP 7.4 or later', 'rank-math' ); ?>
 						<p class="description">
 						<?php
-							echo ( ! Helper::is_whitelabel() ) ?
-								esc_html__( 'Rank Math is compatible with your PHP version but we recommend updating to PHP 7.2 for increased speed and security.', 'rank-math' ) . ' <a href="' . KB::get( 'rm-requirements' ) . '" target="_blank">' . esc_html__( 'More information', 'rank-math' ) . '</a>' :
-								esc_html__( 'This plugin is compatible with your PHP version but we recommend updating to PHP 7.2 for increased speed and security.', 'rank-math' );
+							echo ! Helper::is_whitelabel() ?
+								esc_html__( 'Rank Math is compatible with your PHP version but we recommend updating to PHP 7.4 for increased speed and security.', 'rank-math' ) . ' <a href="' . esc_url( KB::get( 'requirements', 'Setup wizard compatibility step' ) ) . '" target="_blank">' . esc_html__( 'More information', 'rank-math' ) . '</a>' :
+								esc_html__( 'This plugin is compatible with your PHP version but we recommend updating to PHP 7.4 for increased speed and security.', 'rank-math' );
 						?>
 						</p>
 						<?php
 					}
 				} else {
 					/* translators: php version */
-					printf( esc_html__( 'Your PHP Version: %s | Recommended version: 7.4 | Minimal required: 7.2', 'rank-math' ), $php_version );
+					printf( esc_html__( 'Your PHP Version: %s | Recommended version: 7.4 | Minimal required: 7.2', 'rank-math' ), esc_html( $php_version ) );
 				}
 				?>
 			</th>
@@ -110,11 +111,17 @@ if ( $all_good ) :
 			</th>
 			<td><span class="dashicons dashicons-<?php echo $mb_string ? 'yes' : 'no'; ?>"></span></td>
 		</tr>
+		<tr class="check-<?php echo $base64_func ? 'yes' : 'no'; ?>">
+			<th>
+				<?php echo $base64_func ? esc_html__( 'Base64 encode &amp; decode functions available', 'rank-math' ) : esc_html__( 'Base64 encode &amp; decode functions missing', 'rank-math' ); ?>
+			</th>
+			<td><span class="dashicons dashicons-<?php echo $base64_func ? 'yes' : 'no'; ?>"></span></td>
+		</tr>
 	</table>
 	<?php if ( $all_good ) { ?>
 		<p class="description checklist-ok">
 		<?php
-			echo ( ! Helper::is_whitelabel() ) ?
+			echo ! Helper::is_whitelabel() ?
 				esc_html__( 'Your server is correctly configured to use Rank Math.', 'rank-math' ) :
 				esc_html__( 'Your server is correctly configured to use this plugin.', 'rank-math' );
 		?>
@@ -122,7 +129,7 @@ if ( $all_good ) :
 	<?php } else { ?>
 		<p class="description checklist-not-ok">
 		<?php
-			echo ( ! Helper::is_whitelabel() ) ?
+			echo ! Helper::is_whitelabel() ?
 				esc_html__( 'Please resolve the issues above to be able to use all features of Rank Math plugin. If you are not sure how to do it, please contact your hosting provider.', 'rank-math' ) :
 				esc_html__( 'Please resolve the issues above to be able to use all SEO features. If you are not sure how to do it, please contact your hosting provider.', 'rank-math' );
 		?>
@@ -138,7 +145,7 @@ if ( $all_good ) :
 	<?php if ( $conflicting_plugins ) : ?>
 		<p class="conflict-text">
 			<?php
-				echo ( ! Helper::is_whitelabel() ) ?
+				echo ! Helper::is_whitelabel() ?
 					esc_html__( 'The following active plugins on your site may cause conflict issues when used alongside Rank Math: ', 'rank-math' ) :
 					esc_html__( 'The following active plugins on your site may cause conflict issues when used alongside this plugin: ', 'rank-math' );
 			?>
@@ -147,7 +154,7 @@ if ( $all_good ) :
 			<?php foreach ( $conflicting_plugins as $pk => $plugin ) { ?>
 				<tr>
 					<td><span class="dashicons dashicons-warning"></span></td>
-					<td><?php echo $plugin . ( in_array( $pk, [ 'all-in-one-schemaorg-rich-snippets/index.php', 'wordpress-seo/wp-seo.php', 'wordpress-seo-premium/wp-seo-premium.php', 'all-in-one-seo-pack/all_in_one_seo_pack.php' ], true ) ? '<span class="import-info">' . esc_html__( 'You can import settings in the next step.', 'rank-math' ) . '</span>' : '' ); ?></td>
+					<td><?php echo esc_html( $plugin ) . ( in_array( $pk, [ 'all-in-one-schemaorg-rich-snippets/index.php', 'wordpress-seo/wp-seo.php', 'wordpress-seo-premium/wp-seo-premium.php', 'all-in-one-seo-pack/all_in_one_seo_pack.php' ], true ) ? '<span class="import-info">' . esc_html__( 'You can import settings in the next step.', 'rank-math' ) . '</span>' : '' ); ?></td>
 					<td><a href="#" class="button button-small wizard-deactivate-plugin" data-plugin="<?php echo esc_attr( $pk ); ?>"><?php esc_html_e( 'Deactivate Plugin', 'rank-math' ); ?></a></td>
 				</tr>
 			<?php } ?>

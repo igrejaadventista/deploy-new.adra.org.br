@@ -17,12 +17,12 @@ $this->start_controls_section(
 $this->add_responsive_control(
 	'calendar_offset_top',
 	array(
-		'label'      => esc_html__( 'Offset Top', 'jet-smart-filters' ),
+		'label'      => esc_html__( 'Vertical Offset', 'jet-smart-filters' ),
 		'type'       => Controls_Manager::SLIDER,
 		'range'      => array(
 			'px' => array(
-				'min' => 0,
-				'max' => 40,
+				'min' => -300,
+				'max' => 300,
 			),
 		),
 		'default'    => array(
@@ -30,6 +30,26 @@ $this->add_responsive_control(
 		),
 		'selectors'  => array(
 			'#datepickers-container .jet-date-period-{{ID}}' => 'margin-top: {{SIZE}}{{UNIT}}',
+		),
+	)
+);
+
+$this->add_responsive_control(
+	'calendar_offset_left',
+	array(
+		'label'      => esc_html__( 'Horizontal Offset', 'jet-smart-filters' ),
+		'type'       => Controls_Manager::SLIDER,
+		'range'      => array(
+			'px' => array(
+				'min' => -300,
+				'max' => 300,
+			),
+		),
+		'default'    => array(
+			'size' => 0
+		),
+		'selectors'  => array(
+			'#datepickers-container .jet-date-period-{{ID}}' => 'margin-left: {{SIZE}}{{UNIT}}',
 		),
 	)
 );

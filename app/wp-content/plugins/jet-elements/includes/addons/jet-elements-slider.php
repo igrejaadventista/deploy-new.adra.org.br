@@ -690,6 +690,15 @@ class Jet_Elements_Slider extends Jet_Elements_Base {
 		);
 
 		$this->add_control(
+			'slider_id',
+			array(
+				'label'   => esc_html__( 'Slider CSS ID', 'jet-elements' ),
+				'type'    => Controls_Manager::TEXT,
+				'dynamic' => array( 'active' => true ),
+			)
+		);
+
+		$this->add_control(
 			'slider_width',
 			array(
 				'label' => esc_html__( 'Slider Width(%)', 'jet-elements' ),

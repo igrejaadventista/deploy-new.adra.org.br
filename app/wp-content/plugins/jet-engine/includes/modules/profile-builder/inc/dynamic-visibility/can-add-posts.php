@@ -75,7 +75,7 @@ class User_Can_Add_Posts extends \Jet_Engine\Modules\Dynamic_Visibility\Conditio
 	public function get_custom_controls() {
 		return array(
 			'user_can_add_posts_notice' => array(
-				'type' => \Elementor\Controls_Manager::RAW_HTML,
+				'type' => 'raw_html',
 				'raw'  => __( 'If you restricted posts by post types, set restricted post type slug into the value field', 'jet-engine' ),
 			),
 		);

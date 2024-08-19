@@ -19,21 +19,29 @@ class EWWWIO_AGR_Tests extends WP_UnitTestCase {
 	public static $test_gif = '';
 
 	/**
+	 * The API key used for API-based tests.
+	 *
+	 * @var stringg $api_key
+	 */
+	public static $api_key = '';
+
+	/**
 	 * Downloads test images.
 	 */
-	public static function setUpBeforeClass() {
-		self::$test_gif = download_url( 'https://s3-us-west-2.amazonaws.com/exactlywww/rain.gif' );
+	public static function set_up_before_class() {
+		self::$test_gif = download_url( 'https://ewwwio-test.sfo2.digitaloceanspaces.com/unit-tests/rain.gif' );
+		self::$api_key  = getenv( 'EWWWIO_API_KEY' );
 
-		ewww_image_optimizer_set_defaults();
+		ewwwio()->set_defaults();
 		update_option( 'ewww_image_optimizer_gif_level', 10 );
-		ewww_image_optimizer_install_tools();
+		ewwwio()->local->install_tools();
 	}
 
 	/**
 	 * Initializes the plugin and installs the ewwwio_images table.
 	 */
-	function setUp() {
-		parent::setUp();
+	function set_up() {
+		parent::set_up();
 		remove_filter( 'query', array( $this, '_create_temporary_tables' ) );
 		ewww_image_optimizer_install_table();
 		add_filter( 'query', array( $this, '_create_temporary_tables' ) );
@@ -43,8 +51,8 @@ class EWWWIO_AGR_Tests extends WP_UnitTestCase {
 	 * Test that GD is active and Imagick is not -- otherwise our tests are bogus.
 	 */
 	function test_gd_active() {
-		$this->assertNotEmpty( ewww_image_optimizer_gd_support() );
-		$this->assertFalse( ewww_image_optimizer_imagick_support() );
+		$this->assertNotEmpty( \ewwwio()->gd_support() );
+		$this->assertFalse( \ewwwio()->imagick_support() );
 	}
 
 	/**
@@ -66,10 +74,13 @@ class EWWWIO_AGR_Tests extends WP_UnitTestCase {
 	 * Test API-based AGR.
 	 */
 	function test_api_agr() {
+		if ( empty( self::$api_key ) ) {
+			self::markTestSkipped( 'No API key available.' );
+		}
 		$upload_gif = self::$test_gif . '.gif';
 		copy( self::$test_gif, $upload_gif );
-		update_option( 'ewww_image_optimizer_cloud_key', 'abc123' );
-		update_site_option( 'ewww_image_optimizer_cloud_key', 'abc123' );
+		update_option( 'ewww_image_optimizer_cloud_key', self::$api_key );
+		update_site_option( 'ewww_image_optimizer_cloud_key', self::$api_key );
 		$id = $this->factory->attachment->create_upload_object( $upload_gif );
 		$meta = wp_get_attachment_metadata( $id );
 		list( $file_path, $upload_path ) = ewww_image_optimizer_attachment_path( $meta, $id );
@@ -84,7 +95,7 @@ class EWWWIO_AGR_Tests extends WP_UnitTestCase {
 	/**
 	 * Cleans up ewwwio_images table.
 	 */
-	function tearDown() {
+	function tear_down() {
 		global $wpdb;
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		$wpdb->query( "DROP TABLE IF EXISTS $wpdb->ewwwio_images" );
@@ -93,13 +104,13 @@ class EWWWIO_AGR_Tests extends WP_UnitTestCase {
 		delete_option( 'ewww_image_optimizer_cloud_key' );
 		delete_site_option( 'ewww_image_optimizer_version' );
 		delete_site_option( 'ewww_image_optimizer_cloud_key' );
-		parent::tearDown();
+		parent::tear_down();
 	}
 
 	/**
 	 * Cleans up the temp images.
 	 */
-	public static function tearDownAfterClass() {
+	public static function tear_down_after_class() {
 		if ( ewwwio_is_file( self::$test_gif ) ) {
 			unlink( self::$test_gif );
 		}

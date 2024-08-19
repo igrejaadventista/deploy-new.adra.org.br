@@ -7,7 +7,9 @@
 	v-if="isVisible()"
 >
 	<div class="cx-vui-f-select">
-		<div :class="{
+		<div
+			v-if="false === selectedLabelInside"
+			:class="{
 			'cx-vui-f-select__selected': true,
 			'cx-vui-f-select__selected-not-empty': this.currentValues.length > 0
 		}">
@@ -50,7 +52,7 @@
 					'has-error': error,
 				}"
 			>
-			<div class="cx-vui-f-select__results" v-if="inFocus">
+			<div class="cx-vui-f-select__results" v-if="inFocus && ( false === selectedLabelInside || query.length >= remoteTrigger )">
 				<div v-if="remote && loading" class="cx-vui-f-select__results-loading" v-html="loadingMessage"></div>
 				<div
 					v-else-if="remote && charsDiff > 0"

@@ -3,7 +3,6 @@
 
 namespace Jet_Engine\Modules\Rest_API_Listings;
 
-
 use Jet_Engine\Modules\Rest_API_Listings\Module;
 use Jet_Form_Builder\Actions\Action_Handler;
 use Jet_Form_Builder\Actions\Types\Base;
@@ -29,7 +28,7 @@ class Jet_Action extends Base {
 		$auth_types = Module::instance()->auth_types->get_types_for_js();
 
 		return array(
-			'auth_types' => $auth_types
+			'auth_types' => $auth_types,
 		);
 	}
 
@@ -52,24 +51,26 @@ class Jet_Action extends Base {
 	 */
 	public function editor_labels() {
 		return array(
-			'url'              => __( 'REST API URL:', 'jet-engine' ),
-			'body'             => __( 'Custom Body:', 'jet-engine' ),
-			'authorization'    => __( 'Authorization:', 'jet-engine' ),
-			'auth_type'        => __( 'Authorization type:', 'jet-engine' ),
-			'rapidapi_key'     => __( 'RapidAPI Key:', 'jet-engine' ),
-			'rapidapi_host'    => __( 'RapidAPI Host:', 'jet-engine' ),
-			'application_pass' => __( 'User:password string:', 'jet-engine' ),
-			'bearer_token'     => __( 'Bearer token:', 'jet-engine' ),
+			'url'                 => __( 'REST API URL:', 'jet-engine' ),
+			'body'                => __( 'Custom Body:', 'jet-engine' ),
+			'authorization'       => __( 'Authorization:', 'jet-engine' ),
+			'auth_type'           => __( 'Authorization type:', 'jet-engine' ),
+			'rapidapi_key'        => __( 'RapidAPI Key:', 'jet-engine' ),
+			'rapidapi_host'       => __( 'RapidAPI Host:', 'jet-engine' ),
+			'application_pass'    => __( 'User:password string:', 'jet-engine' ),
+			'bearer_token'        => __( 'Bearer token:', 'jet-engine' ),
+			'custom_header_name'  => __( 'Header name', 'jet-engine' ),
+			'custom_header_value' => __( 'Header value', 'jet-engine' ),
 		);
 	}
 
 	public function editor_labels_help() {
 		return array(
-			'url'              => __(
+			'url'                => __(
 				'You can use these macros as dynamic part of the URL: %field_name%',
 				'jet-engine'
 			),
-			'body'             => __(
+			'body'               => __(
 				'By default API request will use all form data as body. Here you can set custom body 
 				of your API request in the JSON format. 
 				<a href="https://www.w3dnetwork.com/json-formatter.html" target="_blank">Online editing tool</a> 
@@ -78,10 +79,12 @@ class Jet_Action extends Base {
 				You can use the same macros as for the URL.',
 				'jet-engine'
 			),
-			'application_pass' => __( 'Set application user and password separated with `:`', 'jet-engine' ),
-			'rapidapi_key'     => __( 'X-RapidAPI-Key from endpoint settings at the rapidapi.com', 'jet-engine' ),
-			'rapidapi_host'    => __( 'X-RapidAPI-Host from endpoint settings at the rapidapi.com', 'jet-engine' ),
-			'bearer_token'     => __( 'Set token for Bearer Authorization type', 'jet-engine' )
+			'application_pass'   => __( 'Set application user and password separated with `:`', 'jet-engine' ),
+			'rapidapi_key'       => __( 'X-RapidAPI-Key from endpoint settings at the rapidapi.com', 'jet-engine' ),
+			'rapidapi_host'      => __( 'X-RapidAPI-Host from endpoint settings at the rapidapi.com', 'jet-engine' ),
+			'bearer_token'       => __( 'Set token for Bearer Authorization type', 'jet-engine' ),
+			'custom_header_name' => __( 'Set authorization header name. Could be found in your API docs', 'jet-engine' ),
+			'custom_header_value' => __( 'Set authorization header value. Could be found in your API docs or you user profile related to this API', 'jet-engine' ),
 		);
 	}
 
@@ -110,6 +113,7 @@ class Jet_Action extends Base {
 
 		/**
 		 * Allow to filter endpoint data before sending the request
+		 *
 		 * @var array
 		 */
 		$endpoint = apply_filters( 'jet-engine/rest-api-listings/form-notification/endpoint-data', $endpoint, $handler );
@@ -125,7 +129,9 @@ class Jet_Action extends Base {
 			) )->dynamic_error();
 		}
 
-		if ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
+		$code = (int) wp_remote_retrieve_response_code( $response );
+
+		if ( 400 <= $code ) {
 			throw ( new Action_Exception(
 				$error_prefix . wp_remote_retrieve_response_message( $response )
 			) )->dynamic_error();

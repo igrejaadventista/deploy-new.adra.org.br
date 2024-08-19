@@ -21,6 +21,14 @@ class DB extends \Jet_Engine_Base_DB {
 
 	public static $prefix = 'jet_cct_';
 
+	public $query_object = null;
+
+	/**
+	 * Stores map removed fields to new on DB schema update to try keep the data
+	 * @var array
+	 */
+	public $adjust_fields_map = array();
+
 	/**
 	 * Constructor for the class
 	 */
@@ -33,6 +41,10 @@ class DB extends \Jet_Engine_Base_DB {
 			add_action( 'init', array( $this, 'install_table' ) );
 		}
 
+	}
+
+	public function set_query_object( $query_object ) {
+		$this->query_object = $query_object;
 	}
 
 	/**
@@ -155,6 +167,114 @@ class DB extends \Jet_Engine_Base_DB {
 
 	}
 
+	public function adjusted_fields_map( $old_fields = array(), $new_fields = array() ) {
+
+		if ( empty( $old_fields ) || empty( $new_fields ) ) {
+			return;
+		}
+
+		$old_fields_by_id = $this->get_fields_grouped_by_id( $old_fields );
+		$new_fields_by_id = $this->get_fields_grouped_by_id( $new_fields );
+
+		foreach ( $old_fields_by_id as $id => $field ) {
+			if ( isset( $new_fields_by_id[ $id ] ) ) {
+				$this->adjust_fields_map[ $field ] = $new_fields_by_id[ $id ];
+			}
+		}
+
+	}
+
+	public function adjusted_fields_types( $old_schema = array(), $old_fields = array(), $new_fields = array() ) {
+
+		if ( empty( $old_schema ) || empty( $this->schema ) ) {
+			return;
+		}
+
+		$old_fields_types_by_name = wp_list_pluck( $old_fields, 'type', 'name' );
+		$new_fields_types_by_name = wp_list_pluck( $new_fields, 'type', 'name' );
+
+		foreach ( $old_schema as $col => $type ) {
+
+			$new_col = isset( $this->adjust_fields_map[ $col ] ) ? $this->adjust_fields_map[ $col ] : $col;
+
+			if ( isset( $this->schema[ $new_col ] ) && $type !== $this->schema[ $new_col ] ) {
+
+				$new_type = $this->schema[ $new_col ];
+				$table    = $this->table();
+
+				$old_field_type = $old_fields_types_by_name[ $col ];
+				$new_field_type = $new_fields_types_by_name[ $new_col ];
+
+				// Convert datetime string to timestamp string
+				if ( in_array( $old_field_type, array( 'date', 'datetime', 'datetime-local' ) )
+					 && in_array( $new_field_type, array( 'date', 'datetime', 'datetime-local' ) )
+					 && 'TEXT' === $type && 'BIGINT' === $new_type
+				) {
+					self::wpdb()->query( "UPDATE $table SET $col = UNIX_TIMESTAMP( CONVERT_TZ( $col, '+00:00', @@global.time_zone ) ) WHERE $col IS NOT NULL;" );
+				}
+
+				// Change column datatype
+				self::wpdb()->query( "ALTER TABLE $table MODIFY COLUMN $col $new_type;" );
+
+				// Convert timestamp string to datetime string
+				if ( in_array( $old_field_type, array( 'date', 'datetime', 'datetime-local' ) )
+					 && in_array( $new_field_type, array( 'date', 'datetime', 'datetime-local' ) )
+					 && 'BIGINT' === $type && 'TEXT' === $new_type
+				) {
+
+					switch ( $new_field_type ) {
+						case 'date':
+							self::wpdb()->query( "UPDATE $table SET $col = FROM_UNIXTIME( $col, '%Y-%m-%d' ) WHERE $col IS NOT NULL;" );
+							break;
+
+						case 'datetime':
+						case 'datetime-local':
+							self::wpdb()->query( "UPDATE $table SET $col = DATE_FORMAT( CONVERT_TZ( FROM_UNIXTIME( $col ), @@global.time_zone, '+00:00' ), '%Y-%m-%dT%H:%i' ) WHERE $col IS NOT NULL;" );
+							break;
+					}
+				}
+			}
+		}
+	}
+
+	public function get_fields_grouped_by_id( $fields_list = array() ) {
+		
+		$result = array();
+
+		foreach ( $fields_list as $index => $field ) {
+			$index = isset( $field['id'] ) ? $field['id'] : $index;
+			$result[ $index ] = $field['name'];
+		}
+
+		return $result;
+
+	}
+
+	/**
+	 * Check if we can transfer data into new columns before removing
+	 *
+	 * Rewrite this method in the childrent where it supported
+	 */
+	public function maybe_transfer_data( $old_columns = array(), $new_columns = array() ) {
+
+		if ( empty( $old_columns ) || empty( $new_columns ) ) {
+			return;
+		}
+
+		foreach ( $old_columns as $index => $col ) {
+			
+			$new_col = isset( $this->adjust_fields_map[ $col ] ) ? $this->adjust_fields_map[ $col ] : false;
+
+			if ( $new_col ) {
+				$table = $this->table();
+				$sql   = "UPDATE $table SET $new_col = $col WHERE $col IS NOT NULL;";
+				self::wpdb()->query( $sql );
+			}
+
+		}
+
+	}
+
 	/**
 	 * Returns array of table column names
 	 *
@@ -205,6 +325,33 @@ class DB extends \Jet_Engine_Base_DB {
 	}
 
 	/**
+	 * Return count of queried items
+	 *
+	 * @return [type] [description]
+	 */
+	public function count( $args = array(), $rel = 'AND' ) {
+
+		$table = $this->table();
+
+		$query = "SELECT count(*) FROM $table";
+
+		if ( ! $rel ) {
+			$rel = 'AND';
+		}
+
+		$where = $this->add_where_args( $args, $rel );
+
+		if ( ! $where ) {
+			$where = " WHERE 1=1 ";
+		}
+
+		$query .= apply_filters( 'jet-engine/custom-content-types/sql-count-query', $where, $table, $args, $this );
+
+		return self::wpdb()->get_var( $query );
+
+	}
+
+	/**
 	 * Query data from db table
 	 *
 	 * @return [type] [description]
@@ -212,8 +359,9 @@ class DB extends \Jet_Engine_Base_DB {
 	public function query( $args = array(), $limit = 0, $offset = 0, $order = array(), $rel = 'AND' ) {
 
 		$table = $this->table();
-
-		$query = "SELECT * FROM $table";
+		$query = array();
+		
+		$query['select'] = "SELECT * FROM $table";
 
 		if ( ! $rel ) {
 			$rel = 'AND';
@@ -225,8 +373,9 @@ class DB extends \Jet_Engine_Base_DB {
 			unset( $args['_cct_search'] );
 		}
 
-		$where  = $this->add_where_args( $args, $rel );
-		$query .= $where;
+		$where = $this->add_where_args( $args, $rel );
+		
+		$query['where'] = ! empty( $where ) ? $where : " WHERE 1=1";
 
 		if ( $search ) {
 
@@ -248,13 +397,8 @@ class DB extends \Jet_Engine_Base_DB {
 
 			if ( ! empty( $search_str ) ) {
 
-				if ( $where ) {
-					$query .= ' ' . $rel;
-				} else {
-					$query .= ' WHERE';
-				}
-
-				$query .= ' (' . $search_str . ')';
+				$search_sql = ' ' . $rel;
+				$query['search'] = $search_sql . ' (' . $search_str . ')';
 
 			}
 		}
@@ -266,13 +410,16 @@ class DB extends \Jet_Engine_Base_DB {
 			) );
 		}
 
-		$query .= $this->add_order_args( $order );
+		$query['order'] = $this->add_order_args( $order );
 
 		if ( intval( $limit ) > 0 ) {
-			$limit  = absint( $limit );
-			$offset = absint( $offset );
-			$query .= " LIMIT $offset, $limit";
+			$limit          = absint( $limit );
+			$offset         = absint( $offset );
+			$query['limit'] = " LIMIT $offset, $limit";
 		}
+
+		$query = apply_filters( 'jet-engine/custom-content-types/sql-query-parts', $query, $table, $args, $this );
+		$query = implode( '', $query );
 
 		$raw = self::wpdb()->get_results( $query, $this->get_format_flag() );
 

@@ -42,6 +42,12 @@ if ( ! class_exists( 'Jet_Engine_Options_Page_List' ) ) {
 			?></a>
 			<?php
 
+			jet_engine()->get_video_help_popup( array(
+				'popup_title' => __( 'JetEngine options pages overview', 'jet-engine' ),
+				'embed' => 'https://www.youtube.com/embed/MqcuHrT1a_c',
+			) )->wp_page_popup();
+			
+
 		}
 
 		/**

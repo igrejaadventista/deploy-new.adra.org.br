@@ -31,8 +31,8 @@ switch ( $settings['switch_event_type'] ) {
 	break;
 }
 
-?><div id="jet-animated-box-<?php echo $widget_id; ?>" class="jet-animated-box <?php echo $animation_class; ?>" <?php echo $this->generate_setting_json(); ?>>
-	<div id="jet-animated-box__front-<?php echo $widget_id; ?>" class="jet-animated-box__front">
+?><div id="jet-animated-box-<?php echo esc_attr( $widget_id );  ?>" class="jet-animated-box <?php echo esc_attr( $animation_class ); ?>" <?php echo $this->generate_setting_json(); ?>>
+	<div id="jet-animated-box__front-<?php echo esc_attr( $widget_id ); ?>" class="jet-animated-box__front">
 		<div class="jet-animated-box__inner"><?php
 
 			if ( 'default' === $settings['front_side_content_type'] ) {
@@ -54,7 +54,7 @@ switch ( $settings['switch_event_type'] ) {
 			?></div><?php
 		}
 	?></div>
-	<div id="jet-animated-box__back-<?php echo $widget_id; ?>" class="jet-animated-box__back">
+	<div id="jet-animated-box__back-<?php echo esc_attr( $widget_id ); ?>" class="jet-animated-box__back">
 		<div class="jet-animated-box__inner"><?php
 
 		if ( 'default' === $settings['back_side_content_type'] ) {

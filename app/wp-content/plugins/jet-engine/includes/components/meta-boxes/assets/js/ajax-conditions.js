@@ -9,7 +9,7 @@
 			this.init();
 		}
 
-		observeDom( obj, callback ) {
+		observeDom( obj, callback, options ) {
 
 			var MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
 
@@ -19,10 +19,14 @@
 
 			if ( MutationObserver ) {
 				// define a new observer
-				var mutationObserver = new MutationObserver( callback )
+				var mutationObserver = new MutationObserver( callback );
+
+				if ( undefined === options ) {
+					options = { childList:true, subtree:true };
+				}
 
 				// have the observer observe foo for changes in children
-				mutationObserver.observe( obj, { childList:true, subtree:true })
+				mutationObserver.observe( obj, options )
 			}
 		}
 
@@ -44,6 +48,25 @@
 			for ( var i = 0; i < tagInputs.length; i++ ) {
 				this.observeDom( tagInputs[ i ], function( mutationsList, observer ) {
 					$( document ).trigger( 'jet-engine/meta-box/data-change' );
+				} );
+			}
+
+			// Triggered changes if the `woocommerce_attribute` is removed.
+			var productAttributes = document.querySelectorAll( '.product_attributes' );
+
+			for ( var i = 0; i < productAttributes.length; i++ ) {
+				this.observeDom( productAttributes[ i ], function( mutationsList, observer ) {
+
+					for ( var mutation of mutationsList ) {
+						if (  'attributes' === mutation.type && mutation.target.classList.contains( 'woocommerce_attribute' )  ) {
+							$( document ).trigger( 'jet-engine/meta-box/data-change' );
+						}
+					}
+
+				}, {
+					subtree: true,
+					attributes: true,
+					attributeFilter: ['style'],
 				} );
 			}
 		}
@@ -71,20 +94,10 @@
 						$( '#' + response.data[ i ].id ).css( 'display', response.data[ i ].display );
 
 						// Prevent js error if meta box has required fields.
-						if ( 'none' === response.data[i].display ) {
-
-							$( '#' + response.data[i].id )
-								.find( '[required]' )
-								.removeAttr( 'required' )
-								.attr( 'data-required', 1 );
-
+						if ( 'none' == response.data[i].display ) {
+							$( '#' + response.data[i].id ).addClass( 'cx-controls-novalidate' );
 						} else {
-
-							$( '#' + response.data[i].id )
-								.find( '[data-required="1"]' )
-								.removeAttr( 'data-required' )
-								.attr( 'required', true );
-
+							$( '#' + response.data[i].id ).removeClass( 'cx-controls-novalidate' )
 						}
 					}
 				}
@@ -186,7 +199,7 @@
 			// vars
 			var terms = {};
 
-			var data = this.serialize( $( '.categorydiv, .tagsdiv' ) );
+			var data = this.serialize( $( '.categorydiv, .tagsdiv, .woocommerce_attribute:not([style*="display: none"])' ) );
 
 			if ( data.tax_input ) {
 				terms = data.tax_input;
@@ -195,6 +208,19 @@
 			// append "category" which uses a different name
 			if ( data.post_category ) {
 				terms.category = data.post_category;
+			}
+
+			// append products attributes
+			if ( data.attribute_values && data.attribute_names ) {
+
+				for ( var key in data.attribute_names ) {
+					var attrName = data.attribute_names[ key ];
+
+					if ( data.attribute_values[ key ] ) {
+						terms[ attrName ] = data.attribute_values[ key ];
+					}
+				}
+
 			}
 
 			// convert any string values (tags) into array format
@@ -257,7 +283,7 @@
 			var terms = {};
 
 			// Loop over taxonomies.
-			var taxonomies = wp.data.select( 'core' ).getTaxonomies() || [];
+			var taxonomies = wp.data.select( 'core' ).getTaxonomies( { per_page: -1 } ) || [];
 
 			taxonomies.map( function( taxonomy ) {
 				// Append selected taxonomies to terms object.
@@ -273,7 +299,7 @@
 
 	}
 
-	if ( window.wp && wp.data && wp.data.select && wp.data.select( 'core/editor' ) ) {
+	if ( window.wp && wp.data && wp.data.select && wp.data.select( 'core/editor' ) && $( 'body' ).hasClass( 'block-editor-page' ) ) {
 		new GutenAjaxConditions();
 	} else {
 		new AjaxConditions();

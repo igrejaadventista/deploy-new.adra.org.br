@@ -11,7 +11,7 @@
 namespace RankMath\Replace_Variables;
 
 use RankMath\Helper;
-use MyThemeShop\Helpers\Str;
+use RankMath\Helpers\Str;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -26,6 +26,27 @@ class Basic_Variables extends Cache {
 	 * @var array
 	 */
 	protected $counters = [];
+
+	/**
+	 * Is on post edit screen.
+	 *
+	 * @var bool
+	 */
+	public $is_post_edit = false;
+
+	/**
+	 * Is on term edit screen.
+	 *
+	 * @var bool
+	 */
+	public $is_term_edit = false;
+
+	/**
+	 * Is on user edit screen.
+	 *
+	 * @var bool
+	 */
+	protected $is_user_edit = false;
 
 	/**
 	 * Setup basic variables.
@@ -60,6 +81,7 @@ class Basic_Variables extends Cache {
 				'description' => esc_html__( 'Starts at 1 and increments by 1.', 'rank-math' ),
 				'variable'    => 'count(varname)',
 				'example'     => '2',
+				'nocache'     => true,
 			],
 			[ $this, 'get_count' ]
 		);
@@ -71,6 +93,7 @@ class Basic_Variables extends Cache {
 				'description' => esc_html__( 'File Name of the attachment', 'rank-math' ),
 				'variable'    => 'filename',
 				'example'     => 'Sunrise at Maldives',
+				'nocache'     => true,
 			],
 			[ $this, 'get_filename' ]
 		);
@@ -194,7 +217,7 @@ class Basic_Variables extends Cache {
 				'name'        => esc_html__( 'Organization Name', 'rank-math' ),
 				'description' => esc_html__( 'The Organization Name added in Local SEO Settings.', 'rank-math' ),
 				'variable'    => 'org_name',
-				'example'     => $this->get_sitename(),
+				'example'     => $this->get_org_name(),
 			],
 			[ $this, 'get_org_name' ]
 		);

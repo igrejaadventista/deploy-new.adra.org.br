@@ -1,62 +1,74 @@
-const {
-		  TextControl,
-		  SelectControl,
-	  } = wp.components;
+import DynamicInsertedCCTID from './DynamicInsertedCCTID';
 
 const {
-		  useState,
-		  useEffect,
-	  } = wp.element;
+	      TextControl,
+	      SelectControl,
+      } = wp.components;
 
 const {
-		  addAction,
-		  getFormFieldsBlocks,
-		  Tools: { withPlaceholder },
-	  } = JetFBActions;
+	      useState,
+	      useEffect,
+      } = wp.element;
+
 const {
-		  ActionFieldsMap,
-		  WrapperRequiredControl,
-	  } = JetFBComponents;
+	      addAction,
+	      getFormFieldsBlocks,
+	      Tools: { withPlaceholder },
+	      addComputedField       = () => {}, // since JFB 3.0
+	      convertListToFieldsMap = () => [],
+      } = JetFBActions;
+const {
+	      ActionFieldsMap,
+	      WrapperRequiredControl,
+      } = JetFBComponents;
+
+const {
+	      useFields = () => false,
+      } = window?.JetFBHooks ?? {};
 
 const { addFilter } = wp.hooks;
 
-addFilter( 'jet.fb.preset.editor.custom.condition', 'jet-form-builder', function( isVisible, customCondition, state ) {
-	if ( 'cct_query_var' === customCondition ) {
+addComputedField( DynamicInsertedCCTID );
 
-		return ( 'custom_content_type' === state.from && 'query_var' === state.post_from );
-	}
-	return isVisible;
-} )
+addFilter( 'jet.fb.preset.editor.custom.condition', 'jet-form-builder',
+	function ( isVisible, customCondition, state ) {
+		if ( 'cct_query_var' === customCondition ) {
+
+			return (
+				'custom_content_type' === state.from && 'query_var' ===
+				state.post_from
+			);
+		}
+		return isVisible;
+	} );
 
 addAction(
 	'insert_custom_content_type',
 	function CCTAction( {
-							settings,
-							label,
-							help,
-							source,
-							onChangeSetting,
-							getMapField,
-							setMapField,
-						} ) {
+		settings,
+		label,
+		help,
+		source,
+		onChangeSetting,
+		getMapField,
+		setMapField,
+	} ) {
 
-		const [ cctFields, setCctFields ] = useState( [] );
+		const [ cctFields, setCctFields ]       = useState( [] );
 		const [ cctFieldsMap, setCctFieldsMap ] = useState( [] );
 
 		const [ isLoading, setLoading ] = useState( false );
 
+		let fields = useFields();
+
 		const [ formFieldsList ] = useState( () => {
-			const responseBlocks = {};
-
-			getFormFieldsBlocks().forEach( block => {
-				responseBlocks[ block.value ] = { label: block.label };
-			} );
-
-			return Object.entries( responseBlocks );
+			return false === fields
+			       ? convertListToFieldsMap( getFormFieldsBlocks() )
+			       : convertListToFieldsMap( fields );
 		}, [] );
 
-		const fetchTypeFields = function( type ) {
-			if ( ! type ) {
+		const fetchTypeFields = function ( type ) {
+			if ( !type ) {
 				return;
 			}
 			setLoading( true );
@@ -79,7 +91,8 @@ addAction(
 
 					setCctFields( typeFields );
 
-				} else {
+				}
+				else {
 					alert( response.notices[ i ].join( '; ' ) + ';' );
 				}
 
@@ -97,7 +110,7 @@ addAction(
 		}, [] );
 
 		useEffect( () => {
-			if ( ! settings.type ) {
+			if ( !settings.type ) {
 				setCctFields( [] );
 			}
 		}, [ settings.type ] );
@@ -116,7 +129,7 @@ addAction(
 		return <>
 			<SelectControl
 				label={ label( 'type' ) }
-				labelPosition='side'
+				labelPosition="side"
 				value={ settings.type }
 				onChange={ newValue => {
 					onChangeSetting( newValue, 'type' );
@@ -126,51 +139,55 @@ addAction(
 			/>
 			<SelectControl
 				label={ label( 'status' ) }
-				labelPosition='side'
+				labelPosition="side"
 				value={ settings.status }
 				onChange={ newValue => {
 					onChangeSetting( newValue, 'status' );
 				} }
 				options={ withPlaceholder( source.statuses ) }
 			/>
-			<div style={ { opacity: isLoading ? '0.5' : '1' } } className='jet-control-full'>
+			<div style={ { opacity: isLoading ? '0.5' : '1' } }
+			     className="jet-control-full">
 				<ActionFieldsMap
 					label={ label( 'fields_map' ) }
 					fields={ formFieldsList }
 					plainHelp={ help( 'fields_map' ) }
 				>
-					{ ( { fieldId, fieldData, index } ) => <WrapperRequiredControl
-						field={ [ fieldId, fieldData ] }
-					>
-						<SelectControl
-							key={ fieldId + index }
-							value={ getMapField( { name: fieldId } ) }
-							onChange={ value => setMapField( { nameField: fieldId, value } ) }
-							options={ withPlaceholder( cctFields ) }
-						/>
-					</WrapperRequiredControl> }
+					{ ( { fieldId, fieldData, index } ) =>
+						<WrapperRequiredControl
+							field={ [ fieldId, fieldData ] }
+						>
+							<SelectControl
+								key={ fieldId + index }
+								value={ getMapField( { name: fieldId } ) }
+								onChange={ value => setMapField(
+									{ nameField: fieldId, value } ) }
+								options={ withPlaceholder( cctFields ) }
+							/>
+						</WrapperRequiredControl> }
 				</ActionFieldsMap>
 				{ 0 < cctFieldsMap.length && <ActionFieldsMap
 					label={ label( 'default_fields' ) }
 					fields={ cctFieldsMap }
 					plainHelp={ help( 'default_fields' ) }
 				>
-					{ ( { fieldId, fieldData, index } ) => <WrapperRequiredControl
-						field={ [ fieldId, fieldData ] }
-					>
-						<TextControl
-							key={ fieldId + index }
-							value={ getMapField( {
-								source: 'default_fields',
-								name: fieldId,
-							} ) }
-							onChange={ value => setMapField( {
-								source: 'default_fields',
-								nameField: fieldId,
-								value,
-							} ) }
-						/>
-					</WrapperRequiredControl> }
+					{ ( { fieldId, fieldData, index } ) =>
+						<WrapperRequiredControl
+							field={ [ fieldId, fieldData ] }
+						>
+							<TextControl
+								key={ fieldId + index }
+								value={ getMapField( {
+									source: 'default_fields',
+									name: fieldId,
+								} ) }
+								onChange={ value => setMapField( {
+									source: 'default_fields',
+									nameField: fieldId,
+									value,
+								} ) }
+							/>
+						</WrapperRequiredControl> }
 				</ActionFieldsMap> }
 			</div>
 		</>;

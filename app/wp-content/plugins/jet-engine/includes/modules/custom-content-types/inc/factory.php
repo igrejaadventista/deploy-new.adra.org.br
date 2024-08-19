@@ -17,6 +17,7 @@ class Factory {
 	public $page    = null;
 	public $type_id = null;
 
+	public $admin_pages         = null;
 	public $_admin_columns      = null;
 	public $_quick_edit_columns = null;
 	private $_formatted_fields  = null;
@@ -32,7 +33,7 @@ class Factory {
 
 		$this->db      = new DB( $args['slug'], $sql_fields );
 		$this->args    = $args;
-		$this->fields  = $fields;
+		$this->fields  = apply_filters( 'jet-engine/custom-content-types/factory/raw-fields', $fields, $this );
 		$this->type_id = $type_id;
 
 		if ( is_admin() ) {
@@ -41,6 +42,8 @@ class Factory {
 		}
 
 		add_action( 'rest_api_init', array( $this, 'register_endpoints' ) );
+
+		new Single_Item_Factory( $this );
 
 	}
 
@@ -105,14 +108,21 @@ class Factory {
 	 * @return [type]       [description]
 	 */
 	public function prepare_query_args( $args ) {
-
+		$args       = wp_unslash( $args );
 		$prepared   = array();
 		$all_fields = $this->get_formatted_fields();
 
 		foreach ( $args as $key => $arg ) {
 
 			if ( ! empty( $arg['relation'] ) ) {
-				$prepared[ $key ] = $arg;
+				$sub_rel = $arg['relation'];
+				unset( $arg['relation'] );
+
+				$prepared[ $key ] = array_merge(
+					array( 'relation' => $sub_rel ),
+					$this->prepare_query_args( $arg )
+				);
+				//$prepared[ $key ] = $arg;
 				continue;
 			}
 
@@ -157,16 +167,18 @@ class Factory {
 				$operator = ! empty( $arg['operator'] ) ? $arg['operator'] : '=';
 				$value    = ! empty( $arg['value'] ) ? $arg['value'] : '';
 
-				if ( ! is_array( $value ) ) {
+				$array_operators = array( 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN' );
+
+				if ( ! is_array( $value ) && in_array( $operator, $array_operators ) ) {
 					$value = preg_split( '/(?<=[^,]),[\s]?/', $value );
-				}
 
-				array_walk( $value, function( &$item ) {
-					$item = str_replace( ',,', ',', $item );
-				});
+					array_walk( $value, function( &$item ) {
+						$item = str_replace( ',,', ',', $item );
+					});
 
-				if ( 1 === count( $value ) ) {
-					$value = $value[0];
+					if ( 1 === count( $value ) ) {
+						$value = $value[0];
+					}
 				}
 
 				$arg['value'] = $value;
@@ -177,7 +189,7 @@ class Factory {
 
 		}
 
-		return $prepared;
+		return apply_filters( 'jet-engine/custom-content-types/prepared-query-args', $prepared, $args, $this );
 
 	}
 
@@ -553,7 +565,19 @@ class Factory {
 
 		if ( null === $this->_quick_edit_columns ) {
 
-			$this->_quick_edit_columns = array();
+			$this->_quick_edit_columns = array(
+				// default service fields
+				'cct_status' => array(
+					'type'        => 'select',
+					'name'        => 'cct_status',
+					'object_type' => 'service_field',
+				),
+				'cct_created' => array(
+					'type'        => 'sql-date',
+					'name'        => 'cct_created',
+					'object_type' => 'service_field',
+				),
+			);
 
 			foreach ( $this->fields as $field ) {
 				if ( ! empty( $field['quick_editable'] ) ) {
@@ -564,6 +588,7 @@ class Factory {
 
 					if ( 'checkbox' === $field['type'] ) {
 						$field['type'] = 'checkbox-raw';
+						$field['is_required'] = false;
 					}
 
 					$this->_quick_edit_columns[ $field['name'] ] = $field;
@@ -778,7 +803,15 @@ class Factory {
 			case 'datetime-local':
 
 				if ( ! empty( $field['is_timestamp'] ) && ! \Jet_Engine_Tools::is_valid_timestamp( $value ) ) {
-					$value = strtotime( $value );
+					$value = apply_filters( 
+						'jet-engine/custom-content-types/strtotime',
+						strtotime( $value ),
+						$value
+					);
+
+					if ( ! $value ) {
+						$value = null;
+					}
 				}
 
 				break;
@@ -807,14 +840,14 @@ class Factory {
 		switch ( $input_type ) {
 
 			case 'date':
-				if ( ! empty( $field['is_timestamp'] ) ) {
+				if ( ! empty( $field['is_timestamp'] ) && \Jet_Engine_Tools::is_valid_timestamp( $value ) ) {
 					$value = date( 'Y-m-d', $value );
 				}
 				break;
 
 			case 'datetime':
 			case 'datetime-local':
-				if ( ! empty( $field['is_timestamp'] ) ) {
+				if ( ! empty( $field['is_timestamp'] ) && \Jet_Engine_Tools::is_valid_timestamp( $value ) ) {
 					$value = date( 'Y-m-d\TH:i', $value );
 				}
 				break;
@@ -823,6 +856,15 @@ class Factory {
 
 		return $value;
 
+	}
+
+	/**
+	 * Returns date converted from timestamp
+	 * 
+	 * @return [type] [description]
+	 */
+	public function get_date( $format, $time ) {
+		return apply_filters( 'jet-engine/custom-content-types/date', date( $format, $time ), $time, $format );
 	}
 
 }

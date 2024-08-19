@@ -4,11 +4,13 @@ namespace WPMailSMTP\Admin\Pages;
 
 use WPMailSMTP\Admin\DomainChecker;
 use WPMailSMTP\Conflicts;
+use WPMailSMTP\ConnectionInterface;
 use WPMailSMTP\Debug;
 use WPMailSMTP\MailCatcherInterface;
 use WPMailSMTP\Options;
 use WPMailSMTP\WP;
 use WPMailSMTP\Admin\PageAbstract;
+use WPMailSMTP\Helpers\UI;
 
 /**
  * Class TestTab is part of Area, displays email testing page of the plugin.
@@ -95,6 +97,15 @@ class TestTab extends PageAbstract {
 	private $post_data = [];
 
 	/**
+	 * Test email connection.
+	 *
+	 * @since 3.7.0
+	 *
+	 * @var ConnectionInterface
+	 */
+	private $connection;
+
+	/**
 	 * @inheritdoc
 	 */
 	public function get_label() {
@@ -155,18 +166,30 @@ class TestTab extends PageAbstract {
 				</div>
 			</div>
 
+			<?php
+			/**
+			 * Fires after "Send To" section on the test email page.
+			 *
+			 * @since 3.7.0
+			 */
+			do_action( 'wp_mail_smtp_admin_pages_test_tab_display_form_send_to_after' );
+			?>
+
 			<!-- HTML/Plain -->
 			<div id="wp-mail-smtp-setting-row-test_email_html" class="wp-mail-smtp-setting-row wp-mail-smtp-setting-row-checkbox-toggle wp-mail-smtp-clear">
 				<div class="wp-mail-smtp-setting-label">
 					<label for="wp-mail-smtp-setting-test_email_html"><?php esc_html_e( 'HTML', 'wp-mail-smtp' ); ?></label>
 				</div>
 				<div class="wp-mail-smtp-setting-field">
-					<label for="wp-mail-smtp-setting-test_email_html">
-						<input type="checkbox" id="wp-mail-smtp-setting-test_email_html" name="wp-mail-smtp[test][html]" value="yes" checked/>
-						<span class="wp-mail-smtp-setting-toggle-switch"></span>
-						<span class="wp-mail-smtp-setting-toggle-checked-label"><?php esc_html_e( 'On', 'wp-mail-smtp' ); ?></span>
-						<span class="wp-mail-smtp-setting-toggle-unchecked-label"><?php esc_html_e( 'Off', 'wp-mail-smtp' ); ?></span>
-					</label>
+					<?php
+					UI::toggle(
+						[
+							'name'    => 'wp-mail-smtp[test][html]',
+							'id'      => 'wp-mail-smtp-setting-test_email_html',
+							'checked' => true,
+						]
+					);
+					?>
 					<p class="desc">
 						<?php esc_html_e( 'Send this email in HTML or in plain text format.', 'wp-mail-smtp' ); ?>
 					</p>
@@ -225,7 +248,7 @@ class TestTab extends PageAbstract {
 
 		?>
 		<!-- Test Email Section Title -->
-		<div class="wp-mail-smtp-setting-row wp-mail-smtp-setting-row-content wp-mail-smtp-clear section-heading no-desc" id="wp-mail-smtp-setting-row-email-heading">
+		<div class="wp-mail-smtp-setting-row wp-mail-smtp-setting-row-content wp-mail-smtp-clear section-heading no-desc wp-mail-smtp-section-heading--has-divider">
 			<div class="wp-mail-smtp-setting-field">
 				<h2><?php esc_html_e( 'Send a Test Email', 'wp-mail-smtp' ); ?></h2>
 			</div>
@@ -270,7 +293,20 @@ class TestTab extends PageAbstract {
 
 		$this->post_data = $data;
 
+		$connection = wp_mail_smtp()->get_connections_manager()->get_primary_connection();
+
+		/**
+		 * Filters test email connection object.
+		 *
+		 * @since 3.7.0
+		 *
+		 * @param ConnectionInterface $connection The Connection object.
+		 * @param array               $data       Post data.
+		 */
+		$this->connection = apply_filters( 'wp_mail_smtp_admin_pages_test_tab_process_post_connection', $connection, $data );
+
 		if ( ! empty( $data['test']['email'] ) ) {
+			$data['test']['email'] = wp_unslash( $data['test']['email'] );
 			$data['test']['email'] = filter_var( $data['test']['email'], FILTER_VALIDATE_EMAIL );
 		}
 
@@ -294,13 +330,18 @@ class TestTab extends PageAbstract {
 
 		/* translators: %s - email address a test email will be sent to. */
 		$subject = 'WP Mail SMTP: ' . sprintf( esc_html__( 'Test email to %s', 'wp-mail-smtp' ), $data['test']['email'] );
+		$headers = [ 'X-Mailer-Type:WPMailSMTP/Admin/Test' ];
 
 		if ( $is_html ) {
 			add_filter( 'wp_mail_content_type', array( __CLASS__, 'set_test_html_content_type' ) );
 
 			/* translators: %s - email address a test email will be sent to. */
-			$subject = 'WP Mail SMTP: HTML ' . sprintf( esc_html__( 'Test email to %s', 'wp-mail-smtp' ), $data['test']['email'] );
+			$subject   = 'WP Mail SMTP: HTML ' . sprintf( esc_html__( 'Test email to %s', 'wp-mail-smtp' ), $data['test']['email'] );
+			$headers[] = 'Content-Type: text/html';
 		}
+
+		// Clear debug before send test email.
+		Debug::clear();
 
 		// Start output buffering to grab smtp debugging output.
 		ob_start();
@@ -310,9 +351,7 @@ class TestTab extends PageAbstract {
 			$data['test']['email'],
 			$subject,
 			$this->get_email_message( $is_html ),
-			array(
-				'X-Mailer-Type:WPMailSMTP/Admin/Test',
-			)
+			$headers
 		);
 
 		$smtp_debug = ob_get_clean();
@@ -325,14 +364,14 @@ class TestTab extends PageAbstract {
 		 * Notify a user about the results.
 		 */
 		if ( $result ) {
-			$options = Options::init();
-			$mailer  = $options->get( 'mail', 'mailer' );
-			$email   = $options->get( 'mail', 'from_email' );
-			$domain  = '';
+			$connection_options = $this->connection->get_options();
+			$mailer             = $connection_options->get( 'mail', 'mailer' );
+			$email              = $connection_options->get( 'mail', 'from_email' );
+			$domain             = '';
 
 			// Add the optional sending domain parameter.
 			if ( in_array( $mailer, [ 'mailgun', 'sendinblue', 'sendgrid' ], true ) ) {
-				$domain = $options->get( $mailer, 'domain' );
+				$domain = $connection_options->get( $mailer, 'domain' );
 			}
 
 			$this->domain_checker = new DomainChecker( $mailer, $email, $domain );
@@ -387,6 +426,14 @@ class TestTab extends PageAbstract {
 			<meta name="viewport" content="width=device-width">
 			<title>WP Mail SMTP Test Email</title>
 			<style type="text/css">@media only screen and (max-width: 599px) {table.body .container {width: 95% !important;}.header {padding: 15px 15px 12px 15px !important;}.header img {width: 200px !important;height: auto !important;}.content, .aside {padding: 30px 40px 20px 40px !important;}}</style>
+			<?php
+			/**
+			 * Fires in the HTML test email head.
+			 *
+			 * @since 3.10.0
+			 */
+			do_action( 'wp_mail_smtp_admin_pages_test_tab_get_email_message_html_head' );
+			?>
 		</head>
 		<body style="height: 100% !important; width: 100% !important; min-width: 100%; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box; -webkit-font-smoothing: antialiased !important; -moz-osx-font-smoothing: grayscale !important; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; margin: 0; Margin: 0; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; background-color: #f1f1f1; text-align: center;">
 		<table border="0" cellpadding="0" cellspacing="0" width="100%" height="100%" class="body" style="border-collapse: collapse; border-spacing: 0; vertical-align: top; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; height: 100% !important; width: 100% !important; min-width: 100%; -moz-box-sizing: border-box; -webkit-box-sizing: border-box; box-sizing: border-box; -webkit-font-smoothing: antialiased !important; -moz-osx-font-smoothing: grayscale !important; background-color: #f1f1f1; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; margin: 0; Margin: 0; text-align: left; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%;">
@@ -402,69 +449,83 @@ class TestTab extends PageAbstract {
 						</tr>
 						<!-- Content -->
 						<tr style="padding: 0; vertical-align: top; text-align: left;">
-							<td align="left" valign="top" class="content" style="word-wrap: break-word; -webkit-hyphens: auto; -moz-hyphens: auto; hyphens: auto; border-collapse: collapse !important; vertical-align: top; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; margin: 0; Margin: 0; text-align: left; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; background-color: #ffffff; padding: 60px 75px 45px 75px; border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; border-left: 1px solid #ddd; border-top: 3px solid #809eb0;">
-								<div class="success" style="text-align: center;">
-									<p class="check" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; margin: 0 auto 16px auto; Margin: 0 auto 16px auto; text-align: center;">
-										<img src="<?php echo esc_url( wp_mail_smtp()->plugin_url . '/assets/images/email/icon-check.png' ); ?>" width="70" alt="Success" style="outline: none; text-decoration: none; max-width: 100%; clear: both; -ms-interpolation-mode: bicubic; display: block; margin: 0 auto 0 auto; Margin: 0 auto 0 auto; width: 50px;">
-									</p>
-									<p class="text-extra-large text-center congrats" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; mso-line-height-rule: exactly; line-height: 140%; font-size: 20px; text-align: center; margin: 0 0 20px 0; Margin: 0 0 20px 0;">
-										Congrats, test email was sent successfully!
-									</p>
-									<p class="text-large" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; text-align: left; mso-line-height-rule: exactly; line-height: 140%; margin: 0 0 15px 0; Margin: 0 0 15px 0; font-size: 16px;">
-										Thank you for trying out WP Mail SMTP. We're on a mission to make sure that your emails actually get delivered.
-									</p>
+							<td align="left" valign="top" style="word-wrap: break-word; -webkit-hyphens: auto; -moz-hyphens: auto; hyphens: auto; border-collapse: collapse !important; vertical-align: top; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; margin: 0; Margin: 0; text-align: left; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; background-color: #ffffff; padding: 0; border-right: 1px solid #ddd; border-bottom: 1px solid #ddd; border-left: 1px solid #ddd; border-top: 3px solid #809eb0;">
+								<table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse; border-spacing: 0; padding: 0; vertical-align: top; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; margin: 0; Margin: 0; text-align: inherit;">
+									<tr style="padding: 0; vertical-align: top; text-align: left;">
+										<td class="content" style="padding: 60px 75px 45px 75px;">
+											<div class="success" style="text-align: center;">
+												<p class="check" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; margin: 0 auto 16px auto; Margin: 0 auto 16px auto; text-align: center;">
+													<img src="<?php echo esc_url( wp_mail_smtp()->plugin_url . '/assets/images/email/icon-check.png' ); ?>" width="70" alt="Success" style="outline: none; text-decoration: none; max-width: 100%; clear: both; -ms-interpolation-mode: bicubic; display: block; margin: 0 auto 0 auto; Margin: 0 auto 0 auto; width: 50px;">
+												</p>
+												<p class="text-extra-large text-center congrats" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; mso-line-height-rule: exactly; line-height: 140%; font-size: 20px; text-align: center; margin: 0 0 20px 0; Margin: 0 0 20px 0;">
+													Congrats, test email was sent successfully!
+												</p>
+												<p class="text-large" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; text-align: left; mso-line-height-rule: exactly; line-height: 140%; margin: 0 0 15px 0; Margin: 0 0 15px 0; font-size: 16px;">
+													Thank you for trying out WP Mail SMTP. We're on a mission to make sure that your emails actually get delivered.
+												</p>
+												<?php if ( ! wp_mail_smtp()->is_pro() ) : ?>
+													<p class="text-large" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; text-align: left; mso-line-height-rule: exactly; line-height: 140%; margin: 0 0 15px 0; Margin: 0 0 15px 0; font-size: 16px;">
+														If you find this free plugin useful, please consider giving WP Mail SMTP Pro a try!
+													</p>
+												<?php endif; ?>
+												<p class="signature" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; text-align: left; margin: 20px 0 0 0; Margin: 20px 0 0 0;">
+													<img src="<?php echo esc_url( wp_mail_smtp()->plugin_url . '/assets/images/email/signature.png' ); ?>" width="180" alt="Signature" style="outline: none; text-decoration: none; max-width: 100%; clear: both; -ms-interpolation-mode: bicubic; width: 180px; display: block; margin: 0 0 0 0; Margin: 0 0 0 0;">
+												</p>
+												<p style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; text-align: left; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; margin: 0 0 15px 0; Margin: 0 0 15px 0;">
+													Jared Atchison<br>Co-Founder, WP Mail SMTP
+												</p>
+											</div>
+										</td>
+									</tr>
+									<!-- Aside -->
 									<?php if ( ! wp_mail_smtp()->is_pro() ) : ?>
-										<p class="text-large" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; text-align: left; mso-line-height-rule: exactly; line-height: 140%; margin: 0 0 15px 0; Margin: 0 0 15px 0; font-size: 16px;">
-											If you find this free plugin useful, please consider giving WP Mail SMTP Pro a try!
-										</p>
-									<?php endif; ?>
-									<p class="signature" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; text-align: left; margin: 20px 0 0 0; Margin: 20px 0 0 0;">
-										<img src="<?php echo esc_url( wp_mail_smtp()->plugin_url . '/assets/images/email/signature.png' ); ?>" width="180" alt="Signature" style="outline: none; text-decoration: none; max-width: 100%; clear: both; -ms-interpolation-mode: bicubic; width: 180px; display: block; margin: 0 0 0 0; Margin: 0 0 0 0;">
-									</p>
-									<p style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; text-align: left; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; margin: 0 0 15px 0; Margin: 0 0 15px 0;">
-										Jared Atchison<br>Co-Founder, WP Mail SMTP
-									</p>
-								</div>
-							</td>
-						</tr>
-						<!-- Aside -->
-						<?php if ( ! wp_mail_smtp()->is_pro() ) : ?>
-							<tr style="padding: 0; vertical-align: top; text-align: left;">
-								<td align="left" valign="top" class="aside upsell-mi" style="word-wrap: break-word; -webkit-hyphens: auto; -moz-hyphens: auto; hyphens: auto; border-collapse: collapse !important; vertical-align: top; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; margin: 0; Margin: 0; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; background-color: #f8f8f8; border-top: 1px solid #dddddd; border-right: 1px solid #dddddd; border-bottom: 1px solid #dddddd; border-left: 1px solid #dddddd; text-align: center !important; padding: 30px 75px 25px 75px;">
-									<h6 style="padding: 0; color: #444444; word-wrap: normal; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: bold; mso-line-height-rule: exactly; line-height: 130%; font-size: 18px; text-align: center; margin: 0 0 15px 0; Margin: 0 0 15px 0;">
-										Unlock Powerful Features with WP Mail SMTP Pro
-									</h6>
-									<p class="text-large" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; mso-line-height-rule: exactly; line-height: 140%; margin: 0 0 15px 0; Margin: 0 0 15px 0; font-size: 16px; text-align: center;">
-										Email Logging and Exporting<br>
-										Amazon SES / Microsoft 365 / Zoho Mail<br>
-										Open and Click Tracking<br>
-										Email Resending<br>
-										Email Reports<br>
-										World-Class Support
-									</p>
-									<p class="text-large last" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; mso-line-height-rule: exactly; line-height: 140%; font-size: 13px; text-align: center; margin: 0 0 0 0; Margin: 0 0 0 0;">
-										WP Mail SMTP users get <span style="font-weight:700;color:#218900;">$50 off</span>, automatically applied at checkout
-									</p>
-									<center style="width: 100%;">
-										<table class="button large expanded orange" style="border-collapse: collapse; border-spacing: 0; padding: 0; vertical-align: top; text-align: left; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #e27730; width: 100% !important;">
-											<tr style="padding: 0; vertical-align: top; text-align: left;">
-												<td class="button-inner" style="word-wrap: break-word; -webkit-hyphens: auto; -moz-hyphens: auto; hyphens: auto; border-collapse: collapse !important; vertical-align: top; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; margin: 0; Margin: 0; text-align: left; font-size: 14px; mso-line-height-rule: exactly; line-height: 100%; padding: 20px 0 20px 0;">
-													<table style="border-collapse: collapse; border-spacing: 0; padding: 0; vertical-align: top; text-align: left; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; width: 100% !important;">
+										<tr style="padding: 0; vertical-align: top; text-align: left;">
+											<td align="left" valign="top" class="aside upsell-mi" style="word-wrap: break-word; -webkit-hyphens: auto; -moz-hyphens: auto; hyphens: auto; border-collapse: collapse !important; vertical-align: top; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; margin: 0; Margin: 0; font-size: 14px; mso-line-height-rule: exactly; line-height: 140%; background-color: #f8f8f8; border-top: 1px solid #dddddd; text-align: center !important; padding: 30px 75px 25px 75px;">
+												<h6 style="padding: 0; color: #444444; word-wrap: normal; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: bold; mso-line-height-rule: exactly; line-height: 130%; font-size: 18px; text-align: center; margin: 0 0 15px 0; Margin: 0 0 15px 0;">
+													Unlock Powerful Features with WP Mail SMTP Pro
+												</h6>
+												<p class="text-large" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; mso-line-height-rule: exactly; line-height: 140%; margin: 0 0 15px 0; Margin: 0 0 15px 0; font-size: 16px; text-align: center;">
+													Email Logging with Email Resending<br>
+													Open & Click Tracking<br>
+													Email Reports with Weekly Summary<br>
+													Backup Mailer<br>
+													Failed Email Alerts via Email, Slack, and SMS<br>
+													World-Class Support
+												</p>
+												<p class="text-large last" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; mso-line-height-rule: exactly; line-height: 140%; font-size: 13px; text-align: center; margin: 0 0 0 0; Margin: 0 0 0 0;">
+													WP Mail SMTP users get <span style="font-weight:700;color:#218900;">$50 off</span>, automatically applied at checkout
+												</p>
+												<center style="width: 100%;">
+													<table class="button large expanded orange" style="border-collapse: collapse; border-spacing: 0; padding: 0; vertical-align: top; text-align: left; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #e27730; width: 100% !important;">
 														<tr style="padding: 0; vertical-align: top; text-align: left;">
-															<td style="word-wrap: break-word; -webkit-hyphens: auto; -moz-hyphens: auto; hyphens: auto; border-collapse: collapse !important; vertical-align: top; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; margin: 0; Margin: 0; font-size: 14px; text-align: center; color: #ffffff; background: #e27730; border: 1px solid #c45e1b; border-bottom: 3px solid #c45e1b; mso-line-height-rule: exactly; line-height: 100%;">
-																<a href="<?php echo esc_url( wp_mail_smtp()->get_upgrade_link( 'email-test' ) ); ?>" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; margin: 0; Margin: 0; font-family: Helvetica, Arial, sans-serif; font-weight: bold; color: #ffffff; text-decoration: none; display: inline-block; border: 0 solid #c45e1b; mso-line-height-rule: exactly; line-height: 100%; padding: 14px 20px 12px 20px; font-size: 20px; text-align: center; width: 100%; padding-left: 0; padding-right: 0;">
-																	Upgrade to Pro Today
-																</a>
+															<td class="button-inner" style="word-wrap: break-word; -webkit-hyphens: auto; -moz-hyphens: auto; hyphens: auto; border-collapse: collapse !important; vertical-align: top; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; color: #444; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; margin: 0; Margin: 0; text-align: left; font-size: 14px; mso-line-height-rule: exactly; line-height: 100%; padding: 20px 0 20px 0;">
+																<table style="border-collapse: collapse; border-spacing: 0; padding: 0; vertical-align: top; text-align: left; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; width: 100% !important;">
+																	<tr style="padding: 0; vertical-align: top; text-align: left;">
+																		<td style="word-wrap: break-word; -webkit-hyphens: auto; -moz-hyphens: auto; hyphens: auto; border-collapse: collapse !important; vertical-align: top; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; font-family: 'Helvetica Neue',Helvetica,Arial,sans-serif; font-weight: normal; padding: 0; margin: 0; Margin: 0; font-size: 14px; text-align: center; color: #ffffff; background: #e27730; border: 1px solid #c45e1b; border-bottom: 3px solid #c45e1b; mso-line-height-rule: exactly; line-height: 100%;">
+																			<a href="<?php echo esc_url( wp_mail_smtp()->get_upgrade_link( 'email-test' ) ); ?>" style="-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; margin: 0; Margin: 0; font-family: Helvetica, Arial, sans-serif; font-weight: bold; color: #ffffff; text-decoration: none; display: inline-block; border: 0 solid #c45e1b; mso-line-height-rule: exactly; line-height: 100%; padding: 14px 20px 12px 20px; font-size: 20px; text-align: center; width: 100%; padding-left: 0; padding-right: 0;">
+																				Upgrade to Pro Today
+																			</a>
+																		</td>
+																	</tr>
+																</table>
 															</td>
 														</tr>
 													</table>
-												</td>
-											</tr>
-										</table>
-									</center>
-								</td>
-							</tr>
-						<?php endif; ?>
+												</center>
+											</td>
+										</tr>
+									<?php endif; ?>
+									<?php
+									/**
+									 * Fires in the HTML test email footer.
+									 *
+									 * @since 3.10.0
+									 */
+									do_action( 'wp_mail_smtp_admin_pages_test_tab_get_email_message_html_footer' );
+									?>
+								</table>
+							</td>
+						</tr>
 					</table>
 				</td>
 			</tr>
@@ -512,11 +573,11 @@ https://wpmailsmtp.com/lite-upgrade/
 
 Unlock These Powerful Features with WP Mail SMTP Pro:
 
-+ Log all emails and export your email logs in different formats
-+ Send emails with Amazon SES / Microsoft 365 / Zoho Mail
-+ Track opens and clicks to measure engagement
-+ Resend failed emails from your email log
-+ Create email reports and graphs
++ Log all emails and resend failed emails from your email log
++ Track opens and clicks to measure the engagement
++ Get email reports with a weekly summary of your email activity
++ Use a backup mailer if your mail service goes down
++ Get notified of failed emails via email, Slack, or SMS
 + Get help from our world-class support team
 
 - Jared Atchison
@@ -551,10 +612,10 @@ Co-Founder, WP Mail SMTP';
 	 */
 	protected function get_debug_messages( $phpmailer, $smtp_debug ) {
 
-		$options   = Options::init();
-		$conflicts = new Conflicts();
+		$connection_options = $this->connection->get_options();
+		$conflicts          = new Conflicts();
 
-		$this->debug['mailer'] = $options->get( 'mail', 'mailer' );
+		$this->debug['mailer'] = $connection_options->get( 'mail', 'mailer' );
 
 		/*
 		 * Versions Debug.
@@ -574,7 +635,7 @@ Co-Founder, WP Mail SMTP';
 		$mailer_text = '<strong>Params:</strong><br>';
 
 		$mailer_text .= '<strong>Mailer:</strong> ' . $this->debug['mailer'] . '<br>';
-		$mailer_text .= '<strong>Constants:</strong> ' . ( $options->is_const_enabled() ? 'Yes' : 'No' ) . '<br>';
+		$mailer_text .= '<strong>Constants:</strong> ' . ( $connection_options->is_const_enabled() ? 'Yes' : 'No' ) . '<br>';
 
 		if ( $conflicts->is_detected() ) {
 			$conflict_plugin_names = implode( ', ', $conflicts->get_all_conflict_names() );
@@ -583,7 +644,7 @@ Co-Founder, WP Mail SMTP';
 		}
 
 		// Display different debug info based on the mailer.
-		$mailer = wp_mail_smtp()->get_providers()->get_mailer( $this->debug['mailer'], $phpmailer );
+		$mailer = wp_mail_smtp()->get_providers()->get_mailer( $this->debug['mailer'], $phpmailer, $this->connection );
 
 		if ( $mailer ) {
 			$mailer_text .= $mailer->get_debug_info();
@@ -594,7 +655,7 @@ Co-Founder, WP Mail SMTP';
 		// Append any PHPMailer errors to the mailer debug (except SMTP mailer, which has the full error output below).
 		if (
 			! empty( $phpmailer_error ) &&
-			! $options->is_mailer_smtp()
+			! $connection_options->is_mailer_smtp()
 		) {
 			$mailer_text .= '<br><br><strong>PHPMailer Debug:</strong><br>' .
 			                wp_strip_all_tags( $phpmailer_error ) .
@@ -616,7 +677,7 @@ Co-Founder, WP Mail SMTP';
 		 */
 
 		$smtp_text = '';
-		if ( $options->is_mailer_smtp() ) {
+		if ( $connection_options->is_mailer_smtp() ) {
 			$smtp_text = '<strong>SMTP Debug:</strong><br>';
 			if ( ! empty( $smtp_debug ) ) {
 				$smtp_text .= '<pre>' . $smtp_debug . '</pre>';
@@ -647,10 +708,10 @@ Co-Founder, WP Mail SMTP';
 	 */
 	protected function get_debug_details() {
 
-		$options         = Options::init();
-		$smtp_host       = $options->get( 'smtp', 'host' );
-		$smtp_port       = $options->get( 'smtp', 'port' );
-		$smtp_encryption = $options->get( 'smtp', 'encryption' );
+		$connection_options = $this->connection->get_options();
+		$smtp_host          = $connection_options->get( 'smtp', 'host' );
+		$smtp_port          = $connection_options->get( 'smtp', 'port' );
+		$smtp_encryption    = $connection_options->get( 'smtp', 'encryption' );
 
 		$details = [
 			// [any] - cURL error 60/77.
@@ -779,7 +840,7 @@ Co-Founder, WP Mail SMTP';
 					esc_html__( 'Typically this error is returned when you are sending too many e-mails or e-mails that have been identified as spam.', 'wp-mail-smtp' ),
 				],
 				'steps'       => [
-					esc_html__( 'Check the emails that are sending are sending individually. Example: email is not sending to 30 recipients. You can install any WordPress e-mail logging plugin to do that.', 'wp-mail-smtp' ),
+					esc_html__( 'Make sure you are not sending emails with too many recipients. Example: single email should not have 10+ recipients. You can install any WordPress e-mail logging plugin to check your recipients (TO, CC and BCC).', 'wp-mail-smtp' ),
 					esc_html__( 'Contact your SMTP host to ask about sending/rate limits.', 'wp-mail-smtp' ),
 					esc_html__( 'Verify with them your SMTP account is in good standing and your account has not been flagged.', 'wp-mail-smtp' ),
 				],
@@ -903,12 +964,12 @@ Co-Founder, WP Mail SMTP';
 				],
 				'title'       => esc_html__( 'Mailgun failed.', 'wp-mail-smtp' ),
 				'description' => [
-					esc_html__( 'Typically this error occurs because there is an issue with your Mailgun settings, in many cases Private API Key, Domain Name, or Region is incorrect.', 'wp-mail-smtp' ),
+					esc_html__( 'Typically this error occurs because there is an issue with your Mailgun settings, in many cases Mailgun API Key, Domain Name, or Region is incorrect.', 'wp-mail-smtp' ),
 				],
 				'steps'       => [
 					sprintf(
 						wp_kses( /* translators: %1$s - Mailgun API Key area URL. */
-							__( 'Go to your Mailgun account and verify that your <a href="%1$s" target="_blank" rel="noopener noreferrer">Private API Key</a> is correct.', 'wp-mail-smtp' ),
+							__( 'Go to your Mailgun account and verify that your <a href="%1$s" target="_blank" rel="noopener noreferrer">Mailgun API Key</a> is correct.', 'wp-mail-smtp' ),
 							[
 								'a' => [
 									'href'   => [],
@@ -917,7 +978,7 @@ Co-Founder, WP Mail SMTP';
 								],
 							]
 						),
-						'https://app.mailgun.com/app/account/security/api_keys'
+						'https://app.mailgun.com/settings/api_security'
 					),
 					sprintf(
 						wp_kses( /* translators: %1$s - Mailgun domains area URL. */
@@ -998,7 +1059,7 @@ Co-Founder, WP Mail SMTP';
 						. '<li>' .
 							sprintf(
 								wp_kses( /* translators: %s - Google support article URL. */
-									__( 'if you are using G Suite, please <a href="%s" target="_blank" rel="noopener noreferrer">read this article</a> to proceed.', 'wp-mail-smtp' ),
+									__( 'if you are using Google Workspace, please <a href="%s" target="_blank" rel="noopener noreferrer">read this article</a> to proceed.', 'wp-mail-smtp' ),
 									[
 										'a' => [
 											'href'   => [],
@@ -1057,7 +1118,7 @@ Co-Founder, WP Mail SMTP';
 					),
 				],
 				'steps'       => [
-					esc_html__( 'Go to WP Mail SMTP plugin settings page. Click the “Remove Connection” button.', 'wp-mail-smtp' ),
+					esc_html__( 'Go to WP Mail SMTP plugin settings page. Click the “Remove OAuth Connection” button.', 'wp-mail-smtp' ),
 					esc_html__( 'Then click the “Allow plugin to send emails using your Google account” button and re-enable access.', 'wp-mail-smtp' ),
 				],
 			],
@@ -1089,8 +1150,8 @@ Co-Founder, WP Mail SMTP';
 				],
 				'steps'       => [
 					sprintf(
-						wp_kses( /* translators: %s - Google G Suite Admin area URL. */
-							__( 'Make sure that your G Suite trial period has not expired. You can check the status <a href="%s" target="_blank" rel="noopener noreferrer">here</a>.', 'wp-mail-smtp' ),
+						wp_kses( /* translators: %s - Google Workspace Admin area URL. */
+							__( 'Make sure that your Google Workspace trial period has not expired. You can check the status <a href="%s" target="_blank" rel="noopener noreferrer">here</a>.', 'wp-mail-smtp' ),
 							[
 								'a' => [
 									'href'   => [],
@@ -1102,8 +1163,8 @@ Co-Founder, WP Mail SMTP';
 						'https://admin.google.com'
 					),
 					sprintf(
-						wp_kses( /* translators: %s - Google G Suite Admin area URL. */
-							__( 'Make sure that Gmail app in your G Suite is actually enabled. You can check that in Apps list in <a href="%s" target="_blank" rel="noopener noreferrer">G Suite Admin</a> area.', 'wp-mail-smtp' ),
+						wp_kses( /* translators: %s - Google Workspace Admin area URL. */
+							__( 'Make sure that Gmail app in your Google Workspace is actually enabled. You can check that in Apps list in <a href="%s" target="_blank" rel="noopener noreferrer">Google Workspace Admin</a> area.', 'wp-mail-smtp' ),
 							[
 								'a' => [
 									'href'   => [],
@@ -1322,7 +1383,7 @@ Co-Founder, WP Mail SMTP';
 				. '</ul>',
 			],
 			'steps'       => [
-				esc_html__( 'Triple check the plugin settings, consider reconfiguring to make sure everything is correct (eg bad copy and paste).', 'wp-mail-smtp' ),
+				esc_html__( 'Triple-check the plugin settings and consider reconfiguring to make sure everything is correct. Maybe there was an issue with copy&pasting.', 'wp-mail-smtp' ),
 				wp_kses(
 					__( 'Contact your web hosting provider and ask them to verify your server can make outside connections. Additionally, ask them if a firewall or security policy may be preventing the connection - many shared hosts block certain ports.<br><strong>Note: this is the most common cause of this issue.</strong>', 'wp-mail-smtp' ),
 					[

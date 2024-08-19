@@ -10,12 +10,51 @@
 
 namespace RankMath\Analytics;
 
+use RankMath\Traits\Cache;
+
 defined( 'ABSPATH' ) || exit;
 
 /**
  * Summary class.
  */
 class Summary {
+
+	use Cache;
+
+	/**
+	 * Start date.
+	 *
+	 * @var string
+	 */
+	public $start_date;
+
+	/**
+	 * End date.
+	 *
+	 * @var string
+	 */
+	public $end_date;
+
+	/**
+	 * Compare start date.
+	 *
+	 * @var string
+	 */
+	public $compare_start_date;
+
+	/**
+	 * Compare end date.
+	 *
+	 * @var string
+	 */
+	public $compare_end_date;
+
+	/**
+	 * Days.
+	 *
+	 * @var int
+	 */
+	public $days;
 
 	/**
 	 * Get Widget.
@@ -50,7 +89,7 @@ class Summary {
 			$stats = (object) [
 				'clicks'      => 0,
 				'impressions' => 0,
-				'postions'    => 0,
+				'position'    => 0,
 			];
 		}
 
@@ -95,6 +134,14 @@ class Summary {
 	public function get_optimization_summary( $post_type = '' ) {
 		global $wpdb;
 
+		$cache_group = 'rank_math_optimization_summary';
+		$hash_name   = $post_type ? $post_type : 'overall';
+		$cache_key   = $this->generate_hash( $hash_name );
+		$cache       = $this->get_cache( $cache_key, $cache_group );
+		if ( false !== $cache ) {
+			return $cache;
+		}
+
 		$stats = (object) [
 			'good'    => 0,
 			'ok'      => 0,
@@ -105,7 +152,7 @@ class Summary {
 		];
 
 		$object_type_sql = $post_type ? ' AND object_subtype = "' . $post_type . '"' : '';
-		$data = $wpdb->get_results(
+		$data            = $wpdb->get_results(
 			"SELECT COUNT(object_id) AS count,
 				CASE
 					WHEN seo_score BETWEEN 81 AND 100 THEN 'good'
@@ -137,38 +184,69 @@ class Summary {
 			$query->where( 'object_subtype', $post_type );
 		}
 
-		$average        = $query->one();
+		$average         = $query->one();
 		$average->total += property_exists( $stats, 'noData' ) ? $stats->noData : 0; // phpcs:ignore
 		if ( $average->total > 0 ) {
 			$stats->average = \round( $average->score / $average->total, 2 );
 		}
 
+		$this->set_cache( $cache_key, $stats, $cache_group, DAY_IN_SECONDS );
+
 		return $stats;
 	}
 
 	/**
-	 * Get analytics summmary.
+	 * Get analytics summary.
 	 *
 	 * @return object
 	 */
 	public function get_analytics_summary() {
+		$args = [
+			'start_date'         => $this->start_date,
+			'end_date'           => $this->end_date,
+			'compare_start_date' => $this->compare_start_date,
+			'compare_end_date'   => $this->compare_end_date,
+		];
+
+		$cache_group = 'rank_math_analytics_summary';
+		$cache_key   = $this->generate_hash( $args );
+		$cache       = $this->get_cache( $cache_key, $cache_group );
+		if ( false !== $cache ) {
+			return $cache;
+		}
+
 		$stats = DB::analytics()
 			->selectCount( 'DISTINCT(page)', 'posts' )
 			->selectSum( 'impressions', 'impressions' )
 			->selectSum( 'clicks', 'clicks' )
 			->selectAvg( 'position', 'position' )
-			->selectAvg( 'ctr', 'ctr' )
 			->whereBetween( 'created', [ $this->start_date, $this->end_date ] )
 			->one();
+		// Check validation.
+		$stats->clicks      = empty( $stats->clicks ) ? 0 : $stats->clicks;
+		$stats->impressions = empty( $stats->impressions ) ? 0 : $stats->impressions;
+		$stats->position    = empty( $stats->position ) ? 0 : $stats->position;
 
 		$old_stats = DB::analytics()
 			->selectCount( 'DISTINCT(page)', 'posts' )
 			->selectSum( 'impressions', 'impressions' )
 			->selectSum( 'clicks', 'clicks' )
 			->selectAvg( 'position', 'position' )
-			->selectAvg( 'ctr', 'ctr' )
 			->whereBetween( 'created', [ $this->compare_start_date, $this->compare_end_date ] )
 			->one();
+
+		// Check validation.
+		$old_stats->clicks      = empty( $old_stats->clicks ) ? 0 : $old_stats->clicks;
+		$old_stats->impressions = empty( $old_stats->impressions ) ? 0 : $old_stats->impressions;
+		$old_stats->position    = empty( $old_stats->position ) ? 0 : $old_stats->position;
+
+		$total_ctr    = 0 !== $stats->impressions ? round( ( $stats->clicks / $stats->impressions ) * 100, 2 ) : 0;
+		$previous_ctr = 0 !== $old_stats->impressions ? round( ( $old_stats->clicks / $old_stats->impressions ) * 100, 2 ) : 0;
+		$stats->ctr   = [
+			'total'      => $total_ctr,
+			'previous'   => $previous_ctr,
+			'difference' => $total_ctr - $previous_ctr,
+		];
 
 		$stats->clicks = [
 			'total'      => (int) $stats->clicks,
@@ -187,21 +265,17 @@ class Summary {
 			'previous'   => (float) \number_format( $old_stats->position, 2 ),
 			'difference' => (float) \number_format( $stats->position - $old_stats->position, 2 ),
 		];
-
-		$stats->ctr = [
-			'total'      => (float) \number_format( $stats->ctr, 2 ),
-			'previous'   => (float) \number_format( $old_stats->ctr, 2 ),
-			'difference' => (float) \number_format( $stats->ctr - $old_stats->ctr, 2 ),
-		];
-
 		$stats->keywords = $this->get_keywords_summary();
 		$stats->graph    = $this->get_analytics_summary_graph();
 
 		$stats = apply_filters( 'rank_math/analytics/summary', $stats );
 
-		return array_filter( (array) $stats );
-	}
+		$stats = array_filter( (array) $stats );
 
+		$this->set_cache( $cache_key, $stats, $cache_group, DAY_IN_SECONDS );
+
+		return $stats;
+	}
 	/**
 	 * Get posts summary.
 	 *
@@ -219,7 +293,7 @@ class Summary {
 
 		global $wpdb;
 		$query   = DB::analytics()
-			->selectCount( 'DISTINCT(' . $wpdb->prefix . 'rank_math_analytics_gsc.page' . ')', 'posts' )
+			->selectCount( 'DISTINCT(' . $wpdb->prefix . 'rank_math_analytics_gsc.page)', 'posts' )
 			->selectSum( 'impressions', 'impressions' )
 			->selectSum( 'clicks', 'clicks' )
 			->selectAvg( 'ctr', 'ctr' )
@@ -255,10 +329,7 @@ class Summary {
 			$wpdb->prepare(
 				"SELECT COUNT(DISTINCT(query))
 				FROM {$wpdb->prefix}rank_math_analytics_gsc
-				WHERE created BETWEEN %s AND %s
-				GROUP BY Date(created)
-				ORDER BY Date(created) DESC
-				LIMIT 1",
+				WHERE created BETWEEN %s AND %s",
 				$this->start_date,
 				$this->end_date
 			)
@@ -268,10 +339,7 @@ class Summary {
 			$wpdb->prepare(
 				"SELECT COUNT(DISTINCT(query))
 				FROM {$wpdb->prefix}rank_math_analytics_gsc
-				WHERE created BETWEEN %s AND %s
-				GROUP BY Date(created)
-				ORDER BY Date(created) DESC
-				LIMIT 1",
+				WHERE created BETWEEN %s AND %s",
 				$this->compare_start_date,
 				$this->compare_end_date
 			)

@@ -62,6 +62,9 @@ class Maps_Listing_Blocks_Views_Type extends \Jet_Engine_Blocks_Views_Type_Base 
 			'max_zoom' => array(
 				'type' => 'number',
 			),
+			'min_zoom' => array(
+				'type' => 'number',
+			),
 			'custom_center' => array(
 				'type'    => 'string',
 				'default' => '',
@@ -93,6 +96,13 @@ class Maps_Listing_Blocks_Views_Type extends \Jet_Engine_Blocks_Views_Type_Base 
 			'map_type_controls' => array(
 				'type'    => 'boolean',
 				'default' => true,
+			),
+			'centering_on_open' => array(
+				'type'    => 'boolean',
+				'default' => false,
+			),
+			'zoom_on_open' => array(
+				'type' => 'number',
 			),
 
 			// Marker
@@ -155,6 +165,12 @@ class Maps_Listing_Blocks_Views_Type extends \Jet_Engine_Blocks_Views_Type_Base 
 				'type'    => 'boolean',
 				'default' => true,
 			),
+			'cluster_max_zoom' => array(
+				'type' => 'number',
+			),
+			'cluster_radius' => array(
+				'type' => 'number',
+			),
 
 			// Popup
 			'popup_width' => array(
@@ -172,6 +188,10 @@ class Maps_Listing_Blocks_Views_Type extends \Jet_Engine_Blocks_Views_Type_Base 
 			'popup_preloader' => array(
 				'type'    => 'boolean',
 				'default' => false,
+			),
+			'popup_open_on' => array(
+				'type'    => 'string',
+				'default' => 'click',
 			),
 
 			// Custom Query
@@ -206,6 +226,12 @@ class Maps_Listing_Blocks_Views_Type extends \Jet_Engine_Blocks_Views_Type_Base 
 
 			// Block ID
 			'_block_id' => array(
+				'type'    => 'string',
+				'default' => '',
+			),
+
+			// Element ID
+			'_element_id' => array(
 				'type'    => 'string',
 				'default' => '',
 			),
@@ -601,9 +627,10 @@ class Maps_Listing_Blocks_Views_Type extends \Jet_Engine_Blocks_Views_Type_Base 
 		}
 
 		return sprintf(
-			'<div class="jet-map-listing-block" data-id="%2$s">%1$s</div>',
+			'<div class="jet-map-listing-block" data-id="%2$s"%3$s>%1$s</div>',
 			$content,
-			esc_attr( $attributes['_block_id'] )
+			esc_attr( $attributes['_block_id'] ),
+			! empty( $attributes['_element_id'] ) ? ' id="' . esc_attr( $attributes['_element_id'] ) . '"' : ''
 		);
 	}
 

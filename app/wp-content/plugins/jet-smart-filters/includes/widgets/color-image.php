@@ -4,46 +4,52 @@ namespace Elementor;
 
 use Elementor\Group_Control_Border;
 
+// Exit if accessed directly
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
-} // Exit if accessed directly
+}
 
 class Jet_Smart_Filters_Color_Image_Widget extends Jet_Smart_Filters_Base_Widget {
 
 	public function get_name() {
+
 		return 'jet-smart-filters-color-image';
 	}
 
 	public function get_title() {
+
 		return __( 'Visual Filter', 'jet-smart-filters' );
 	}
 
 	public function get_icon() {
+
 		return 'jet-smart-filters-icon-color-image-filter';
 	}
 
 	public function get_help_url() {
+
 		return jet_smart_filters()->widgets->prepare_help_url(
 			'https://crocoblock.com/knowledge-base/articles/jetsmartfilters-how-to-create-visual-filter-with-taxonomies-data-source/',
 			$this->get_name()
 		);
 	}
 
-	public function _register_controls() {
+	public function register_controls() {
 
 		$css_scheme = apply_filters(
 			'jet-smart-filters/widgets/color-image/css-scheme',
 			array(
-				'item'                 => '.jet-color-image-list__row',
-				'button'               => '.jet-color-image-list__button',
-				'label'                => '.jet-color-image-list__label',
-				'decorator'            => '.jet-color-image-list__decorator',
-				'list-item'            => '.jet-color-image-list__row',
-				'list-wrapper'         => '.jet-color-image-list-wrapper',
-				'filter'               => '.jet-filter',
-				'filters-label'        => '.jet-filter-label',
-				'apply-filters'        => '.apply-filters',
-				'apply-filters-button' => '.apply-filters__button',
+				'item'                  => '.jet-color-image-list__row',
+				'button'                => '.jet-color-image-list__button',
+				'label'                 => '.jet-color-image-list__label',
+				'decorator'             => '.jet-color-image-list__decorator',
+				'list-item'             => '.jet-color-image-list__row',
+				'list-wrapper'          => '.jet-color-image-list-wrapper',
+				'filter'                => '.jet-filter',
+				'filters-label'         => '.jet-filter-label',
+				'apply-filters'         => '.apply-filters',
+				'apply-filters-button'  => '.apply-filters__button',
+				'dropdown-apply-button' => '.jet-filter-items-dropdown__apply-button',
 			)
 		);
 
@@ -212,15 +218,17 @@ class Jet_Smart_Filters_Color_Image_Widget extends Jet_Smart_Filters_Base_Widget
 			array(
 				'label'       => esc_html__( 'Filters Position', 'jet-smart-filters' ),
 				'type'        => Controls_Manager::CHOOSE,
+				'toggle'      => false,
 				'label_block' => false,
+				'default'     => 'block',
 				'options'     => array(
-					'inline-block'    => array(
-						'title' => esc_html__( 'Line', 'jet-smart-filters' ),
-						'icon'  => 'eicon-ellipsis-h',
-					),
 					'block' => array(
 						'title' => esc_html__( 'Column', 'jet-smart-filters' ),
 						'icon'  => 'eicon-menu-bar',
+					),
+					'inline-block'    => array(
+						'title' => esc_html__( 'Line', 'jet-smart-filters' ),
+						'icon'  => 'eicon-ellipsis-h',
 					),
 				),
 				'selectors' => array(
@@ -305,9 +313,6 @@ class Jet_Smart_Filters_Color_Image_Widget extends Jet_Smart_Filters_Base_Widget
 				),
 				'selectors'  => array(
 					'{{WRAPPER}} ' . $css_scheme['list-wrapper'] => 'text-align: {{VALUE}};',
-				),
-				'condition'  => array(
-					'filters_position' => 'inline-block'
 				)
 			)
 		);
@@ -331,8 +336,7 @@ class Jet_Smart_Filters_Color_Image_Widget extends Jet_Smart_Filters_Base_Widget
 					'unit' => 'px',
 				),
 				'selectors'  => array(
-					'{{WRAPPER}} ' . $css_scheme['item'] . ':not(:last-child)'         => 'margin-bottom: calc({{SIZE}}{{UNIT}}/2);',
-					'{{WRAPPER}} ' . $css_scheme['item'] . ':not(:first-child)'        => 'padding-top: calc({{SIZE}}{{UNIT}}/2);',
+					'{{WRAPPER}} ' . $css_scheme['item'] . ':not(:last-child)' => 'margin-bottom: {{SIZE}}{{UNIT}};'
 				),
 				'condition'  => array(
 					'filters_position!' => 'inline-block'
@@ -386,6 +390,48 @@ class Jet_Smart_Filters_Color_Image_Widget extends Jet_Smart_Filters_Base_Widget
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => array(
 					'{{WRAPPER}} ' . $css_scheme['button'] => 'background-color: {{VALUE}}',
+				),
+			)
+		);
+
+		$this->end_controls_tab();
+
+		$this->start_controls_tab(
+			'item_hover_styles',
+			array(
+				'label' => esc_html__( 'Hover', 'jet-smart-filters' ),
+			)
+		);
+
+		$this->add_control(
+			'item_hover_color',
+			array(
+				'label'     => esc_html__( 'Color', 'jet-smart-filters' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => array(
+					'{{WRAPPER}} ' . $css_scheme['button'] . ':hover' => 'color: {{VALUE}}',
+				),
+			)
+		);
+
+		$this->add_control(
+			'item_hover_background_color',
+			array(
+				'label'     => esc_html__( 'Background Color', 'jet-smart-filters' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => array(
+					'{{WRAPPER}} ' . $css_scheme['button'] . ':hover' => 'background-color: {{VALUE}}',
+				),
+			)
+		);
+
+		$this->add_control(
+			'item_hover_border_color',
+			array(
+				'label'     => esc_html__( 'Border Color', 'jet-smart-filters' ),
+				'type'      => Controls_Manager::COLOR,
+				'selectors' => array(
+					'{{WRAPPER}} ' . $css_scheme['button'] . ':hover' => 'border-color: {{VALUE}}',
 				),
 			)
 		);
@@ -553,7 +599,8 @@ class Jet_Smart_Filters_Color_Image_Widget extends Jet_Smart_Filters_Base_Widget
 					'unit' => 'px',
 				),
 				'selectors'  => array(
-					'{{WRAPPER}} ' . $css_scheme['decorator'] => 'margin-right: {{SIZE}}{{UNIT}};',
+					'{{WRAPPER}} ' . $css_scheme['decorator']      => 'margin-right: {{SIZE}}{{UNIT}};',
+					'.rtl {{WRAPPER}} ' . $css_scheme['decorator'] => 'margin-left: {{SIZE}}{{UNIT}};',
 				),
 			)
 		);
@@ -624,7 +671,5 @@ class Jet_Smart_Filters_Color_Image_Widget extends Jet_Smart_Filters_Base_Widget
 		$this->base_controls_section_filter_apply_button( $css_scheme );
 
 		$this->base_controls_section_filter_group( $css_scheme );
-
 	}
-
 }

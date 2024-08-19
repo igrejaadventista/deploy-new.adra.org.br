@@ -40,7 +40,7 @@
 		methods: {
 			verboseItemInfo: function( item ) {
 
-				var result = '';
+				let result = '';
 
 				if ( 'post' === item.args.object_type ) {
 					if ( item.args.allowed_post_type && item.args.allowed_post_type.length ) {
@@ -48,6 +48,10 @@
 					}
 				} else if ( 'user' === item.args.object_type ) {
 					result = 'users';
+				} else if ( 'woocommerce_product_data' === item.args.object_type ) {
+					result = 'wc product data';
+				} else if ( 'woocommerce_product_variation' === item.args.object_type ) {
+					result = 'wc product variation';
 				} else {
 					if ( item.args.allowed_tax && item.args.allowed_tax.length ) {
 						result = item.args.allowed_tax.join( ', ' );
@@ -55,6 +59,7 @@
 				}
 
 				return result;
+
 			},
 			copyItem: function( item ) {
 

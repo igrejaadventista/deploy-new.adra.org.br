@@ -31,8 +31,16 @@ class Jet_Engine_Dynamic_Function_Tag extends Elementor\Core\DynamicTags\Tag {
 		return true;
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 		jet_engine()->dynamic_functions->register_custom_settings( $this );
+
+		$this->add_control(
+			'dynamic_function_notice',
+			array(
+				'type' => \Elementor\Controls_Manager::RAW_HTML,
+				'raw'  => '<a target="_blank" href="https://www.youtube.com/watch?v=giyHGJNckoM">' . esc_html__( 'What is Dynamic functions and how it works?', 'jet-engine' ) . '</a>'
+			)
+		);
 	}
 
 	public function render() {

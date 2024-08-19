@@ -37,7 +37,7 @@ class Jet_Engine_Module_Trim_Callback extends Jet_Engine_External_Module_Base {
 	 * @return string
 	 */
 	public function module_name() {
-		return __( 'Trim string callback', 'jet-engine' );
+		return __( 'Trim String Callback', 'jet-engine' );
 	}
 
 	/**

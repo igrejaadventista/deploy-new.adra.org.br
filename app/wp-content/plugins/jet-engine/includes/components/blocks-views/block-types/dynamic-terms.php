@@ -87,9 +87,25 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Terms' ) ) {
 					'type' => 'string',
 					'default' => '',
 				),
+				'orderby' => array(
+					'type' => 'string',
+					'default' => 'name',
+				),
+				'order' => array(
+					'type' => 'string',
+					'default' => 'ASC',
+				),
 				'hide_if_empty' => array(
 					'type' => 'boolean',
 					'default' => false,
+				),
+				'field_fallback' => array(
+					'type' => 'string',
+					'default' => '',
+				),
+				'object_context' => array(
+					'type'    => 'string',
+					'default' => 'default_object',
 				),
 			);
 		}
@@ -135,21 +151,6 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Terms' ) ) {
 					),
 					'css_selector' => array(
 						$this->css_selector() => 'text-align: {{VALUE}};',
-					),
-				)
-			);
-
-			$this->controls_manager->add_control(
-				array(
-					'id'           => 'icon_gap',
-					'label'        => __( 'Icon Gap', 'jet-engine' ),
-					'type'         => 'range',
-					'separator'    => 'before',
-					'css_selector' => array(
-						'body:not(.rtl) ' . $this->css_selector('__icon svg' ) => 'margin-right: {{VALUE}}px;',
-						'body:not(.rtl) ' . $this->css_selector( '__icon img' ) => 'margin-right: {{VALUE}}px;',
-						'body.rtl ' . $this->css_selector('__icon svg' ) => 'margin-left: {{VALUE}}px;',
-						'body.rtl ' . $this->css_selector( '__icon img' ) => 'margin-left: {{VALUE}}px;',
 					),
 				)
 			);
@@ -324,6 +325,55 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Terms' ) ) {
 			// 		'selector' => $this->css_selector( '__counter' ),
 			// 	)
 			// );
+
+			$this->controls_manager->end_section();
+
+			$this->controls_manager->start_section(
+				'style_controls',
+				array(
+					'id'           => 'section_icon_style',
+					'initial_open' => false,
+					'title'        => esc_html__( 'Icon', 'jet-engine' )
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'icon_color',
+					'label'        => __( 'Icon Color', 'jet-engine' ),
+					'type'         => 'color-picker',
+					'separator'    => 'before',
+					'css_selector' => array(
+						$this->css_selector( '__icon' ) => 'color: {{VALUE}}',
+						$this->css_selector( '__icon svg path' ) => 'fill: {{VALUE}}',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'icon_size',
+					'label'        => __( 'Icon Size', 'jet-engine' ),
+					'type'         => 'range',
+					'separator'    => 'before',
+					'css_selector' => array(
+						$this->css_selector( '__icon svg' ) => 'width: {{VALUE}}px !important; height: auto !important;',
+					),
+				)
+			);
+
+			$this->controls_manager->add_control(
+				array(
+					'id'           => 'icon_gap',
+					'label'        => __( 'Icon Gap', 'jet-engine' ),
+					'type'         => 'range',
+					'separator'    => 'before',
+					'css_selector' => array(
+						'body:not(.rtl) ' . $this->css_selector( '__icon' ) => 'margin-right: {{VALUE}}px;',
+						'body.rtl ' . $this->css_selector( '__icon' ) => 'margin-left: {{VALUE}}px;',
+					),
+				)
+			);
 
 			$this->controls_manager->end_section();
 

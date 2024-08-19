@@ -16,6 +16,7 @@ use WP_Error;
 use WP_REST_Server;
 use WP_REST_Request;
 use WP_REST_Controller;
+use RankMath\Helper;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -36,36 +37,40 @@ class Rest extends WP_REST_Controller {
 	 */
 	public function register_routes() {
 		$routes = [
-			'dashboard'          => [
+			'dashboard'           => [
 				'callback' => [ $this, 'get_dashboard' ],
 			],
-			'keywordsOverview'   => [
+			'keywordsOverview'    => [
 				'callback' => [ $this, 'get_keywords_overview' ],
 			],
-			'postsSummary'       => [
+			'postsSummary'        => [
 				'callback' => [ Stats::get(), 'get_posts_summary' ],
 			],
-			'postsRowsByObjects' => [
+			'postsRowsByObjects'  => [
 				'callback' => [ Stats::get(), 'get_posts_rows_by_objects' ],
 			],
-			'post/(?P<id>\d+)'   => [
+			'post/(?P<id>\d+)'    => [
 				'callback' => [ $this, 'get_post' ],
 			],
-			'keywordsSummary'    => [
+			'keywordsSummary'     => [
 				'callback' => [ Stats::get(), 'get_analytics_summary' ],
 			],
-			'analyticsSummary'   => [
+			'analyticsSummary'    => [
 				'callback' => [ $this, 'get_analytics_summary' ],
 			],
-			'keywordsRows'       => [
+			'keywordsRows'        => [
 				'callback' => [ Stats::get(), 'get_keywords_rows' ],
 			],
-			'userPreferences'    => [
+			'userPreferences'     => [
 				'callback' => [ $this, 'update_user_preferences' ],
 				'methods'  => WP_REST_Server::CREATABLE,
 			],
-			'inspectionResults'  => [
+			'inspectionResults'   => [
 				'callback' => [ $this, 'get_inspection_results' ],
+			],
+			'removeFrontendStats' => [
+				'callback' => [ $this, 'remove_frontend_stats' ],
+				'methods'  => WP_REST_Server::CREATABLE,
 			],
 		];
 
@@ -197,18 +202,6 @@ class Rest extends WP_REST_Controller {
 	}
 
 	/**
-	 * Should update pagespeed record.
-	 *
-	 * @param  int $id      Database row id.
-	 * @return bool
-	 */
-	private function should_update_pagespeed( $id ) {
-		$record = DB::objects()->where( 'id', $id )->one();
-
-		return \time() > ( \strtotime( $record->pagespeed_refreshed ) + ( DAY_IN_SECONDS * 7 ) );
-	}
-
-	/**
 	 * Get inspection results: latest result for each post.
 	 *
 	 * @param WP_REST_Request $request Rest request.
@@ -232,5 +225,44 @@ class Rest extends WP_REST_Controller {
 				'rowsFound' => DB::get_inspections_count( $request->get_params() ),
 			]
 		);
+	}
+
+	/**
+	 * Remove frontend stats.
+	 *
+	 * @param WP_REST_Request $request Rest request.
+	 *
+	 * @return WP_REST_Response|WP_Error Response object on success, or WP_Error object on failure.
+	 */
+	public function remove_frontend_stats( WP_REST_Request $request ) {
+		if ( (bool) $request->get_param( 'toggleBar' ) ) {
+			$hide_bar = (bool) $request->get_param( 'hide' );
+			$user_id  = get_current_user_id();
+			if ( $hide_bar ) {
+				return update_user_meta( $user_id, 'rank_math_hide_frontend_stats', true );
+			}
+
+			return delete_user_meta( $user_id, 'rank_math_hide_frontend_stats' );
+		}
+
+		$all_opts                   = rank_math()->settings->all_raw();
+		$general                    = $all_opts['general'];
+		$general['analytics_stats'] = 'off';
+
+		Helper::update_all_settings( $general, null, null );
+
+		return true;
+	}
+
+	/**
+	 * Should update pagespeed record.
+	 *
+	 * @param  int $id      Database row id.
+	 * @return bool
+	 */
+	private function should_update_pagespeed( $id ) {
+		$record = DB::objects()->where( 'id', $id )->one();
+
+		return \time() > ( \strtotime( $record->pagespeed_refreshed ) + ( DAY_IN_SECONDS * 7 ) );
 	}
 }

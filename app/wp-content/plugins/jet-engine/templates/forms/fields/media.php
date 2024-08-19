@@ -34,7 +34,7 @@ if ( ! empty( $args['insert_attachment'] ) ) {
 }
 
 $value = Jet_Engine_Forms_File_Upload::instance()->get_result_value( $args );
-$value = is_array( $value ) || ( 'url' === $format ) ? json_encode( $value ) : $value;
+$value = is_array( $value ) || ( 'url' === $format && ! empty( $value ) ) ? json_encode( $value ) : $value;
 
 ?>
 <div class="jet-engine-file-upload">

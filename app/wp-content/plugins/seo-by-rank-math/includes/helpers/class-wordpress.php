@@ -14,10 +14,10 @@ use RankMath\Post;
 use RankMath\Term;
 use RankMath\User;
 use RankMath\Helper;
-use MyThemeShop\Helpers\Str;
-use RankMath\Helpers\Security;
-use MyThemeShop\Helpers\WordPress as WP_Helper;
 use RankMath\Role_Manager\Capability_Manager;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Param;
+use RankMath\Helpers\Security;
 use stdClass;
 use WP_Screen;
 
@@ -164,7 +164,7 @@ trait WordPress {
 		$data = [];
 		$caps = Capability_Manager::get()->get_capabilities( true );
 
-		foreach ( WP_Helper::get_roles() as $slug => $role ) {
+		foreach ( self::get_roles() as $slug => $role ) {
 			self::get_role_capabilities( $slug, $caps, $data );
 		}
 
@@ -203,7 +203,7 @@ trait WordPress {
 	 */
 	public static function set_capabilities( $roles ) {
 		$caps = Capability_Manager::get()->get_capabilities( true );
-		foreach ( WP_Helper::get_roles() as $slug => $role ) {
+		foreach ( self::get_roles() as $slug => $role ) {
 			self::set_role_capabilities( $slug, $caps, $roles );
 		}
 	}
@@ -255,9 +255,11 @@ trait WordPress {
 	 */
 	public static function get_thumbnail_with_fallback( $post_id, $size = 'thumbnail' ) {
 		if ( has_post_thumbnail( $post_id ) ) {
-			$thumbnail_id     = get_post_thumbnail_id( $post_id );
-			$image            = wp_get_attachment_image_src( $thumbnail_id, $size );
-			$image['caption'] = $image ? get_post_meta( $thumbnail_id, '_wp_attachment_image_alt', true ) : '';
+			$thumbnail_id = get_post_thumbnail_id( $post_id );
+			$image        = (array) wp_get_attachment_image_src( $thumbnail_id, $size );
+			if ( ! empty( array_filter( $image ) ) ) {
+				$image['caption'] = $image ? get_post_meta( $thumbnail_id, '_wp_attachment_image_alt', true ) : '';
+			}
 
 			return self::validate_image_data( $image );
 		}
@@ -275,8 +277,12 @@ trait WordPress {
 			return false;
 		}
 
-		$image            = wp_get_attachment_image_src( $og_image, $size );
-		$image['caption'] = $image ? get_post_meta( $og_image, '_wp_attachment_image_alt', true ) : '';
+		$image = wp_get_attachment_image_src( $og_image, $size );
+		if ( empty( $image ) ) {
+			return false;
+		}
+
+		$image['caption'] = get_post_meta( $og_image, '_wp_attachment_image_alt', true );
 		return self::validate_image_data( $image );
 	}
 
@@ -332,12 +338,11 @@ trait WordPress {
 		$robots = Helper::get_settings( 'titles.robots_global', [] );
 
 		if ( $screen instanceof WP_Screen ) {
-
-			if ( 'post' === $screen->base && Helper::get_settings( "titles.pt_{$screen->post_type}_custom_robots" ) ) {
+			if ( in_array( $screen->base, [ 'post', 'edit' ], true ) && isset( $screen->post_type ) && Helper::get_settings( "titles.pt_{$screen->post_type}_custom_robots" ) ) {
 				$robots = Helper::get_settings( "titles.pt_{$screen->post_type}_robots", [] );
 			}
 
-			if ( 'term' === $screen->base && Helper::get_settings( "titles.tax_{$screen->taxonomy}_custom_robots" ) ) {
+			if ( in_array( $screen->base, [ 'term', 'edit-tags' ], true ) && isset( $screen->taxonomy ) && Helper::get_settings( "titles.tax_{$screen->taxonomy}_custom_robots" ) ) {
 				$robots = Helper::get_settings( "titles.tax_{$screen->taxonomy}_robots", [] );
 			}
 
@@ -558,5 +563,170 @@ trait WordPress {
 		$classes = array_filter( $classes );
 
 		return implode( ' ', $classes );
+	}
+
+	/**
+	 * An helper function get the home_url without the WPML language parameter.
+	 *
+	 * @param string $path   Path relative to the home URL.
+	 * @param string $scheme Scheme to give the home URL context.
+	 *
+	 * @return string
+	 */
+	public static function get_home_url( $path = '', $scheme = null ) {
+		Sitepress::get()->remove_home_url_filter();
+		$home_url = home_url( $path, $scheme );
+		Sitepress::get()->restore_home_url_filter();
+
+		return $home_url;
+	}
+
+	/**
+	 * Get roles.
+	 *
+	 * @codeCoverageIgnore
+	 *
+	 * @param string $output How to return roles.
+	 *
+	 * @return array
+	 */
+	public static function get_roles( $output = 'names' ) {
+		$wp_roles = wp_roles();
+
+		if ( 'names' !== $output ) {
+			return $wp_roles->roles;
+		}
+
+		return $wp_roles->get_names();
+	}
+
+	/**
+	 * Retrieves the sitename.
+	 *
+	 * @return string
+	 */
+	public static function get_site_name() {
+		return wp_strip_all_tags( get_bloginfo( 'name' ), true );
+	}
+
+	/**
+	 * Get action from request.
+	 *
+	 * @return bool|string
+	 */
+	public static function get_request_action() {
+		if ( empty( $_REQUEST['action'] ) ) {
+			return false;
+		}
+
+		if ( '-1' === $_REQUEST['action'] && ! empty( $_REQUEST['action2'] ) ) {
+			$_REQUEST['action'] = $_REQUEST['action2'];
+		}
+
+		return sanitize_key( $_REQUEST['action'] );
+	}
+
+	/**
+	 * Instantiates the WordPress filesystem for use.
+	 *
+	 * @return object
+	 */
+	public static function get_filesystem() {
+		global $wp_filesystem;
+
+		if ( empty( $wp_filesystem ) ) {
+			require_once ABSPATH . '/wp-admin/includes/file.php';
+			WP_Filesystem();
+		}
+
+		return $wp_filesystem;
+	}
+
+	/**
+	 * Get current post type.
+	 *
+	 * This function has some fallback strategies to get the current screen post type.
+	 *
+	 * @return string|bool
+	 */
+	public static function get_post_type() {
+		global $pagenow;
+
+		$post_type = self::post_type_from_globals();
+		if ( false !== $post_type ) {
+			return $post_type;
+		}
+
+		$post_type = self::post_type_from_request();
+		if ( false !== $post_type ) {
+			return $post_type;
+		}
+
+		return 'post-new.php' === $pagenow ? 'post' : false;
+	}
+
+	/**
+	 * Get post type from global variables
+	 *
+	 * @return string|bool
+	 */
+	private static function post_type_from_globals() {
+		global $post, $typenow, $current_screen;
+
+		if ( $post && $post->post_type ) {
+			return $post->post_type;
+		}
+
+		if ( $typenow ) {
+			return $typenow;
+		}
+
+		if ( $current_screen && $current_screen->post_type ) {
+			return $current_screen->post_type;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Get post type from request variables
+	 *
+	 * @return string|bool
+	 */
+	private static function post_type_from_request() {
+
+		if ( $post_type = Param::request( 'post_type' ) ) { // phpcs:ignore
+			return sanitize_key( $post_type );
+		}
+
+		if ( $post_id = Param::request( 'post_ID', 0, FILTER_VALIDATE_INT ) ) { // phpcs:ignore
+			return get_post_type( $post_id );
+		}
+
+		// @codeCoverageIgnoreStart
+		if ( $post = Param::get( 'post' ) ) { // phpcs:ignore
+			return get_post_type( $post );
+		}
+		// @codeCoverageIgnoreEnd
+
+		return false;
+	}
+
+	/**
+	 * Strip all shortcodes active or orphan.
+	 *
+	 * @param string $content Content to remove shortcodes from.
+	 *
+	 * @return string
+	 */
+	public static function strip_shortcodes( $content ) {
+		if ( ! Str::contains( '[', $content ) ) {
+			return $content;
+		}
+
+		// Remove Caption shortcode.
+		$content = \preg_replace( '#\s*\[caption[^]]*\].*?\[/caption\]\s*#is', '', $content );
+
+		return preg_replace( '~\[\/?.*?\]~s', '', $content );
 	}
 }

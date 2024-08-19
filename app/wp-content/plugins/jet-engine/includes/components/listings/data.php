@@ -113,6 +113,8 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 				$is_main_query = $query->is_main_query();
 			}
 
+			$is_main_query = apply_filters( 'jet-engine/listings/data/the-post/is-main-query', $is_main_query, $post, $query );
+
 			if ( $is_main_query ) {
 				$current_object = $this->get_current_object();
 
@@ -173,7 +175,7 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 					'is_main'           => true,
 					'repeater_source'   => $repeater_source,
 					'repeater_field'    => $repeater_field,
-				) );
+				), $listing_id );
 			}
 
 			jet_engine()->listings->data->set_listing( $doc );
@@ -186,10 +188,20 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 		 * @return string
 		 */
 		public function get_listing_type( $listing_id ) {
+			
 			$listing_type = get_post_meta( $listing_id, '_listing_type', true );
-			$listing_type = ! empty( $listing_type ) ? $listing_type : 'elementor';
 
-			return $listing_type;
+			if ( ! $listing_type ) {
+				// Check edge cases when listing type is not defined for some reason
+				if ( ! jet_engine()->has_elementor() || jet_engine()->blocks_views->is_blocks_listing( $listing_id ) ) {
+					$listing_type = 'blocks';
+				} else {
+					$listing_type = 'elementor';
+				}
+
+			}
+
+			return apply_filters( 'jet-engine/data/listing-type', $listing_type );
 		}
 
 		/**
@@ -227,82 +239,35 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 		 */
 		public function get_object_fields( $where = 'elementor', $blocks_values_key = 'values' ) {
 
-			switch ( $this->get_listing_source() ) {
-
-				case 'posts':
-
-					$fields = array(
-						'post_id'      => __( 'Post ID', 'jet-engine' ),
-						'post_title'   => __( 'Title', 'jet-engine' ),
-						'post_date'    => __( 'Date', 'jet-engine' ),
-						'post_content' => __( 'Content', 'jet-engine' ),
-						'post_excerpt' => __( 'Excerpt', 'jet-engine' ),
-						'post_status'  => __( 'Post Status', 'jet-engine' ),
-					);
-
-					break;
-
-				case 'terms':
-
-					$fields = array(
-						'term_id'     => __( 'Term ID', 'jet-engine' ),
-						'name'        => __( 'Term name', 'jet-engine' ),
-						'description' => __( 'Term description', 'jet-engine' ),
-						'count'       => __( 'Posts count', 'jet-engine' ),
-						'parent'      => __( 'Parent term ID', 'jet-engine' ),
-					);
-
-					break;
-
-				case 'users':
-
-					$fields = array(
-						'ID'              => __( 'ID', 'jet-engine' ),
-						'user_login'      => __( 'Login', 'jet-engine' ),
-						'user_nicename'   => __( 'Nickname', 'jet-engine' ),
-						'user_email'      => __( 'E-mail', 'jet-engine' ),
-						'user_url'        => __( 'URL', 'jet-engine' ),
-						'user_registered' => __( 'Registration Date', 'jet-engine' ),
-						'display_name'    => __( 'Display Name', 'jet-engine' ),
-					);
-
-					break;
-			}
-
 			$groups = apply_filters( 'jet-engine/listing/data/object-fields-groups', array(
 				array(
 					'label'  => __( 'Post', 'jet-engine' ),
-					'options' => array(
+					'options' => apply_filters( 'jet-engine/listing/data/post-fields', array(
 						'post_id'       => __( 'Post ID', 'jet-engine' ),
 						'post_title'    => __( 'Title', 'jet-engine' ),
+						'post_name'     => __( 'Post Slug', 'jet-engine' ),
+						'post_type'     => __( 'Post Type', 'jet-engine' ),
 						'post_date'     => __( 'Date', 'jet-engine' ),
 						'post_modified' => __( 'Date Modified', 'jet-engine' ),
 						'post_content'  => __( 'Content', 'jet-engine' ),
 						'post_excerpt'  => __( 'Excerpt', 'jet-engine' ),
 						'post_status'   => __( 'Post Status', 'jet-engine' ),
 					)
-				),
+				) ),
 				array(
 					'label'  => __( 'Term', 'jet-engine' ),
-					'options' => array(
+					'options' => apply_filters( 'jet-engine/listing/data/term-fields', array(
 						'term_id'     => __( 'Term ID', 'jet-engine' ),
 						'name'        => __( 'Term name', 'jet-engine' ),
+						'slug'        => __( 'Term slug', 'jet-engine' ),
 						'description' => __( 'Term description', 'jet-engine' ),
 						'count'       => __( 'Posts count', 'jet-engine' ),
 						'parent'      => __( 'Parent term ID', 'jet-engine' ),
 					)
-				),
+				) ),
 				array(
 					'label'  => __( 'User', 'jet-engine' ),
-					'options' => array(
-						'ID'              => __( 'ID', 'jet-engine' ),
-						'user_login'      => __( 'Login', 'jet-engine' ),
-						'user_nicename'   => __( 'Nickname', 'jet-engine' ),
-						'user_email'      => __( 'E-mail', 'jet-engine' ),
-						'user_url'        => __( 'URL', 'jet-engine' ),
-						'user_registered' => __( 'Registration Date', 'jet-engine' ),
-						'display_name'    => __( 'Display Name', 'jet-engine' ),
-					)
+					'options' => $this->get_user_object_fields(),
 				),
 				array(
 					'label'  => __( 'Comment', 'jet-engine' ),
@@ -359,24 +324,31 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 		}
 
 		/**
+		 * Return user object fields
+		 * 
+		 * @return array
+		 */
+		public function get_user_object_fields() {
+			return apply_filters( 'jet-engine/listing/data/user-fields', array(
+					'ID'              => __( 'ID', 'jet-engine' ),
+					'user_login'      => __( 'Login', 'jet-engine' ),
+					'user_nicename'   => __( 'Nickname', 'jet-engine' ),
+					'user_email'      => __( 'E-mail', 'jet-engine' ),
+					'user_url'        => __( 'URL', 'jet-engine' ),
+					'user_registered' => __( 'Registration Date', 'jet-engine' ),
+					'display_name'    => __( 'Display Name', 'jet-engine' ),
+				)
+			);
+		}
+
+		/**
 		 * Checkl if requested property is property of user object
 		 *
 		 * @param  [type]  $prop [description]
 		 * @return boolean       [description]
 		 */
 		public function is_user_prop( $prop ) {
-			return in_array(
-				$prop,
-				array(
-					'ID',
-					'user_login',
-					'user_nicename',
-					'user_email',
-					'user_url',
-					'user_registered',
-					'display_name',
-				)
-			);
+			return in_array( $prop, array_keys( $this->get_user_object_fields() ) );
 		}
 
 		/**
@@ -664,6 +636,44 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 		}
 
 		/**
+		 * Returns $current_object title.
+		 * @param $object
+		 *
+		 * @return int|string
+		 */
+		public function get_current_object_title( $object = null ) {
+
+			if ( ! $object ) {
+				$object = $this->get_current_object();
+			}
+
+			$result = '';
+
+			if ( ! $object || ! is_object( $object ) ) {
+				return $result;
+			}
+
+			$class = get_class( $object );
+
+			switch ( $class ) {
+				case 'WP_Post':
+					$result = $object->post_title;
+					break;
+
+				case 'WP_Term':
+					$result = $object->name;
+					break;
+
+				default:
+					$result = apply_filters( 'jet-engine/listing/current-object-title', $result, $object );
+
+			}
+
+			return $result;
+
+		}
+
+		/**
 		 * Returns $current_object ID.
 		 * @param $object
 		 *
@@ -695,11 +705,15 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 					$obj_id = $object->comment_ID;
 					break;
 
+				case 'Jet_Engine_Queried_Repeater_Item':
+					$obj_id = $object->get_id();
+					break;
+
 				default:
 					$obj_id = apply_filters( 'jet-engine/listing/custom-post-id', get_the_ID(), $object );
 			}
 
-			return $obj_id;
+			return apply_filters( 'jet-engine/listing/current-object-id', $obj_id, $object );
 		}
 
 		/**
@@ -713,8 +727,11 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 				return $this->default_object;
 			}
 
-			$default_object     = false;
-			$this->current_user = wp_get_current_user();
+			$default_object = false;
+
+			if ( ! $this->current_user ) {
+				$this->current_user = wp_get_current_user();
+			}
 
 			global $post;
 
@@ -750,7 +767,7 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 
 		}
 
-		public function get_object_by_context( $context ) {
+		public function get_object_by_context( $context = null ) {
 
 			if ( ! $context || 'default_object' === $context ) {
 				return null;
@@ -762,7 +779,7 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 					return wp_get_current_user();
 
 				case 'wp_object':
-					return get_queried_object();
+					return jet_engine()->listings->objects_stack->get_root_object();
 
 				case 'current_user':
 					return jet_engine()->listings->data->get_current_user_object();
@@ -772,6 +789,15 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 
 				case 'current_post_author':
 					return jet_engine()->listings->data->get_current_author_object();
+
+				case 'parent_object':
+					$parent_object = jet_engine()->listings->objects_stack->get_parent_object_from_stack();
+
+					if ( ! $parent_object ) {
+						$parent_object = jet_engine()->listings->objects_stack->get_root_object();
+					}
+
+					return $parent_object;
 
 				default:
 					return apply_filters( 'jet-engine/listings/data/object-by-context/' . $context, null );
@@ -819,7 +845,7 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 				$vars = get_object_vars( $object );
 				$vars = apply_filters( 'jet-engine/listings/data/object-vars', $vars, $object );
 
-				if ( 'post_id' === $property ) {
+				if ( 'post_id' === $property && 'WP_Post' === get_class( $object ) ) {
 					$vars['post_id'] = $vars['ID'];
 				}
 
@@ -835,7 +861,7 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 			}
 
 			// This will work if we want to call method from the class instead of property
-			if ( is_callable( array( $object, $property ) ) ) {
+			if ( is_object( $object ) && method_exists( $object, $property ) ) {
 				return call_user_func( array( $object, $property ) );
 			}
 
@@ -919,12 +945,50 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 		}
 
 		/**
+		 * Returns object publication date dependes on object type
+		 * 
+		 * @param  [type] $object [description]
+		 * @return [type]         [description]
+		 */
+		public function get_object_date( $object = null ) {
+
+			if ( ! $object ) {
+				$object = $this->get_current_object();
+			}
+
+			if ( ! $object ) {
+				return false;
+			}
+
+			$class = get_class( $object );
+
+			switch ( $class ) {
+				case 'WP_Post':
+					return $object->post_date;
+
+				case 'WP_Term':
+					return false;
+
+				case 'WP_User':
+					return $object->user_registered;
+
+				case 'WP_Comment':
+					return $object->comment_date;
+
+				default:
+					return apply_filters( 'jet-engine/listings/data/object-date', null, $object );
+
+			}
+
+		}
+
+		/**
 		 * Returns current meta
 		 *
 		 * @param  [type] $key [description]
 		 * @return [type]      [description]
 		 */
-		public function get_meta( $key = null, $object = null ) {
+		public function get_meta( $key = null, $object = null, $source = null ) {
 
 			if ( in_array( $key, $this->user_fields ) ) {
 
@@ -937,7 +1001,12 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 				if ( ! $user ) {
 					return false;
 				} else {
-					return get_user_meta( $user->ID, $key, true );
+					return apply_filters(
+						'jet-engine/listing/data/get-user-meta',
+						get_user_meta( $user->ID, $key, true ),
+						$key,
+						$user->ID
+					);
 				}
 
 			}
@@ -950,8 +1019,22 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 				return false;
 			}
 
+			if ( property_exists( $object, $key ) ) {
+				return maybe_unserialize( $object->$key );
+			}
+
 			$class  = get_class( $object );
 			$result = '';
+
+			if ( ! $source && $this->current_listing ) {
+				$source = $this->current_listing->get_settings( 'listing_source' );
+			}
+
+			if ( 'repeater' === $source ) {
+				return $this->get_repeater_value( $key );
+			}
+
+			$object_id = $this->get_current_object_id( $object );
 
 			switch ( $class ) {
 				case 'WP_Post':
@@ -962,41 +1045,68 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 						$single = true;
 					}
 
-					$source = false;
-
-					if ( $this->current_listing ) {
-						$source = $this->current_listing->get_settings( 'listing_source' );
-					}
-
-					if ( 'repeater' === $source ) {
-						return $this->get_repeater_value( $key );
-					} else {
-						return get_post_meta( $object->ID, $key, $single );
-					}
+					return apply_filters(
+						'jet-engine/listing/data/get-post-meta',
+						get_post_meta( $object_id, $key, $single ),
+						$key,
+						$object_id
+					);
 
 				case 'WP_Term':
-					return get_term_meta( $object->term_id, $key, true );
+					return apply_filters(
+						'jet-engine/listing/data/get-term-meta',
+						get_term_meta( $object_id, $key, true ),
+						$key,
+						$object_id
+					);
 
 				case 'WP_User':
-					return get_user_meta( $object->ID, $key, true );
+					return apply_filters(
+						'jet-engine/listing/data/get-user-meta',
+						get_user_meta( $object_id, $key, true ),
+						$key,
+						$object_id
+					);
 
 				case 'WP_Comment':
-					return get_comment_meta( $object->ID, $key, true );
+					return apply_filters(
+						'jet-engine/listing/data/get-comment-meta',
+						get_comment_meta( $object_id, $key, true ),
+						$key,
+						$object_id
+					);
 
 				default:
 
-					$source = false;
+					$result = null;
 
-					if ( $this->current_listing ) {
-						$source = $this->current_listing->get_settings( 'listing_source' );
+					if ( isset( $object->$key ) ) {
+						$result = $object->$key;
 					}
 
 					if ( $source ) {
-						return apply_filters( 'jet-engine/listings/data/get-meta/' . $source, null, $key );
+						return apply_filters( 
+							'jet-engine/listings/data/get-meta/' . $source, 
+							$result, 
+							$key, 
+							$object
+						);
 					}
 
+					return $result;
 			}
 
+		}
+
+		/**
+		 * Checks if context was changed, send this trigger to get_meta function to ensure correct data will be get
+		 * @param  string $key            [description]
+		 * @param  string $object_context [description]
+		 * @return [type]                 [description]
+		 */
+		public function get_meta_by_context( $key = '', $object_context = 'default_object' ) {
+			$source = ( $object_context && 'default_object' !== $object_context ) ? $object_context : null;
+			return $this->get_meta( $key, $this->get_object_by_context( $object_context ), $source );
 		}
 
 		/**
@@ -1050,9 +1160,10 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 
 			switch ( $repeater_source ) {
 				case 'jet_engine':
-					$meta_value = get_post_meta( $this->get_current_object_id(), $source_field, true );
+					
+					$meta_value = $this->get_meta( $source_field, $this->get_current_object(), 'object' );
 
-					if ( empty( $meta_value ) ) {
+					if ( empty( $meta_value ) || ! is_array( $meta_value ) ) {
 						return false;
 					}
 
@@ -1074,7 +1185,7 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 
 					$meta_value = $this->get_option( $source_option );
 
-					if ( empty( $meta_value ) ) {
+					if ( empty( $meta_value ) || ! is_array( $meta_value ) ) {
 						return false;
 					}
 
@@ -1112,7 +1223,7 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 		 */
 		public function get_acf_repeater_value( $object, $parent_field, $child_field ) {
 			$field_key = $parent_field . '_' . $this->repeater_index . '_' . $child_field;
-			return get_post_meta( $object->ID, $field_key, true );
+			return $this->get_meta( $field_key, $object, 'object' );
 		}
 
 		/**
@@ -1124,6 +1235,10 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 
 			if ( ! $object ) {
 				$object = $this->get_current_object();
+			}
+
+			if ( ! $object || ! is_object( $object ) ) {
+				return null;
 			}
 
 			$class  = get_class( $object );
@@ -1152,8 +1267,9 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 		public function get_field_sources() {
 
 			$sources = array(
-				'object' => __( 'Post/Term/User/Object Data', 'jet-engine' ),
-				'meta'   => __( 'Meta Data', 'jet-engine' ),
+				'object'    => __( 'Post/Term/User/Object Data', 'jet-engine' ),
+				'meta'      => __( 'Meta Data', 'jet-engine' ),
+				'query_var' => __( 'Query Variable', 'jet-engine' ),
 			);
 
 			if ( jet_engine()->options_pages ) {
@@ -1170,11 +1286,68 @@ if ( ! class_exists( 'Jet_Engine_Listings_Data' ) ) {
 				$source = $this->current_listing->get_settings( 'listing_source' );
 			}
 
-			if ( 'repeater' === $source ) {
+			$repeater_sources = apply_filters( 'jet-engine/listing/repeater-listing-sources', array( 'repeater' ) );
+
+			if ( in_array( $source, $repeater_sources ) ) {
 				$sources['repeater_field'] = __( 'Repeater Field', 'jet-engine' );
 			}
 
 			return apply_filters( 'jet-engine/listings/data/sources', $sources );
+		}
+
+		/**
+		 * Set $current_object property by object id and class name.
+		 *
+		 * @param mixed  $object_id  Object ID
+		 * @param string $class      Object class name
+		 * @param bool   $clear_hook Clear or not the `the_post` hook
+		 */
+		public function set_current_object_by_id( $object_id = null, $class = null, $clear_hook = false ) {
+			$object = $this->get_object_by_id( $object_id, $class );
+			$this->set_current_object( $object, $clear_hook );
+		}
+
+		/**
+		 * Get object by object id and class name.
+		 *
+		 * @param mixed  $object_id Object ID
+		 * @param string $class     Object class name
+		 *
+		 * @return object|null
+		 */
+		public function get_object_by_id( $object_id = null, $class = null ) {
+
+			$object = null;
+
+			if ( ! $object_id || ! $class ) {
+				return $object;
+			}
+
+			switch ( $class ) {
+				case 'WP_Post':
+					$object = get_post( $object_id );
+					break;
+
+				case 'WP_Term':
+					$object = get_term( $object_id );
+					break;
+
+				case 'WP_User':
+					$object = get_user_by( 'ID', $object_id );
+					break;
+
+				case 'WP_Comment':
+					$object = get_comment( $object_id );
+					break;
+
+				default:
+					$object = apply_filters(
+						'jet-engine/listings/data/object-by-id',
+						null, $object_id, $class
+					);
+			}
+
+			return $object;
 		}
 
 	}

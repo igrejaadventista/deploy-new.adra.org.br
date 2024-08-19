@@ -40,6 +40,14 @@ if ( ! class_exists( 'Jet_Engine_Modules_Updater' ) ) {
 
 		public function process_update() {
 
+			$nonce_action = jet_engine()->dashboard->get_nonce_action();
+
+			if ( empty( $_REQUEST['_nonce'] ) || ! wp_verify_nonce( $_REQUEST['_nonce'], $nonce_action ) ) {
+				wp_send_json_error( array(
+					'message' => __( 'Nonce validation failed', 'jet-engine' ),
+				) );
+			}
+
 			if ( ! current_user_can( 'update_plugins' ) ) {
 				wp_send_json_error( array( 'message' => 'You can`t update plugins' ) );
 			}
@@ -262,6 +270,10 @@ if ( ! class_exists( 'Jet_Engine_Modules_Updater' ) ) {
 		 */
 		public function get_update( $data ) {
 
+			if ( ! is_object( $data ) ) {
+				$data = new \stdClass();
+			}
+
 			foreach ( $this->plugins as $plugin ) {
 
 				$new_update = $this->check_update( $plugin['slug'], $plugin['version'] );
@@ -269,6 +281,10 @@ if ( ! class_exists( 'Jet_Engine_Modules_Updater' ) ) {
 				if ( $new_update['version'] ) {
 
 					$update = new stdClass();
+
+					if ( ! class_exists( 'Jet_Dashboard\Utils' ) ) {
+						jet_engine()->jet_dashboard_init( true );
+					}
 
 					$package = false;
 					$license = \Jet_Dashboard\Utils::get_plugin_license_key( 'jet-engine/jet-engine.php' );

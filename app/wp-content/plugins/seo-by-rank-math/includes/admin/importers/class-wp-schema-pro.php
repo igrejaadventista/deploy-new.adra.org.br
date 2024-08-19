@@ -12,7 +12,7 @@ namespace RankMath\Admin\Importers;
 
 use RankMath\Helper;
 use RankMath\Admin\Admin_Helper;
-use MyThemeShop\Helpers\Str;
+use RankMath\Helpers\Str;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -560,7 +560,7 @@ class WP_Schema_Pro extends Plugin_Importer {
 	private function get_snippet_details( $post_id ) {
 		global $wpdb;
 
-		$post_type = get_post_type( $post_id );
+		$post_type = addcslashes( get_post_type( $post_id ), '_' );
 		$query     = "SELECT p.ID, pm.meta_value FROM {$wpdb->postmeta} as pm
 		INNER JOIN {$wpdb->posts} as p ON pm.post_id = p.ID
 		WHERE pm.meta_key = 'bsf-aiosrs-schema-location'

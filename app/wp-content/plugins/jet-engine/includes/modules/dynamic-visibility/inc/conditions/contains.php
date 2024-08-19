@@ -32,6 +32,14 @@ class Contains extends Base {
 		$values        = $this->explode_string( $args['value'] );
 		$current_value = $this->get_current_value( $args );
 
+		if ( \Jet_Engine_Tools::is_empty( $current_value ) ) {
+			$current_value = '';
+		}
+
+		if ( is_array( $current_value ) ) {
+			$current_value = json_encode( $current_value );
+		}
+
 		if ( 'hide' === $type ) {
 
 			foreach ( $values as $value ) {

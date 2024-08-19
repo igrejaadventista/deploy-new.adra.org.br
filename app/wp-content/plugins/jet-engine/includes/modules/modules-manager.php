@@ -47,6 +47,14 @@ if ( ! class_exists( 'Jet_Engine_Modules' ) ) {
 		 */
 		public function save_modules() {
 
+			$nonce_action = jet_engine()->dashboard->get_nonce_action();
+
+			if ( empty( $_REQUEST['_nonce'] ) || ! wp_verify_nonce( $_REQUEST['_nonce'], $nonce_action ) ) {
+				wp_send_json_error( array(
+					'message' => __( 'Nonce validation failed', 'jet-engine' ),
+				) );
+			}
+
 			if ( ! current_user_can( 'manage_options' ) ) {
 				wp_send_json_error( array(
 					'message' => 'You don\'t have permissions to do this',
@@ -158,18 +166,19 @@ if ( ! class_exists( 'Jet_Engine_Modules' ) ) {
 			$all_modules = apply_filters( 'jet-engine/available-modules', array(
 
 				// Internal modules
-				'Jet_Engine_Module_Gallery_Grid'         => $path . 'gallery/grid.php',
-				'Jet_Engine_Module_Gallery_Slider'       => $path . 'gallery/slider.php',
-				'Jet_Engine_Module_QR_Code'              => $path . 'qr-code/qr-code.php',
-				'Jet_Engine_Module_Calendar'             => $path . 'calendar/calendar.php',
-				'Jet_Engine_Module_Booking_Forms'        => $path . 'forms/forms.php',
-				'Jet_Engine_Module_Listing_Injections'   => $path . 'listing-injections/listing-injections.php',
-				'Jet_Engine_Module_Profile_Builder'      => $path . 'profile-builder/profile-builder.php',
-				'Jet_Engine_Module_Maps_Listings'        => $path . 'maps-listings/maps-listings.php',
-				'Jet_Engine_Module_Dynamic_Visibility'   => $path . 'dynamic-visibility/dynamic-visibility.php',
-				'Jet_Engine_Module_Data_Stores'          => $path . 'data-stores/data-stores.php',
-				'Jet_Engine_Module_Custom_Content_Types' => $path . 'custom-content-types/custom-content-types.php',
-				'Jet_Engine_Module_Rest_Api_Listings'    => $path . 'rest-api-listings/rest-api-listings.php',
+				'Jet_Engine_Module_Gallery_Grid'           => $path . 'gallery/grid.php',
+				'Jet_Engine_Module_Gallery_Slider'         => $path . 'gallery/slider.php',
+				'Jet_Engine_Module_QR_Code'                => $path . 'qr-code/qr-code.php',
+				'Jet_Engine_Module_Calendar'               => $path . 'calendar/calendar.php',
+				'Jet_Engine_Module_Booking_Forms'          => $path . 'forms/forms.php',
+				'Jet_Engine_Module_Listing_Injections'     => $path . 'listing-injections/listing-injections.php',
+				'Jet_Engine_Module_Profile_Builder'        => $path . 'profile-builder/profile-builder.php',
+				'Jet_Engine_Module_Maps_Listings'          => $path . 'maps-listings/maps-listings.php',
+				'Jet_Engine_Module_Dynamic_Visibility'     => $path . 'dynamic-visibility/dynamic-visibility.php',
+				'Jet_Engine_Module_Data_Stores'            => $path . 'data-stores/data-stores.php',
+				'Jet_Engine_Module_Custom_Content_Types'   => $path . 'custom-content-types/custom-content-types.php',
+				'Jet_Engine_Module_Rest_Api_Listings'      => $path . 'rest-api-listings/rest-api-listings.php',
+				'Jet_Engine_Module_Fullwidth_Block_Editor' => $path . 'fullwidth-block-editor/fullwidth-block-editor.php',
 
 				// External modules
 				'Jet_Engine_Module_Dynamic_Tables'               => $path . 'external-dynamic-tables/dynamic-tables.php',
@@ -178,6 +187,7 @@ if ( ! class_exists( 'Jet_Engine_Modules' ) ) {
 				'Jet_Engine_Module_Custom_Visibility_Conditions' => $path . 'external-custom-visibility-conditions/custom-visibility-conditions.php',
 				'Jet_Engine_Module_Trim_Callback'                => $path . 'external-trim-callback/trim-callback.php',
 				'Jet_Engine_Module_Post_Expiration_Period'       => $path . 'external-post-expiration-period/post-expiration-period.php',
+				'Jet_Engine_Module_Layout_Switcher'              => $path . 'external-layout-switcher/layout-switcher.php',
 
 			) );
 
@@ -198,6 +208,13 @@ if ( ! class_exists( 'Jet_Engine_Modules' ) ) {
 		 * @return void
 		 */
 		public function init_active_modules() {
+
+			// Initialize built-in modules
+			require_once jet_engine()->plugin_path( 'includes/modules/performance/performance.php' );
+
+			foreach( array( new Jet_Engine_Module_Performance() ) as $module ) {
+				$module->module_init();
+			}
 
 			$modules = $this->get_active_modules();
 

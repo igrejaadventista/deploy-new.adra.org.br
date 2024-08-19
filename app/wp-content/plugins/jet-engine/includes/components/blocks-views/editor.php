@@ -8,6 +8,10 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
+if ( ! trait_exists( 'Jet_Engine_Get_Data_Sources_Trait' ) ) {
+	require_once jet_engine()->plugin_path( 'includes/traits/get-data-sources.php' );
+}
+
 if ( ! class_exists( 'Jet_Engine_Blocks_Views_Editor' ) ) {
 
 	/**
@@ -15,312 +19,14 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Editor' ) ) {
 	 */
 	class Jet_Engine_Blocks_Views_Editor {
 
+		use Jet_Engine_Get_Data_Sources_Trait;
+
 		public function __construct() {
 
 			add_action( 'enqueue_block_editor_assets', array( $this, 'blocks_assets' ), -1 );
 
-			add_action( 'add_meta_boxes', array( $this, 'add_css_meta_box' ) );
-			add_action( 'save_post', array( $this, 'save_meta' ) );
-
-		}
-
-		public function save_meta( $post_id ) {
-
-			if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) {
-				return;
-			}
-
-			if ( ! current_user_can( 'edit_post', $post_id ) ) {
-				return;
-			}
-
-			if ( isset( $_POST['_jet_engine_listing_css'] ) ) {
-				$css = esc_attr( $_POST['_jet_engine_listing_css'] );
-				update_post_meta( $post_id, '_jet_engine_listing_css', $css );
-			}
-
-			$settings_keys = array(
-				'jet_engine_listing_source',
-				'jet_engine_listing_post_type',
-				'jet_engine_listing_tax',
-				'jet_engine_listing_repeater_source',
-				'jet_engine_listing_repeater_field',
-				'jet_engine_listing_repeater_option',
-			);
-
-			$settings_to_store    = array();
-			$el_settings_to_store = array();
-
-			foreach ( $settings_keys as $key ) {
-				if ( isset( $_POST[ $key ] ) ) {
-					$store_key = str_ireplace( 'jet_engine_listing_', '', $key );
-
-					if ( false !== strpos( $store_key, 'repeater_' ) ) {
-						$el_settings_to_store[ $store_key ] = esc_attr( $_POST[ $key ] ); // repeater settings store only to `_elementor_page_settings`
-					} else {
-						$settings_to_store[ $store_key ] = esc_attr( $_POST[ $key ] );
-						$el_settings_to_store[ 'listing_' . $store_key ] = esc_attr( $_POST[ $key ] );
-					}
-				}
-			}
-
-			if ( ! empty( $settings_to_store ) ) {
-
-				$listing_settings = get_post_meta( $post_id, '_listing_data', true );
-				$elementor_page_settings = get_post_meta( $post_id, '_elementor_page_settings', true );
-
-				if ( empty( $listing_settings ) ) {
-					$listing_settings = array();
-				}
-
-				if ( empty( $elementor_page_settings ) ) {
-					$elementor_page_settings = array();
-				}
-
-				$listing_settings        = array_merge( $listing_settings, $settings_to_store );
-				$elementor_page_settings = array_merge( $elementor_page_settings, $el_settings_to_store );
-
-				update_post_meta( $post_id, '_listing_data', $listing_settings );
-				update_post_meta( $post_id, '_elementor_page_settings', $elementor_page_settings );
-
-			}
-
-			do_action( 'jet-engine/blocks/editor/save-settings', $post_id );
-
-		}
-
-		/**
-		 * Add listing item CSS metabox
-		 */
-		public function add_css_meta_box() {
-
-			add_meta_box(
-				'jet_engine_lisitng_settings',
-				__( 'Listing Item Settings', 'jet-engine' ),
-				array( $this, 'render_settings_box' ),
-				jet_engine()->listings->post_type->slug(),
-				'side'
-			);
-
-			add_meta_box(
-				'jet_engine_lisitng_css',
-				__( 'Listing Items CSS', 'jet-engine' ),
-				array( $this, 'render_css_box' ),
-				jet_engine()->listings->post_type->slug(),
-				'side'
-			);
-
-		}
-
-		/**
-		 * Render box settings HTML
-		 *
-		 * @return [type] [description]
-		 */
-		public function render_settings_box( $post ) {
-
-			$settings      = get_post_meta( $post->ID, '_listing_data', true );
-			$page_settings = get_post_meta( $post->ID, '_elementor_page_settings', true );
-
-			if ( empty( $settings ) ) {
-				$settings = array();
-			}
-
-			$source = ! empty( $settings['source'] ) ? $settings['source'] : 'posts';
-
-			$controls = array(
-				'jet_engine_listing_source' => array(
-					'label'   => __( 'Listing Source', 'jet-engine' ),
-					'options' => jet_engine()->listings->post_type->get_listing_item_sources(),
-					'value'   => $source,
-				),
-				'jet_engine_listing_post_type' => array(
-					'label'   => __( 'Listing Post Type', 'jet-engine' ),
-					'options' => jet_engine()->listings->get_post_types_for_options(),
-					'value'   => ! empty( $settings['post_type'] ) ? $settings['post_type'] : 'post',
-					'source'  => array( 'posts', 'repeater' ),
-				),
-				'jet_engine_listing_tax' => array(
-					'label'   => __( 'Listing Taxonomy', 'jet-engine' ),
-					'options' => jet_engine()->listings->get_taxonomies_for_options(),
-					'value'   => ! empty( $settings['tax'] ) ? $settings['tax'] : 'category',
-					'source'  => array( 'terms' ),
-				),
-				'jet_engine_listing_repeater_source' => array(
-					'label'   => __( 'Repeater source', 'jet-engine' ),
-					'options' => jet_engine()->listings->repeater_sources(),
-					'value'   => ! empty( $page_settings['repeater_source'] ) ? $page_settings['repeater_source'] : 'jet_engine',
-					'source'  => array( 'repeater' ),
-				),
-				'jet_engine_listing_repeater_field' => array(
-					'label'       => __( 'Repeater field', 'jet-engine' ),
-					'description' => __( 'If JetEngine, or ACF, or etc selected as source.', 'jet-engine' ),
-					'value'       => ! empty( $page_settings['repeater_field'] ) ? $page_settings['repeater_field'] : '',
-					'source'      => array( 'repeater' ),
-				),
-				'jet_engine_listing_repeater_option' => array(
-					'label'       => __( 'Repeater option', 'jet-engine' ),
-					'description' => __( 'If <b>JetEngine Options Page</b> selected as source.', 'jet-engine' ),
-					'groups'      => jet_engine()->options_pages->get_options_for_select( 'repeater' ),
-					'value'       => ! empty( $page_settings['repeater_option'] ) ? $page_settings['repeater_option'] : '',
-					'source'      => array( 'repeater' ),
-				),
-			);
-
-			$controls = apply_filters( 'jet-engine/blocks/editor/controls/settings', $controls, $settings, $post );
-
-			echo '<style>
-				.jet-engine-base-control select,
-				.jet-engine-base-control input {
-					box-sizing: border-box;
-					margin: 0;
-				}
-				.jet-engine-base-control .components-base-control__field {
-					margin: 0 0 10px;
-				}
-				.jet-engine-base-control .components-base-control__label {
-					display: block;
-					font-weight: bold;
-					padding: 0 0 5px;
-				}
-				.jet-engine-base-control .components-base-control__help {
-					font-size: 12px;
-					font-style: normal;
-					color: #757575;
-					margin: 5px 0 0;
-				}
-				.jet-engine-condition-setting {
-					display: none;
-				}
-				.jet-engine-condition-setting-show {
-					display: block;
-				}
-			</style>';
-			echo '<div class="components-base-control jet-engine-base-control">';
-
-				foreach ( $controls as $control_name => $control_args ) {
-
-					$field_classes = array(
-						'components-base-control__field',
-					);
-
-					if ( ! empty( $control_args['source'] ) ) {
-						$field_classes[] = 'jet-engine-condition-setting';
-
-						if ( ! is_array( $control_args['source'] ) ) {
-							$control_args['source'] = explode( ',', $control_args['source'] );
-						}
-
-						foreach ( $control_args['source'] as $_source ) {
-							$field_classes[] = 'jet-engine-condition-source-' . $_source;
-						}
-
-						if ( in_array( $source , $control_args['source'] ) ) {
-							$field_classes[] = 'jet-engine-condition-setting-show';
-						}
-					}
-
-					echo '<div class="' . join( ' ', $field_classes ) . '">';
-						echo '<label class="components-base-control__label" for="' . $control_name . '">';
-							echo $control_args['label'];
-						echo '</label>';
-
-						if ( ! empty( $control_args['groups'] ) || ! empty( $control_args['options'] ) ) {
-							echo '<select id="' . $control_name . '" name="' . $control_name . '" class="components-select-control__input">';
-
-								if ( ! empty( $control_args['groups'] ) ) {
-
-									foreach ( $control_args['groups'] as $group_key => $group ) {
-
-										if ( empty( $group ) ) {
-											continue;
-										}
-
-										if ( ! empty( $group['options'] ) ) {
-											echo '<optgroup label="' . $group['label'] . '">';
-
-											foreach ( $group['options'] as $option_key => $option_label ) {
-												printf( '<option value="%1$s"%3$s>%2$s</option>',
-													$option_key,
-													$option_label,
-													selected( $control_args['value'], $option_key, false )
-												);
-											}
-										} elseif ( is_string( $group ) ) {
-											printf( '<option value="%1$s"%3$s>%2$s</option>',
-												$group_key,
-												$group,
-												selected( $control_args['value'], $group_key, false )
-											);
-										}
-									}
-
-								} else {
-									foreach ( $control_args['options'] as $option_key => $option_label ) {
-										printf( '<option value="%1$s"%3$s>%2$s</option>',
-											$option_key,
-											$option_label,
-											selected( $control_args['value'], $option_key, false )
-										);
-									}
-								}
-
-							echo '</select>';
-						} else {
-							echo '<input id="' . $control_name . '" name="' . $control_name . '" class="components-text-control__input" value="' . $control_args['value'] . '">';
-						}
-
-						if ( ! empty( $control_args['description'] ) ) {
-							echo '<p class="components-base-control__help">' . $control_args['description'] . '</p>';
-						}
-
-					echo '</div>';
-				}
-
-				do_action( 'jet-engine/blocks/editor/settings-meta-box', $post );
-
-				echo '<p>';
-					_e( 'You need to reload page after saving to apply new settings', 'jet-engine' );
-				echo '</p>';
-			echo '</div>';
-
-			echo "<script>
-					jQuery( '[name=\"jet_engine_listing_source\"]' ).on( 'change', function() {
-						var sourceSelect = jQuery( this ), source = sourceSelect.val();
-						sourceSelect.closest( '.jet-engine-base-control' ).find( '.jet-engine-condition-setting' ).each( function() {
-							if ( jQuery( this ).hasClass( 'jet-engine-condition-source-' + source ) ) {
-								jQuery( this ).addClass( 'jet-engine-condition-setting-show' );
-							} else {
-								jQuery( this ).removeClass( 'jet-engine-condition-setting-show' );
-							}
-						} );
-					} );
-				</script>";
-		}
-
-		/**
-		 * Render CSS metabox
-		 *
-		 * @return [type] [description]
-		 */
-		public function render_css_box( $post ) {
-
-			$css = get_post_meta( $post->ID, '_jet_engine_listing_css', true );
-
-			if ( ! $css ) {
-				$css = '';
-			}
-
-			?>
-			<div class="jet-eingine-listing-css">
-				<p><?php
-					_e( 'When targeting your specific element, add <code>selector</code> before the tags and classes you want to exclusively target, i.e: <code>selector a { color: red;}</code>', 'jet-engine' );
-				?></p>
-				<textarea class="components-textarea-control__input jet_engine_listing_css" name="_jet_engine_listing_css" rows="16" style="width:100%"><?php
-					echo $css;
-				?></textarea>
-			</div>
-			<?php
+			require_once jet_engine()->plugin_path( 'includes/components/blocks-views/editor-meta-boxes.php' );
+			new Jet_Engine_Blocks_Views_Editor_Meta_Boxes();
 
 		}
 
@@ -364,91 +70,24 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Editor' ) ) {
 				);
 			}
 
-			return $groups;
-
-		}
-
-		/**
-		 * Get meta fields for post type
-		 *
-		 * @return array
-		 */
-		public function get_dynamic_sources( $for = 'media' ) {
-
-			if ( 'media' === $for ) {
-
-				$default = array(
-					'label'  => __( 'General', 'jet-engine' ),
-					'values' => array(
-						array(
-							'value' => 'post_thumbnail',
-							'label' => __( 'Post thumbnail', 'jet-engine' ),
-						),
-						array(
-							'value' => 'user_avatar',
-							'label' => __( 'User avatar (works only for user listing and pages)', 'jet-engine' ),
-						),
-					),
-				);
-
-			} else {
-
-				$default = array(
-					'label'  => __( 'General', 'jet-engine' ),
-					'values' => array(
-						array(
-							'value' => '_permalink',
-							'label' => __( 'Permalink', 'jet-engine' ),
-						),
-						array(
-							'value' => 'delete_post_link',
-							'label' => __( 'Delete current post link', 'jet-engine' ),
-						),
-					),
-				);
-
-				if ( jet_engine()->modules->is_module_active( 'profile-builder' ) ) {
-					$default['values'][] = array(
-						'value' => 'profile_page',
-						'label' => __( 'Profile Page', 'jet-engine' ),
-					);
-				}
-
-			}
-
-			$result      = array();
-			$meta_fields = array();
-
-			if ( jet_engine()->meta_boxes ) {
-				$meta_fields = jet_engine()->meta_boxes->get_fields_for_select( $for, 'blocks' );
-			}
-
-			if ( jet_engine()->options_pages ) {
-				$default['values'][] = array(
-					'value' => 'options_page',
-					'label' => __( 'Options', 'jet-engine' ),
-				);
-			}
-
-			$result = apply_filters(
-				'jet-engine/blocks-views/editor/dynamic-sources/fields',
-				array_merge( array( $default ), $meta_fields ),
-				$for
-			);
-
-			if ( 'media' === $for ) {
-				$hook_name = 'jet-engine/listings/dynamic-image/fields';
-			} else {
-				$hook_name = 'jet-engine/listings/dynamic-link/fields';
-			}
-
-			$extra_fields = apply_filters( $hook_name, array(), $for );
+			$extra_fields = apply_filters( 'jet-engine/listings/dynamic-repeater/fields', array() );
 
 			if ( ! empty( $extra_fields ) ) {
 
-				foreach ( $extra_fields as $data ) {
+				foreach ( $extra_fields as $key => $data ) {
 
 					if ( ! is_array( $data ) ) {
+
+						$groups[] = array(
+							'label'  => $data,
+							'values' => array(
+								array(
+									'value' => $key,
+									'label' => $data,
+								),
+							),
+						);
+
 						continue;
 					}
 
@@ -463,15 +102,14 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Editor' ) ) {
 						}
 					}
 
-					$result[] = array(
+					$groups[] = array(
 						'label'  => $data['label'],
 						'values' => $values,
 					);
 				}
-
 			}
 
-			return $result;
+			return $groups;
 
 		}
 
@@ -526,7 +164,7 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Editor' ) ) {
 				$args['prop'] = $key;
 
 				if ( ! empty( $args['description'] ) ) {
-					$args['description'] = wp_strip_all_tags( $args['description'] );
+					$args['description'] = wp_kses_post( $args['description'] );
 				}
 
 				if ( 'select' === $args['type'] ) {
@@ -642,6 +280,13 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Editor' ) ) {
 				true
 			);
 
+			wp_enqueue_style(
+				'jet-engine-blocks-views',
+				jet_engine()->plugin_url( 'assets/css/admin/blocks-views.css' ),
+				array(),
+				jet_engine()->get_version()
+			);
+
 			do_action( 'jet-engine/blocks-views/editor-script/after' );
 
 			global $post;
@@ -729,11 +374,18 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Editor' ) ) {
 				'queriesList'           => \Jet_Engine\Query_Builder\Manager::instance()->get_queries_for_options( true ),
 				'objectFields'          => jet_engine()->listings->data->get_object_fields( 'blocks' ),
 				'postTypes'             => Jet_Engine_Tools::get_post_types_for_js(),
+				'legacy'                => array(
+					'is_disabled' => jet_engine()->listings->legacy->is_disabled(),
+					'message'     => jet_engine()->listings->legacy->get_notice(),
+				),
 				'glossariesList'        => jet_engine()->glossaries->get_glossaries_for_js(),
 				'atts'                  => array(
-					'dynamicField' => jet_engine()->blocks_views->block_types->get_block_atts( 'dynamic-field' ),
-					'dynamicLink'  => jet_engine()->blocks_views->block_types->get_block_atts( 'dynamic-link' ),
-					'listingGrid'  => jet_engine()->blocks_views->block_types->get_block_atts( 'listing-grid' ),
+					'dynamicField'    => jet_engine()->blocks_views->block_types->get_block_atts( 'dynamic-field' ),
+					'dynamicLink'     => jet_engine()->blocks_views->block_types->get_block_atts( 'dynamic-link' ),
+					'dynamicImage'    => jet_engine()->blocks_views->block_types->get_block_atts( 'dynamic-image' ),
+					'dynamicRepeater' => jet_engine()->blocks_views->block_types->get_block_atts( 'dynamic-repeater' ),
+					'dynamicTerms'    => jet_engine()->blocks_views->block_types->get_block_atts( 'dynamic-terms' ),
+					'listingGrid'     => jet_engine()->blocks_views->block_types->get_block_atts( 'listing-grid' ),
 				),
 				'customPanles'          => $custom_panles,
 				'customControls'        => $custom_controls,
@@ -750,22 +402,17 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Editor' ) ) {
 						'label' => __( 'Grandchildren Posts', 'jet-engine' ),
 					),
 				),
-				'listingOptions' => jet_engine()->listings->get_listings_for_options( 'blocks' ),
-				'hideOptions'    => jet_engine()->listings->get_widget_hide_options( 'blocks' ),
-				'activeModules'  => jet_engine()->modules->get_active_modules(),
+				'listingOptions'   => jet_engine()->listings->get_listings_for_options( 'blocks' ),
+				'hideOptions'      => jet_engine()->listings->get_widget_hide_options( 'blocks' ),
+				'activeModules'    => jet_engine()->modules->get_active_modules(),
+				'blocksWithIdAttr' => jet_engine()->blocks_views->block_types->get_blocks_with_id_attr(),
+				'preventWrap'      => \Jet_Engine\Modules\Performance\Module::instance()->is_tweak_active( 'optimized_dom' ),
 			) );
 
 			wp_localize_script(
 				'jet-engine-blocks-views',
 				'JetEngineListingData',
 				apply_filters( 'jet-engine/blocks-views/editor/config', $config )
-			);
-
-			wp_enqueue_style(
-				'jet-engine-blocks-views',
-				jet_engine()->plugin_url( 'assets/css/admin/blocks-views.css' ),
-				array(),
-				jet_engine()->get_version()
 			);
 
 		}

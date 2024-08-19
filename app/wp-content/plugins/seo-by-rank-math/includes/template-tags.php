@@ -8,6 +8,7 @@
 
 use RankMath\Sitemap\Router;
 use RankMath\Frontend\Breadcrumbs;
+use RankMath\Sitemap\Sitemap;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -36,7 +37,7 @@ function rank_math_get_breadcrumbs( $args = [] ) {
  * @param array $args Array of arguments.
  */
 function rank_math_the_breadcrumbs( $args = [] ) {
-	echo rank_math_get_breadcrumbs( $args );
+	echo wp_kses_post( rank_math_get_breadcrumbs( $args ) );
 }
 
 /**
@@ -45,7 +46,7 @@ function rank_math_the_breadcrumbs( $args = [] ) {
  * @return string
  */
 function rank_math_get_sitemap_url() {
-	return Router::get_base_url( 'sitemap_index.xml' );
+	return Router::get_base_url( Sitemap::get_sitemap_index_slug() . '.xml' );
 }
 
 /**
@@ -64,7 +65,7 @@ function rank_math_get_seo_score( $args = [] ) {
  * @param array $args Array of arguments.
  */
 function rank_math_the_seo_score( $args = [] ) {
-	echo rank_math_get_seo_score( $args );
+	echo wp_kses_post( rank_math_get_seo_score( $args ) );
 }
 
 /**

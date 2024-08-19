@@ -38,6 +38,11 @@ class Types_List extends \Jet_Engine_CPT_Page_Base {
 		?></a>
 		<?php
 
+		jet_engine()->get_video_help_popup( array(
+			'popup_title' => __( 'How to work with Custom Content Types', 'jet-engine' ),
+			'embed' => 'https://www.youtube.com/embed/m9lfFsm1NbE',
+		) )->wp_page_popup();
+
 	}
 
 	/**

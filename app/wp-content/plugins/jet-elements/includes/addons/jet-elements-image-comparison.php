@@ -253,6 +253,29 @@ class Jet_Elements_Image_Comparison extends Jet_Elements_Base {
 			)
 		);
 
+		$this->_add_control(
+			'slides_gap',
+			array(
+				'label' => esc_html__( 'Slides Gap', 'jet-elements' ),
+				'type' => Controls_Manager::SLIDER,
+				'default' => array(
+					'size' => 0,
+					'unit' => 'px',
+				),
+				'range' => array(
+					'px' => array(
+						'min' => 0,
+						'max' => 100,
+					),
+				),
+				'selectors' => array(
+					'{{WRAPPER}} .slick-slide' => 'margin-left: {{SIZE}}{{UNIT}}; margin-right: {{SIZE}}{{UNIT}}',
+					'{{WRAPPER}} .slick-list'  => 'margin-left: -{{SIZE}}{{UNIT}}; margin-right: -{{SIZE}}{{UNIT}}',
+				),
+			),
+			25
+		);
+
 		$this->add_control(
 			'pause_on_hover',
 			array(

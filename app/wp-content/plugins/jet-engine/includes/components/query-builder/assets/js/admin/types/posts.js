@@ -21,6 +21,7 @@
 				postStatuses: window.jet_query_component_posts.posts_statuses,
 				operators: window.JetEngineQueryConfig.operators_list,
 				dataTypes: window.JetEngineQueryConfig.data_types,
+				orderbyOptions: window.JetEngineQueryConfig.orderby_options.posts,
 				query: {},
 				dynamicQuery: {},
 			};

@@ -30,6 +30,18 @@ if ( ! class_exists( 'Jet_Engine_Listings_Filters' ) ) {
 					'cb'   => array( $this, 'get_img_alt' ),
 					'args' => false,
 				),
+				'img_caption_by_id' => array(
+					'cb'   => array( $this, 'get_img_caption' ),
+					'args' => false,
+				),
+				'img_title_by_id' => array(
+					'cb'   => array( $this, 'get_img_title' ),
+					'args' => false,
+				),
+				'img_description_by_id' => array(
+					'cb'   => array( $this, 'get_img_description' ),
+					'args' => false,
+				),
 				'file_url_by_id'  => array(
 					'cb'   => array( $this, 'get_file_url' ),
 					'args' => 'full',
@@ -76,6 +88,10 @@ if ( ! class_exists( 'Jet_Engine_Listings_Filters' ) ) {
 				),
 				'term_titles_by_ids' => array(
 					'cb'   => 'jet_engine_get_term_titles',
+					'args' => false,
+				),
+				'render_icon' => array(
+					'cb'   => 'jet_engine_icon_html',
 					'args' => false,
 				),
 			) );
@@ -154,6 +170,7 @@ if ( ! class_exists( 'Jet_Engine_Listings_Filters' ) ) {
 
 			if ( ! is_array( $img_ids ) ) {
 				$img_ids = explode( ',', $img_ids );
+				$img_ids = array_map( 'trim', $img_ids );
 			}
 
 			if ( empty( $img_ids ) ) {
@@ -180,6 +197,7 @@ if ( ! class_exists( 'Jet_Engine_Listings_Filters' ) ) {
 
 			if ( ! is_array( $img_ids ) ) {
 				$img_ids = explode( ',', $img_ids );
+				$img_ids = array_map( 'trim', $img_ids );
 			}
 
 			if ( empty( $img_ids ) ) {
@@ -235,6 +253,72 @@ if ( ! class_exists( 'Jet_Engine_Listings_Filters' ) ) {
 			}
 
 			return $alt;
+		}
+
+		/**
+		 * Returns image field by ID
+		 *
+		 * @param  int    $img_id
+		 * @param  string $field
+		 * @return string
+		 */
+		public function get_img_field( $img_id = null, $field = 'title' ) {
+
+			if ( empty( $img_id ) ) {
+				return '';
+			}
+
+			$img_post = get_post( $img_id );
+
+			if ( ! $img_post ) {
+				return '';
+			}
+
+			$fields_map = array(
+				'title'       => 'post_title',
+				'caption'     => 'post_excerpt',
+				'description' => 'post_content',
+			);
+
+			if ( isset( $fields_map[ $field ] ) ) {
+				$field = $fields_map[ $field ];
+			}
+
+			if ( ! isset( $img_post->$field ) ) {
+				return '';
+			}
+
+			return $img_post->$field;
+		}
+
+		/**
+		 * Returns image caption by ID
+		 *
+		 * @param  int $img_id
+		 * @return string
+		 */
+		public function get_img_caption( $img_id ) {
+			return $this->get_img_field( $img_id, 'caption' );
+		}
+
+		/**
+		 * Returns image title by ID
+		 *
+		 * @param  int $img_id
+		 * @return string
+		 */
+		public function get_img_title( $img_id ) {
+			return $this->get_img_field( $img_id, 'title' );
+		}
+
+		/**
+		 * Returns image description by ID
+		 *
+		 * @param  int $img_id
+		 * @return string
+		 */
+		public function get_img_description( $img_id ) {
+			return $this->get_img_field( $img_id, 'description' );
 		}
 
 		/**

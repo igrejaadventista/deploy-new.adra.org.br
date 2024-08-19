@@ -36,7 +36,7 @@ function GroupedSelectControl( {
 		<BaseControl label={ label } hideLabelFromVision={ hideLabelFromVision } id={ id } help={ help } className={ className }>
 			<select
 				id={ id }
-				className="components-select-control__input"
+				className="components-select-control__input je-grouped-select"
 				onChange={ onChangeValue }
 				value={ value }
 				aria-describedby={ !! help ? `${ id }__help` : undefined }
@@ -66,5 +66,8 @@ function GroupedSelectControl( {
 	);
 	/* eslint-enable jsx-a11y/no-onchange */
 }
+
+window.JetEngineBlocksComponents = window.JetEngineBlocksComponents || {};
+window.JetEngineBlocksComponents.GroupedSelectControl = withInstanceId( GroupedSelectControl );
 
 export default withInstanceId( GroupedSelectControl );

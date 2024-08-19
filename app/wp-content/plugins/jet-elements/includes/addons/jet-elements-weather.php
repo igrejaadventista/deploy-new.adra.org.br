@@ -238,11 +238,24 @@ class Jet_Elements_Weather extends Jet_Elements_Base {
 		$this->add_control(
 			'show_current_weather_details',
 			array(
-				'label'        => esc_html__( 'Show current weather details', 'jet-elements' ),
+				'label'        => esc_html__( 'Show current weather details (UTC+0)', 'jet-elements' ),
 				'type'         => Controls_Manager::SWITCHER,
 				'return_value' => 'true',
 				'condition'    => array(
 					'show_current_weather' => 'true',
+				),
+			)
+		);
+
+		$this->add_control(
+			'show_current_weather_utc',
+			array(
+				'label'        => esc_html__( 'Show current weather details in your timezone.', 'jet-elements' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'true',
+				'default'      => 'true',
+				'condition'    => array(
+					'show_current_weather_details' => 'true',
 				),
 			)
 		);
@@ -1536,11 +1549,21 @@ class Jet_Elements_Weather extends Jet_Elements_Base {
 	 * @param  string $time
 	 * @return string
 	 */
+
 	public function get_weather_astro_time( $time ) {
-		$format = $this->get_settings_for_display( 'time_format' );
+		$format         = $this->get_settings_for_display( 'time_format' );
+		$current_offset = $this->get_settings_for_display( 'show_current_weather_utc' );
+		$gmt_offset     = get_option('gmt_offset', 0);
+		$current_time   = strtotime( $time);
+
+		if ( $current_offset ) {
+			$current_time   = strtotime( $time . "+{$gmt_offset}hours");
+		}
+
+		$time = date('H:i', $current_time);
 
 		if ( '12' === $format ) {
-			$time = date( 'h:i A', strtotime( $time ) );
+			$time = date( 'h:i A', $current_time);
 		}
 
 		return $time;

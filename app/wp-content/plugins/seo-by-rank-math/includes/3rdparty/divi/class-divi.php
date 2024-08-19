@@ -10,14 +10,15 @@
 
 namespace RankMath\Divi;
 
+use RankMath\KB;
 use RankMath\Helper;
+use RankMath\Helpers\Editor;
+use RankMath\Helpers\Str;
 use RankMath\Schema\DB as Schema_DB;
 use RankMath\Schema\Admin as Schema_Admin;
 use RankMath\Traits\Hooker;
-use RankMath\Helpers\Editor;
 use RankMath\Admin\Metabox\Screen;
 use WP_Dependencies;
-use MyThemeShop\Helpers\Str;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -27,6 +28,13 @@ defined( 'ABSPATH' ) || exit;
 class Divi {
 
 	use Hooker;
+
+	/**
+	 * Screen object.
+	 *
+	 * @var Screen
+	 */
+	private $screen;
 
 	/**
 	 * Class constructor.
@@ -65,24 +73,30 @@ class Divi {
 	public function set_window_lodash() {
 		wp_register_script( 'rm-set-window-lodash', '', [ 'lodash' ], rank_math()->version, false );
 		wp_enqueue_script( 'rm-set-window-lodash' );
-		wp_add_inline_script( 'rm-set-window-lodash', join( "\r\n ", [
-			"window.isLodash = function() {",
-				"if ( typeof window._ !== 'function' || typeof window._.forEach !== 'function' ) {",
-					"return false;",
-				"}",
-				"var isLodash = true;",
-				"window._.forEach(",
+		wp_add_inline_script(
+			'rm-set-window-lodash',
+			join(
+				"\r\n ",
+				[
+					'window.isLodash = function() {',
+					"if ( typeof window._ !== 'function' || typeof window._.forEach !== 'function' ) {",
+					'return false;',
+					'}',
+					'var isLodash = true;',
+					'window._.forEach(',
 					"[ 'cloneDeep', 'at', 'add', 'ary', 'attempt' ],",
-					"function( fn ) {",
-						"if ( isLodash && typeof window._[ fn ] !== 'function' ) {",
-							"isLodash = false;",
-						"}",
-					"}",
-				");",
-				"return isLodash;",
-			"}",
-			'if ( window.isLodash() ) { window.lodash = window._.noConflict(); }'
-		] ) );
+					'function( fn ) {',
+					"if ( isLodash && typeof window._[ fn ] !== 'function' ) {",
+					'isLodash = false;',
+					'}',
+					'}',
+					');',
+					'return isLodash;',
+					'}',
+					'if ( window.isLodash() ) { window.lodash = window._.noConflict(); }',
+				]
+			)
+		);
 	}
 
 	/**
@@ -104,6 +118,7 @@ class Divi {
 	 * Add JSON data.
 	 */
 	public function add_json_data() {
+		$this->maybe_load_editor_deps();
 
 		if ( Helper::has_cap( 'onpage_snippet' ) ) {
 
@@ -113,7 +128,7 @@ class Divi {
 			Helper::add_json( 'customSchemaImage', esc_url( rank_math()->plugin_url() . 'includes/modules/schema/assets/img/custom-schema-builder.jpg' ) );
 
 			// Trends.
-			$trends_upgrade_link = 'https://rankmath.com/pricing/?utm_source=Plugin&utm_medium=Divi%20General%20Tab%20Trends&utm_campaign=WP';
+			$trends_upgrade_link = KB::get( 'pro', 'Divi General Tab Trends' );
 			Helper::add_json( 'trendsUpgradeLink', esc_url_raw( $trends_upgrade_link ) );
 			Helper::add_json( 'trendsPreviewImage', esc_url( rank_math()->plugin_url() . 'assets/admin/img/trends-preview.jpg' ) );
 		}
@@ -129,9 +144,11 @@ class Divi {
 		Helper::add_json(
 			'keywordsApi',
 			[
-				'url' => 'https://rankmathapi.com/ltkw/v1/',
+				'url' => 'https://api.rankmath.com/ltkw/v1/',
 			]
 		);
+
+		Helper::add_json( 'links', KB::get_links() );
 
 		Helper::add_json(
 			'validationl10n',
@@ -144,6 +161,7 @@ class Divi {
 		);
 
 		Helper::add_json( 'capitalizeTitle', Helper::get_settings( 'titles.capitalize_titles' ) );
+		Helper::add_json( 'blogName', get_bloginfo( 'name' ) );
 
 		if ( is_admin_bar_showing() && Helper::has_cap( 'admin_bar' ) ) {
 			Helper::add_json( 'objectID', get_the_ID() );
@@ -185,12 +203,13 @@ class Divi {
 			wp_enqueue_script( 'rank-math', rank_math()->assets() . 'js/rank-math.js', [ 'jquery' ], rank_math()->version, true );
 		}
 
+		wp_enqueue_style( 'rank-math-common', rank_math()->plugin_url() . 'assets/admin/css/common.css', null, rank_math()->version );
 		wp_enqueue_style( 'wp-components' );
-		wp_enqueue_style( 'rank-math-editor', rank_math()->plugin_url() . 'assets/admin/css/divi.css', [], rank_math()->version );
+		wp_enqueue_style( 'rank-math-editor', rank_math()->plugin_url() . 'includes/3rdparty/divi/assets/css/divi.css', [], rank_math()->version );
 
 		wp_register_script( 'rank-math-analyzer', rank_math()->plugin_url() . 'assets/admin/js/analyzer.js', null, rank_math()->version, true );
-		wp_enqueue_script( 'rank-math-editor', rank_math()->plugin_url() . 'assets/admin/js/divi.js', $divi_deps, rank_math()->version, true );
-		wp_enqueue_script( 'rank-math-divi-iframe', rank_math()->plugin_url() . 'assets/admin/js/divi-iframe.js', [ 'jquery', 'lodash' ], rank_math()->version, true );
+		wp_enqueue_script( 'rank-math-editor', rank_math()->plugin_url() . 'includes/3rdparty/divi/assets/js/divi.js', $divi_deps, rank_math()->version, true );
+		wp_enqueue_script( 'rank-math-divi-iframe', rank_math()->plugin_url() . 'includes/3rdparty/divi/assets/js/divi-iframe.js', [ 'jquery', 'lodash' ], rank_math()->version, true );
 
 		if ( Helper::is_module_active( 'rich-snippet' ) ) {
 			wp_enqueue_style( 'rank-math-schema', rank_math()->plugin_url() . 'includes/modules/schema/assets/css/schema.css', [ 'wp-components' ], rank_math()->version );
@@ -209,7 +228,7 @@ class Divi {
 		/**
 		 * Allow other plugins to enqueue/dequeue admin styles or scripts after plugin assets.
 		 */
-		$this->do_action( 'admin/editor_scripts' );
+		$this->do_action( 'admin/editor_scripts', $this->screen );
 	}
 
 	/**
@@ -333,5 +352,19 @@ class Divi {
 		];
 
 		return $schemas;
+	}
+
+	/**
+	 * Ensures required dependencies are loaded when toolbar is hidden.
+	 *
+	 * @return void
+	 */
+	private function maybe_load_editor_deps() {
+		if ( is_admin_bar_showing() ) {
+			return;
+		}
+
+		Helper::add_json( 'security', wp_create_nonce( 'rank-math-ajax-nonce' ) );
+		Helper::add_json( 'restNonce', ( wp_installing() && ! is_multisite() ) ? '' : wp_create_nonce( 'wp_rest' ) );
 	}
 }

@@ -17,8 +17,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 
 		/**
 		 * Allowed filter types.
-		 *
-		 * @return array
 		 */
 		public function filter_types() {
 
@@ -34,14 +32,61 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 			}
 
 			return $result;
+		}
 
+		/**
+		 * Returns post types list for options
+		 */
+		public function get_post_types_for_options() {
+
+			$args = array(
+				'public' => true,
+			);
+
+			$post_types = get_post_types( $args, 'objects', 'and' );
+			$post_types = wp_list_pluck( $post_types, 'label', 'name' );
+
+			if ( isset( $post_types[ jet_smart_filters()->post_type->slug() ] ) ) {
+				unset( $post_types[jet_smart_filters()->post_type->slug()] );
+			}
+
+			return $post_types;
+		}
+
+		/**
+		 * Get taxonomies list for options.
+		 */
+		public function get_taxonomies_for_options() {
+
+			$taxonomies         = get_taxonomies( array(), 'objects', 'and' );
+			$options_taxonomies = wp_list_pluck( $taxonomies, 'label', 'name' );
+
+			return $options_taxonomies;
+		}
+
+		/**
+		 * Get sitepath.
+		 */
+		public function get_sitepath() {
+
+			$parsed_home_url = wp_parse_url( home_url() );
+
+			return array_key_exists( 'path', $parsed_home_url ) ? $parsed_home_url['path'] : '';
+		}
+
+		/**
+		 * Get baseurl.
+		 */
+		public function get_baseurl() {
+
+			$baseurl        = preg_replace( '/\bjsf[\/|=].*/', '', $_SERVER['REQUEST_URI'], 1 );
+			$parsed_baseurl = wp_parse_url( $baseurl );
+
+			return rtrim( array_key_exists( 'path', $parsed_baseurl ) ? $parsed_baseurl['path'] : $baseurl, '/' ) . '/';
 		}
 
 		/**
 		 * Return information about compare data by label
-		 *
-		 * @param  [type] $label [description]
-		 * @return [type]        [description]
 		 */
 		public function parse_comapre_label( $label ) {
 
@@ -88,13 +133,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 			}
 
 			return $result;
-
 		}
 
 		/**
 		 * Returns provider selectors list
-		 *
-		 * @return array
 		 */
 		public function get_provider_selectors() {
 
@@ -109,20 +151,28 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 						'inDepth'  => $provider->in_depth(),
 						'idPrefix' => $provider->id_prefix(),
 					);
+
+					$list = $provider->get_list_selector();
+					if ( $list ) {
+						$result[ $provider_id ]['list'] = $list;
+					}
+
+					$item = $provider->get_item_selector();
+					if ( $item ) {
+						$result[ $provider_id ]['item'] = $item;
+					}
 				}
 			}
 
 			return $result;
-
 		}
 
 		/**
 		 * Find choices for filter from field data
-		 *
-		 * @param  array  $args [description]
-		 * @return [type]       [description]
 		 */
 		public function get_choices_from_field_data( $args = array() ) {
+
+			$result = array();
 
 			$args = wp_parse_args( $args, array(
 				'field_key' => false,
@@ -130,10 +180,11 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 			) );
 
 			if ( empty( $args['field_key'] ) ) {
-				return array();
+				return $result;
 			}
 
-			$result = array();
+			// trimming accidentally entered spaces in the key field
+			$args['field_key'] = trim( $args['field_key'] );
 
 			switch ( $args['source'] ) {
 				case 'acf':
@@ -167,32 +218,36 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 						}
 					}
 
-					if ( empty( $found_field['options'] ) ) {
-						return $result;
+					if ( ! empty( $found_field['options'] ) ) {
+						foreach ( $found_field['options'] as $option ) {
+							$label                  = apply_filters( 'jet-engine/compatibility/translate-string', $option['value'] );
+							$result[$option['key']] = $label;
+						}
 					}
 
-					foreach ( $found_field['options'] as $option ) {
-						$result[ $option['key'] ] = $option['value'];
+					if ( isset( $found_field['options_source'] ) && $found_field['options_source'] === 'manual_bulk' && ! empty( $found_field['bulk_options'] ) ) {
+						$bulk_options = explode( PHP_EOL, $found_field['bulk_options'] );
+
+						$result = array();
+
+						foreach ( $bulk_options as $option ) {
+							$parsed_option             = explode( '::', trim( $option ) );
+							$result[$parsed_option[0]] = isset( $parsed_option[1] ) ? $parsed_option[1] : $parsed_option[0];
+						}
 					}
 
 					return $result;
 			}
-
 		}
 
 		/**
 		 * Find choices for filter from custom content types
-		 *
-		 * @param  String $field_key [description]
-		 * @return [type]            [description]
 		 */
 		public function get_choices_from_cct_data( $field_key ) {
 
 			$result             = array();
 			$found_field        = null;
 			$all_content_types  = jet_engine()->modules->get_module( 'custom-content-types' )->instance->manager->get_content_types();
-
-
 
 			foreach ( $all_content_types as $content_type ) {
 				$content_type_fields = property_exists( $content_type, 'fields' ) ? $content_type->fields : array();
@@ -204,22 +259,28 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 				}
 			}
 
-			if ( empty( $found_field['options'] ) ) {
-				return $result;
+			if ( ! empty( $found_field['options'] ) ) {
+				foreach ( $found_field['options'] as $option ) {
+					$result[ $option['key'] ] = $option['value'];
+				}
 			}
 
-			foreach ( $found_field['options'] as $option ) {
-				$result[ $option['key'] ] = $option['value'];
+			if ( isset( $found_field['options_source'] ) && $found_field['options_source'] === 'manual_bulk' && ! empty( $found_field['bulk_options'] ) ) {
+				$bulk_options = explode( PHP_EOL, $found_field['bulk_options'] );
+
+				$result = array();
+
+				foreach ( $bulk_options as $option ) {
+					$parsed_option             = explode( '::', trim( $option ) );
+					$result[$parsed_option[0]] = isset( $parsed_option[1] ) ? $parsed_option[1] : $parsed_option[0];
+				}
 			}
 
 			return $result;
-
 		}
 
 		/**
 		 * Retrun regitered content providers
-		 *
-		 * @return array
 		 */
 		public function content_providers() {
 
@@ -233,13 +294,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 			}
 
 			return $result;
-
 		}
 
 		/**
 		 * Retrun filters by passed type
-		 *
-		 * @return array
 		 */
 		public function get_filters_by_type( $type = null ) {
 
@@ -265,15 +323,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 			}
 
 			return wp_list_pluck( $filters, 'post_title', 'ID' );
-
 		}
 
 		/**
 		 * Returns terms objects list
-		 *
-		 * @param  [type]  $tax              [description]
-		 * @param  boolean $child_of_current [description]
-		 * @return [type]                    [description]
 		 */
 		public function get_terms_objects( $tax = null, $child_of_current = false, $custom_args = array() ) {
 
@@ -299,15 +352,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 				$tax,
 				$child_of_current
 			);
-
 		}
 
 		/**
 		 * Get terms of passed taxonomy for checkbox/select/radio options
-		 *
-		 * @param  [type]  $tax              [description]
-		 * @param  boolean $child_of_current [description]
-		 * @return [type]                    [description]
 		 */
 		public function get_terms_for_options( $tax = null, $child_of_current = false, $custom_args = array() ) {
 
@@ -320,18 +368,14 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 				$tax,
 				$child_of_current
 			);
-
 		}
 
 		/**
 		 * Prepare repeater options fields
-		 *
-		 * @param  [type] $options [description]
-		 * @return [type]          [description]
 		 */
 		public function maybe_parse_repeater_options( $options ) {
 
-			if ( empty( $options ) ) {
+			if ( ! is_array( $options ) || empty( $options ) ) {
 				return array();
 			}
 
@@ -356,17 +400,10 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 			}
 
 			return $result;
-
 		}
 
 		/**
 		 * Exclude or include items in options list
-		 *
-		 * @param $use_exclude_include
-		 * @param $exclude_include_options
-		 * @param $options
-		 *
-		 * @return array
 		 */
 		public function maybe_include_exclude_options( $use_exclude_include, $exclude_include_options, $options ) {
 
@@ -408,9 +445,18 @@ if ( ! class_exists( 'Jet_Smart_Filters_Data' ) ) {
 			}
 
 			return $options;
-
 		}
 
-	}
+		/**
+		 * Get tabindex attribute
+		 */
+		public function get_tabindex_attr() {
 
+			$use_tabindex = filter_var( jet_smart_filters()->settings->get( 'use_tabindex', false ), FILTER_VALIDATE_BOOLEAN );
+
+			return $use_tabindex
+				? 'tabindex="0"'
+				: '';
+		}
+	}
 }

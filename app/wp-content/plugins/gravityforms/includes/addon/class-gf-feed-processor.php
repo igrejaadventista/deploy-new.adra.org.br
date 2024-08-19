@@ -4,12 +4,8 @@ if ( ! class_exists( 'GFForms' ) ) {
 	die();
 }
 
-if ( ! class_exists( 'WP_Async_Request' ) ) {
-	require_once( GFCommon::get_base_path() . '/includes/libraries/wp-async-request.php' );
-}
-
 if ( ! class_exists( 'GF_Background_Process' ) ) {
-	require_once( GFCommon::get_base_path() . '/includes/libraries/gf-background-process.php' );
+	require_once GF_PLUGIN_DIR_PATH . 'includes/libraries/gf-background-process.php';
 }
 
 /**
@@ -77,6 +73,11 @@ class GF_Feed_Processor extends GF_Background_Process {
 		$feed      = $item['feed'];
 		$feed_name = rgars( $feed, 'meta/feed_name' ) ? $feed['meta']['feed_name'] : rgars( $feed, 'meta/feedName' );
 
+		$callable = array( is_string( $addon ) ? $addon : get_class( $addon ), 'get_instance' );
+		if ( is_callable( $callable ) ) {
+			$addon = call_user_func( $callable );
+		}
+
 		if ( ! $addon instanceof GFFeedAddOn ) {
 			GFCommon::log_error( __METHOD__ . "(): attempted feed (#{$feed['id']} - {$feed_name}) for entry #{$item['entry_id']} for {$feed['addon_slug']} but add-on could not be found. Bailing." );
 
@@ -112,7 +113,7 @@ class GF_Feed_Processor extends GF_Background_Process {
 		$item = $this->increment_attempts( $item );
 
 		$max_attempts = 1;
-		$form         = GFAPI::get_form( $item['form_id'] );
+		$form         = $this->filter_form( GFAPI::get_form( $item['form_id'] ), $entry );
 
 		/**
 		 * Allow the number of retries to be modified before the feed is abandoned.

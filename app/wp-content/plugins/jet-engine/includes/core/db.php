@@ -182,7 +182,7 @@ if ( ! class_exists( 'Jet_Engine_DB' ) ) {
 		 * @param  [type] $table_name [description]
 		 * @return [type]             [description]
 		 */
-		public static function table_exists( $table_name ) {
+		public static function table_exists( $table_name = '' ) {
 
 			global $wpdb;
 

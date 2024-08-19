@@ -139,7 +139,7 @@ if ( ! class_exists( 'AS3CF_Utils' ) ) {
 		 * @return string
 		 */
 		public static function reduce_url( $url ) {
-			$parts = self::parse_url( $url );
+			$parts = static::parse_url( $url );
 			$host  = isset( $parts['host'] ) ? $parts['host'] : '';
 			$port  = isset( $parts['port'] ) ? ":{$parts['port']}" : '';
 			$path  = isset( $parts['path'] ) ? $parts['path'] : '';
@@ -180,12 +180,12 @@ if ( ! class_exists( 'AS3CF_Utils' ) ) {
 		/**
 		 * Is the string a URL?
 		 *
-		 * @param string $string
+		 * @param mixed $string
 		 *
 		 * @return bool
 		 */
-		public static function is_url( $string ) {
-			if ( ! is_string( $string ) ) {
+		public static function is_url( $string ): bool {
+			if ( empty( $string ) || ! is_string( $string ) ) {
 				return false;
 			}
 
@@ -342,13 +342,16 @@ if ( ! class_exists( 'AS3CF_Utils' ) ) {
 		/**
 		 * Create a site link for given URL.
 		 *
-		 * @param string $url
-		 * @param string $text
+		 * @param string $url   URL for the link
+		 * @param string $text  Text for the link
+		 * @param string $class Optional class to add to link
 		 *
 		 * @return string
 		 */
-		public static function dbrains_link( $url, $text ) {
-			return sprintf( '<a href="%s" target="_blank">%s</a>', esc_url( $url ), esc_html( $text ) );
+		public static function dbrains_link( $url, $text, $class = '' ) {
+			$class = empty( $class ) ? '' : ' class="' . trim( $class ) . '"';
+
+			return sprintf( '<a href="%s"%s target="_blank">%s</a>', esc_url( $url ), $class, esc_html( $text ) );
 		}
 
 		/**
@@ -813,7 +816,7 @@ if ( ! class_exists( 'AS3CF_Utils' ) ) {
 				return $input;
 			}
 
-			$output = preg_replace_callback( '/s:(\d+):"(.*?)";/',
+			$output = preg_replace_callback( '/s:(\d+):"(.*?)"\s?;/',
 				array( __CLASS__, 'fix_serialized_matches' ),
 				$output
 			);
@@ -833,6 +836,113 @@ if ( ! class_exists( 'AS3CF_Utils' ) ) {
 			}
 
 			return $output;
+		}
+
+		/**
+		 * Is the given string a usable URL?
+		 *
+		 * We need URLs that include at least a domain and filename with extension
+		 * for URL rewriting in either direction.
+		 *
+		 * @param mixed $url
+		 *
+		 * @return bool
+		 */
+		public static function usable_url( $url ): bool {
+			if ( ! static::is_url( $url ) ) {
+				return false;
+			}
+
+			$parts = static::parse_url( $url );
+
+			if (
+				empty( $parts['host'] ) ||
+				empty( $parts['path'] ) ||
+				! pathinfo( $parts['path'], PATHINFO_EXTENSION )
+			) {
+				return false;
+			}
+
+			return true;
+		}
+
+		/**
+		 * Join array elements with a string separator, using a separate separator
+		 * for the last element
+		 *
+		 * @param string $separator
+		 * @param string $last_separator
+		 * @param array  $arr
+		 *
+		 * @return string
+		 */
+		public static function human_readable_join( string $separator, string $last_separator, array $arr ): string {
+			if ( count( $arr ) < 2 ) {
+				return join( $separator, $arr );
+			}
+
+			$last = array_pop( $arr );
+
+			return join( $separator, $arr ) . $last_separator . $last;
+		}
+
+		/**
+		 * Get all the blog IDs for the multisite network used for table prefixes.
+		 *
+		 * @return false|array
+		 */
+		public static function get_blog_ids() {
+			if ( ! is_multisite() ) {
+				return false;
+			}
+
+			$args = array(
+				'limit'    => false, // Deprecated
+				'number'   => false, // WordPress 4.6+
+				'spam'     => 0,
+				'deleted'  => 0,
+				'archived' => 0,
+			);
+
+			$blogs    = get_sites( $args );
+			$blog_ids = array();
+
+			foreach ( $blogs as $blog ) {
+				$blog       = (array) $blog;
+				$blog_ids[] = (int) $blog['blog_id'];
+			}
+
+			return $blog_ids;
+		}
+
+		/**
+		 * Get all the table prefixes for the blogs in the site. MS compatible.
+		 *
+		 * @param array $exclude_blog_ids blog ids to exclude
+		 *
+		 * @return array associative array with blog ID as key, prefix as value
+		 */
+		public static function get_all_blog_table_prefixes( array $exclude_blog_ids = array() ): array {
+			global $wpdb;
+			$prefix = $wpdb->prefix;
+
+			$table_prefixes = array();
+
+			if ( ! in_array( 1, $exclude_blog_ids ) ) {
+				$table_prefixes[1] = $prefix;
+			}
+
+			if ( is_multisite() ) {
+				$blog_ids = static::get_blog_ids();
+				foreach ( $blog_ids as $blog_id ) {
+					if ( in_array( $blog_id, $exclude_blog_ids ) ) {
+						continue;
+					}
+					$table_prefixes[ $blog_id ] = $wpdb->get_blog_prefix( $blog_id );
+				}
+			}
+
+			return $table_prefixes;
 		}
 
 		/**
@@ -857,7 +967,7 @@ if ( ! class_exists( 'AS3CF_Utils' ) ) {
 			$broken = false;
 
 			if ( is_serialized( $data ) ) {
-				$value = @unserialize( $data ); // @phpcs:ignore
+				$value = self::maybe_unserialize( $data );
 
 				if ( false === $value && serialize( false ) !== $data ) {
 					$broken = true;
@@ -885,7 +995,7 @@ if ( ! class_exists( 'AS3CF_Utils' ) ) {
 				return false;
 			}
 
-			$pattern    = '/\\\";(s|a|o|i|b|d|})./';
+			$pattern    = '/\\\";(s|a|o|i|b|d|N|})./';
 			$end_quotes = preg_match_all( $pattern, $data, $matches );
 			if ( $end_quotes == 0 ) {
 				return false;
@@ -926,7 +1036,7 @@ if ( ! class_exists( 'AS3CF_Utils' ) ) {
 		 *
 		 * @return bool
 		 */
-		private static function is_json( string $value ): bool {
+		public static function is_json( string $value ): bool {
 			$is_json = false;
 
 			if ( 0 < strlen( trim( $value ) ) && ! is_numeric( $value ) && null !== json_decode( $value ) ) {
@@ -934,6 +1044,21 @@ if ( ! class_exists( 'AS3CF_Utils' ) ) {
 			}
 
 			return $is_json;
+		}
+
+		/**
+		 * Maybe unserialize data, but not if an object.
+		 *
+		 * @param mixed $data
+		 *
+		 * @return mixed
+		 */
+		public static function maybe_unserialize( $data ) {
+			if ( is_serialized( $data ) ) {
+				return @unserialize( $data, array( 'allowed_classes' => false ) ); // @phpcs:ignore
+			}
+
+			return $data;
 		}
 	}
 }

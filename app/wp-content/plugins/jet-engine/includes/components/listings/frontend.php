@@ -19,19 +19,20 @@ if ( ! class_exists( 'Jet_Engine_Frontend' ) ) {
 	 */
 	class Jet_Engine_Frontend {
 
-		private $listing_id = null;
-		private $processed_listing_id = null;
-		private $did_scripts = false;
+		protected $listing_id = null;
+		protected $processed_listing_id = null;
+		protected $did_scripts = false;
 
 		/**
 		 * Constructor for the class
 		 */
 		public function __construct() {
 			$this->register_listing_styles();
-			add_action( 'wp_enqueue_scripts', array( $this, 'register_listing_deps') );
+			add_action( 'wp_enqueue_scripts', array( $this, 'register_listing_deps'), 9 );
 		}
 
 		public function register_listing_deps() {
+			
 			wp_register_script(
 				'jquery-slick',
 				jet_engine()->plugin_url( 'assets/lib/slick/slick.min.js' ),
@@ -39,6 +40,13 @@ if ( ! class_exists( 'Jet_Engine_Frontend' ) ) {
 				'1.8.1',
 				true
 			);
+
+			$this->register_jet_plugins_js();
+
+		}
+
+		public function register_jet_plugins_js() {
+			jet_engine()->register_jet_plugins_js();
 		}
 
 		/**
@@ -73,12 +81,33 @@ if ( ! class_exists( 'Jet_Engine_Frontend' ) ) {
 			wp_enqueue_script(
 				'jet-engine-frontend',
 				jet_engine()->plugin_url( 'assets/js/frontend.js' ),
-				array( 'jquery' ),
+				array( 'jquery', 'jet-plugins' ),
 				jet_engine()->get_version(),
 				true
 			);
 
 			do_action( 'jet-engine/listings/frontend-scripts' );
+
+			$hover_action_timeout = apply_filters( 'jet-engine/map-popup/timeout', 400 ); // deprecated
+			$hover_action_timeout = apply_filters( 'jet-engine/listings/custom-url-actions/hover-timeout', $hover_action_timeout );
+
+			$localize_data = apply_filters( 'jet-engine/listing/frontend/js-settings', array(
+				'ajaxurl'     => esc_url( admin_url( 'admin-ajax.php' ) ),
+				'ajaxlisting' => $this->get_ajax_listing_url(),
+				'restNonce'   => wp_create_nonce( 'wp_rest' ),
+				'hoverActionTimeout' => $hover_action_timeout,
+			) );
+
+			wp_localize_script( 'jet-engine-frontend', 'JetEngineSettings', $localize_data );
+
+		}
+
+		/**
+		 * Get AJAX listing URL
+		  *
+		 * @return string
+		 */
+		public function get_ajax_listing_url( $action = null ) {
 
 			global $wp;
 
@@ -88,18 +117,16 @@ if ( ! class_exists( 'Jet_Engine_Frontend' ) ) {
 				$query .= '?' . $_SERVER['QUERY_STRING'];
 			}
 
-			$ajaxlisting = apply_filters(
+			$query_args = array( 'nocache' => time() );
+
+			if ( $action ) {
+				$query_args['jet_engine_action'] = $action;
+			}
+
+			return apply_filters(
 				'jet-engine/listings/ajax-listing-url',
-				add_query_arg( array( 'nocache' => time() ), home_url( $wp->request . '/' . $query ) )
+				add_query_arg( $query_args, home_url( $wp->request . '/' . $query ) )
 			);
-
-			$localize_data = apply_filters( 'jet-engine/listing/frontend/js-settings', array(
-				'ajaxurl'         => esc_url( admin_url( 'admin-ajax.php' ) ),
-				'ajaxlisting'     => $ajaxlisting,
-				'mapPopupTimeout' => apply_filters( 'jet-engine/map-popup/timeout', 400 ),
-			) );
-
-			wp_localize_script( 'jet-engine-frontend', 'JetEngineSettings', $localize_data );
 
 		}
 
@@ -152,6 +179,31 @@ if ( ! class_exists( 'Jet_Engine_Frontend' ) ) {
 
 		}
 
+		public function ensure_lib( $lib ) {
+
+			$libs = array(
+				'imagesloaded' => 'assets/lib/imagesloaded/imagesloaded.min.js',
+			);
+
+			if ( ! isset( $libs[ $lib ] ) ) {
+				return;
+			}
+
+			if ( ! wp_script_is( $lib, 'registered' ) ) {
+				wp_register_script( 
+					$lib,
+					jet_engine()->plugin_url( $libs[ $lib ] ),
+					array(),
+					jet_engine()->get_version(),
+					true
+				);
+			}
+
+			if ( ! wp_script_is( $lib, 'enqueued' ) ) {
+				wp_enqueue_script( $lib );
+			}
+		}
+
 		/**
 		 * Enqueues masonry assets
 		 *
@@ -159,7 +211,8 @@ if ( ! class_exists( 'Jet_Engine_Frontend' ) ) {
 		 */
 		public function enqueue_masonry_assets() {
 
-			wp_enqueue_script( 'imagesloaded' );
+			$this->ensure_lib( 'imagesloaded' );
+			
 			wp_enqueue_script(
 				'jet-engine-macy',
 				jet_engine()->plugin_url( 'assets/lib/macy/macy.js' ),
@@ -240,17 +293,90 @@ if ( ! class_exists( 'Jet_Engine_Frontend' ) ) {
 				return $content;
 			}
 
-			if ( jet_engine()->blocks_views && jet_engine()->blocks_views->is_blocks_listing( $listing_id ) ) {
-				$content = jet_engine()->blocks_views->render->get_listing_content( $listing_id );
-			} else {
-				if ( jet_engine()->has_elementor() ) {
-					$content = jet_engine()->elementor_views->frontend->get_listing_content( $listing_id );
-				} else {
-					$content = jet_engine()->blocks_views->render->get_listing_content( $listing_id );
+			$listing_view = jet_engine()->listings->data->get_listing_type( $listing_id );
+			$content      = apply_filters( 'jet-engine/listing/content/' . $listing_view, null, $listing_id );
+
+			return $content;
+		}
+
+		public function add_listing_link_to_content( $content, $settings ) {
+
+			if ( empty( $settings ) || empty( $settings['listing_link'] ) ) {
+				return $content;
+			}
+
+			$url = apply_filters_deprecated(
+				'jet-engine/elementor-views/frontend/custom-listing-url',
+				array( false, $settings ),
+				'2.1.5',
+				'jet-engine/listings/frontend/custom-listing-url'
+			);
+
+			$url = apply_filters(
+				'jet-engine/listings/frontend/custom-listing-url',
+				$url,
+				$settings
+			);
+
+			if ( ! $url ) {
+				$source = ! empty( $settings['listing_link_source'] ) ? $settings['listing_link_source'] : '_permalink';
+
+				if ( '_permalink' === $source ) {
+					$url = jet_engine()->listings->data->get_current_object_permalink();
+				} elseif ( 'options_page' === $source ) {
+					$option = ! empty( $settings['listing_link_option'] ) ? $settings['listing_link_option'] : false;
+					$url    = jet_engine()->listings->data->get_option( $option );
+				} elseif ( $source ) {
+					$url = jet_engine()->listings->data->get_meta( $source );
 				}
 			}
 
-			return $content;
+			$prefix = isset( $settings['listing_link_prefix'] ) ? $settings['listing_link_prefix'] : '';
+
+			if ( $prefix ) {
+				$url = $prefix . $url;
+			}
+
+			$overlay_attrs = array(
+				'class'    => 'jet-engine-listing-overlay-wrap',
+				'data-url' => $url,
+			);
+
+			$link_attrs = array(
+				'href'  => $url,
+				'class' => 'jet-engine-listing-overlay-link',
+			);
+
+			$open_in_new = isset( $settings['listing_link_open_in_new'] ) ? $settings['listing_link_open_in_new'] : '';
+			$rel_attr    = isset( $settings['listing_link_rel_attr'] ) ? $settings['listing_link_rel_attr'] : '';
+			$aria_label  = isset( $settings['listing_link_aria_label'] ) ? $settings['listing_link_aria_label'] : '';
+			$link_text   = '';
+
+			if ( $open_in_new ) {
+				$overlay_attrs['data-target'] = '_blank';
+				$link_attrs['target']         = '_blank';
+			}
+
+			if ( $rel_attr ) {
+				$link_attrs['rel'] = $rel_attr;
+			}
+
+			if ( $aria_label ) {
+				$link_attrs['aria-label'] = esc_attr( $aria_label );
+				$link_text = esc_html( $aria_label );
+			}
+
+			$overlay_attrs = apply_filters( 'jet-engine/listings/frontend/listing-link/overlay-attrs', $overlay_attrs, $settings );
+			$link_attrs    = apply_filters( 'jet-engine/listings/frontend/listing-link/link-attrs', $link_attrs, $settings );
+
+			$link = sprintf( '<a %s>%s</a>', Jet_Engine_Tools::get_attr_string( $link_attrs ), $link_text );
+
+			return sprintf(
+				'<div %3$s>%1$s%2$s</div>',
+				$content,
+				$link,
+				Jet_Engine_Tools::get_attr_string( $overlay_attrs )
+			);
 		}
 
 		/**
@@ -285,7 +411,7 @@ if ( ! class_exists( 'Jet_Engine_Frontend' ) ) {
 				wp_reset_postdata();
 			}
 
-			jet_engine()->listings->data->reset_current_object();
+			//jet_engine()->listings->data->reset_current_object();
 
 		}
 

@@ -6,6 +6,7 @@ use Jet_Engine\Query_Builder\Manager;
 class SQL_Query extends Base_Query {
 
 	public $current_query = null;
+	public $calc_columns = array();
 
 	/**
 	 * Returns queries items
@@ -17,19 +18,39 @@ class SQL_Query extends Base_Query {
 		$sql    = $this->build_sql_query();
 		$result = $this->wpdb()->get_results( $sql );
 
+		$cast_to_class = ! empty( $this->query['cast_object_to'] ) ? $this->query['cast_object_to'] : false;
+
+		if ( $cast_to_class && ( class_exists( $cast_to_class ) || function_exists( $cast_to_class ) ) ) {
+			$result = array_map( function( $item ) use ( $cast_to_class ) {
+				
+				if ( class_exists( $cast_to_class ) ) {
+					return new $cast_to_class( $item );
+				} elseif ( function_exists( $cast_to_class ) ) {
+					return call_user_func( $cast_to_class, $item );
+				} else {
+					return $item;
+				}
+				
+			}, $result );
+		} else {
+			$start_index = $this->get_start_item_index_on_page() - 1;
+
+			$result = array_map( function( $item, $index ) use ( $start_index ) {
+				$item->sql_query_item_id = $this->id . '-' . ( $start_index + $index );
+				return $item;
+			}, $result, array_keys( $result ) );
+		}
+
 		return $result;
 
 	}
 
 	public function get_current_items_page() {
 
-		$offset = ! empty( $this->final_query['offset'] ) ? absint( $this->final_query['offset'] ) : 0;
-		$per_page = $this->get_items_per_page();
-
-		if ( ! $offset || ! $per_page ) {
+		if ( empty( $this->final_query['_page'] ) ) {
 			return 1;
 		} else {
-			return ceil( $offset / $per_page ) + 1;
+			return absint( $this->final_query['_page'] );
 		}
 
 	}
@@ -87,7 +108,24 @@ class SQL_Query extends Base_Query {
 	 * @return [type] [description]
 	 */
 	public function get_items_page_count() {
-		return $this->get_items_total_count();
+		$result   = $this->get_items_total_count();
+		$per_page = $this->get_items_per_page();
+
+		if ( $per_page < $result ) {
+
+			$page  = $this->get_current_items_page();
+			$pages = $this->get_items_pages_count();
+
+			if ( $page < $pages ) {
+				$result = $per_page;
+			} elseif ( $page == $pages ) {
+				$offset = ( $page - 1 ) * $per_page;
+				$result = $result - $offset;
+			}
+
+		}
+
+		return $result;
 	}
 
 	public function set_filtered_prop( $prop = '', $value = null ) {
@@ -99,8 +137,7 @@ class SQL_Query extends Base_Query {
 				$page = absint( $value );
 
 				if ( 0 < $page ) {
-					$offset = ( $page - 1 ) * $this->get_items_per_page();
-					$this->final_query['offset'] = $offset;
+					$this->final_query['_page']  = $page;
 				}
 
 				break;
@@ -125,20 +162,45 @@ class SQL_Query extends Base_Query {
 
 				foreach ( $value as $row ) {
 
-					$prepared_row = array(
-						'column'  => ! empty( $row['key'] ) ? $row['key'] : false,
-						'compare' => ! empty( $row['compare'] ) ? $row['compare'] : '=',
-						'value'   => ! empty( $row['value'] ) ? $row['value'] : '',
-						'type'    => ! empty( $row['type'] ) ? $row['type'] : false,
-					);
-
-					$this->update_where_row( $prepared_row );
+					$this->update_where_row( $this->prepare_where_row( $row ) );
 
 				}
 
 				break;
 		}
 
+	}
+
+	/**
+	 * Prepare where arguments row.
+	 *
+	 * @param  array $row
+	 * @return array
+	 */
+	public function prepare_where_row( $row ) {
+
+		if ( ! empty( $row['relation'] ) ) {
+
+			$prepared_row = array(
+				'relation' => $row['relation'],
+			);
+
+			unset( $row['relation'] );
+
+			foreach ( $row as $inner_row ) {
+				$prepared_row[] = $this->prepare_where_row( $inner_row );
+			}
+
+		} else {
+			$prepared_row = array(
+				'column'  => ! empty( $row['key'] ) ? $row['key'] : false,
+				'compare' => ! empty( $row['compare'] ) ? $row['compare'] : '=',
+				'value'   => ! empty( $row['value'] ) ? $row['value'] : '',
+				'type'    => ! empty( $row['type'] ) ? $row['type'] : false,
+			);
+		}
+
+		return $prepared_row;
 	}
 
 	public function set_filtered_order( $key, $value ) {
@@ -162,7 +224,11 @@ class SQL_Query extends Base_Query {
 		}
 
 		foreach ( $this->final_query['where'] as $index => $existing_row ) {
-			if ( $existing_row['column'] === $row['column'] && $existing_row['compare'] === $row['compare'] ) {
+			if ( isset( $existing_row['column'] )
+				 && isset( $row['column'] )
+				 && $existing_row['column'] === $row['column']
+				 && $existing_row['compare'] === $row['compare']
+			) {
 				$this->final_query['where'][ $index ] = $row;
 				return;
 			}
@@ -219,6 +285,7 @@ class SQL_Query extends Base_Query {
 		$advanced_query = $this->get_advanced_query();
 
 		if ( $advanced_query ) {
+			$sql = rtrim( $sql );
 			$sql = rtrim( $sql, ';' );
 			$sql = 'SELECT ' . $select . ' FROM ( ' . $sql . ' ) AS advanced_query_result;';
 			return round( $this->wpdb()->get_var( $sql ), $decimal_count );
@@ -296,7 +363,7 @@ class SQL_Query extends Base_Query {
 		}
 
 		if ( $is_count ) {
-			$query = $this->final_query['count_query'];
+			$query = ! empty( $this->final_query['count_query'] ) ? $this->final_query['count_query'] : false;
 
 			if ( ! $query ) {
 				return 'nosql';
@@ -335,7 +402,7 @@ class SQL_Query extends Base_Query {
 
 		$select_query = "SELECT ";
 
-		if ( $is_count && ! $this->is_grouped() ) {
+		if ( $is_count && ! $this->is_grouped() && empty( $this->final_query['limit'] ) ) {
 			$select_query .= " COUNT(*) ";
 		} else {
 
@@ -349,8 +416,26 @@ class SQL_Query extends Base_Query {
 
 			if ( ! empty( $this->final_query['include_calc'] ) && ! empty( $this->final_query['calc_cols'] ) ) {
 				foreach ( $this->final_query['calc_cols'] as $col ) {
-					$prepared_col = sprintf( '%1$s(%2$s)', $col['function'], $col['column'] );
-					$implode[] = $prepared_col . " AS '" . $prepared_col . "'";
+
+					if ( empty( $col['column'] ) ) {
+						continue;
+					}
+
+					$col_func = ! empty( $col['function'] ) ? $col['function'] : '';
+
+					if ( 'custom' === $col_func ) {
+						$custom_col      = ! empty( $col['custom_col'] ) ? $col['custom_col'] : '%1$s';
+						$prepared_col    = str_replace( '%1$s', $col['column'], $custom_col );
+						$prepared_col    = jet_engine()->listings->macros->do_macros( $prepared_col );
+						$prepared_col_as = sprintf( '%1$s(%2$s)', $col_func, $col['column'] );
+					} else {
+						$prepared_col    = sprintf( '%1$s(%2$s)', $col_func, $col['column'] );
+						$prepared_col_as = $prepared_col;
+					}
+
+					$implode[] = $prepared_col . " AS '" . $prepared_col_as . "'";
+
+					$this->calc_columns[] = $prepared_col_as;
 				}
 			}
 
@@ -392,7 +477,11 @@ class SQL_Query extends Base_Query {
 					$base_col    = $table['on_base'];
 					$current_col = $table['on_current'];
 
-					$current_query .= "$type $join_table AS $as_table ON $raw_table.$base_col = $as_table.$current_col ";
+					if ( false === strpos( $base_col, '.' ) ) {
+						$base_col = $raw_table . '.' . $base_col;
+					}
+
+					$current_query .= "$type $join_table AS $as_table ON $base_col = $as_table.$current_col ";
 
 				}
 			}
@@ -405,7 +494,13 @@ class SQL_Query extends Base_Query {
 					$where[] = $row;
 				}
 
-				$current_query .= $this->add_where_args( $where );
+				$where_relation = 'AND';
+
+				if ( ! empty( $this->final_query['where_relation'] ) && count( $where ) > 1 ) {
+					$where_relation = strtoupper( $this->final_query['where_relation'] );
+				}
+
+				$current_query .= $this->add_where_args( $where, $where_relation );
 			}
 
 			if ( ! empty( $this->final_query['group_results'] ) && ! empty( $this->final_query['group_by'] ) ) {
@@ -418,6 +513,11 @@ class SQL_Query extends Base_Query {
 				$current_query .= " ";
 
 				foreach ( $this->final_query['orderby'] as $row ) {
+
+					if ( empty( $row['orderby'] ) ) {
+						continue;
+					}
+
 					$row['column'] = $row['orderby'];
 					$orderby[] = $row;
 				}
@@ -434,12 +534,26 @@ class SQL_Query extends Base_Query {
 		if ( ! $is_count ) {
 			$limit = $this->get_items_per_page();
 		} else {
-			$limit = ! empty( $this->final_query['limit'] ) ? absint( $this->final_query['limit'] ) : 0;;
+			$limit = ! empty( $this->final_query['limit'] ) ? absint( $this->final_query['limit'] ) : 0;
 		}
 
 		if ( $limit ) {
 			$limit_offset .= " LIMIT";
 			$offset = ! empty( $this->final_query['offset'] ) ? absint( $this->final_query['offset'] ) : 0;
+
+			if ( ! $is_count && ! empty( $this->final_query['_page'] ) ) {
+				$page    = absint( $this->final_query['_page'] );
+				$pages   = $this->get_items_pages_count();
+				$_offset = ( $page - 1 ) * $this->get_items_per_page();
+				$offset  = $offset + $_offset;
+
+				// Fixed the following issue:
+				// The last page has an incorrect number of posts if the `Total Query Limit` number
+				// is not a multiple of the `Per Page Limit` number.
+				if ( $page == $pages ) {
+					$limit = $this->get_items_total_count() - $_offset;
+				}
+			}
 
 			if ( $offset ) {
 				$limit_offset .= " $offset, $limit";
@@ -455,7 +569,7 @@ class SQL_Query extends Base_Query {
 			$is_count
 		);
 
-		if ( $is_count && $this->is_grouped() ) {
+		if ( $is_count && ( $this->is_grouped() || ! empty( $this->final_query['limit'] ) ) ) {
 			$result = $this->wrap_grouped_query( 'COUNT(*)', $result );
 		}
 
@@ -477,18 +591,30 @@ class SQL_Query extends Base_Query {
 	 */
 	public function add_order_args( $args = array() ) {
 
-		$query = "ORDER BY ";
-		$glue  = ' ';
+		$query = '';
+		$glue  = '';
 
 		foreach ( $args as $arg ) {
 
-			$column = $arg['column'];
-			$type   = $arg['type'];
-			$order  = $arg['order'];
+			if ( in_array( $arg['column'], $this->calc_columns ) ) {
+				$column = sprintf( '`%s`', $arg['column'] );
+			} else {
+				// Sanitize SQL `column name` string to prevent SQL injection.
+				// See: https://github.com/Crocoblock/issues-tracker/issues/5251
+				$column = \Jet_Engine_Tools::sanitize_sql_orderby( $arg['column'] );
+			}
+
+			$type   = ! empty( $arg['type'] ) ? $arg['type'] : 'CHAR';
+			$order  = ! empty( $arg['order'] ) ? strtoupper( $arg['order'] ) : 'DESC';
+			$order  = in_array( $order, array( 'ASC', 'DESC' ) ) ? $order : 'DESC';
+
+			if ( ! $column ) {
+				continue;
+			}
 
 			$query .= $glue;
 
-			switch ( $arg['type'] ) {
+			switch ( $type ) {
 				case 'NUMERIC':
 				case 'DECIMAL':
 					$query .= "CAST( $column as DECIMAL )";
@@ -507,6 +633,10 @@ class SQL_Query extends Base_Query {
 			$query .= $order;
 
 			$glue = ", ";
+		}
+
+		if ( $query ) {
+			$query  = "ORDER BY " . $query;
 		}
 
 		return $query;
@@ -571,19 +701,33 @@ class SQL_Query extends Base_Query {
 
 			foreach ( $args as $key => $arg ) {
 
-				if ( is_array( $arg ) && isset( $arg['column'] ) ) {
-					$column  = ! empty( $arg['column'] ) ? $arg['column'] : false;
-					$compare = ! empty( $arg['compare'] ) ? $arg['compare'] : '=';
-					$value   = ! empty( $arg['value'] ) ? $arg['value'] : '';
-					$type    = ! empty( $arg['type'] ) ? $arg['type'] : false;
-				} else {
-					$column  = $key;
-					$compare = '=';
-					$value   = $arg;
-					$type    = false;
-				}
+				if ( is_array( $arg ) && isset( $arg['relation'] ) ) {
+					$relation = $arg['relation'];
 
-				$clause = $this->prepare_where_clause( $column, $compare, $value, $type );
+					unset( $arg['relation'] );
+
+					$clause = $this->add_where_args( $arg, $relation, false );
+
+					if ( $clause ) {
+						$clause = '( ' . $clause . ' )';
+					}
+
+				} else {
+
+					if ( is_array( $arg ) && isset( $arg['column'] ) ) {
+						$column  = ! empty( $arg['column'] ) ? $arg['column'] : false;
+						$compare = ! empty( $arg['compare'] ) ? $arg['compare'] : '=';
+						$value   = ! empty( $arg['value'] ) ? $arg['value'] : '';
+						$type    = ! empty( $arg['type'] ) ? $arg['type'] : false;
+					} else {
+						$column  = $key;
+						$compare = '=';
+						$value   = $arg;
+						$type    = false;
+					}
+
+					$clause = $this->prepare_where_clause( $column, $compare, $value, $type );
+				}
 
 				if ( $clause ) {
 					$query .= $glue;
@@ -758,8 +902,10 @@ class SQL_Query extends Base_Query {
 				$value = $this->adjust_value_by_type( $value, $type );
 			}
 
-			if ( in_array( $compare, $array_operators ) ) {
+			if ( in_array( $compare, array( 'IN', 'BETWEEN' ) ) ) {
 				$compare = '=';
+			} elseif ( in_array( $compare, array( 'NOT IN', 'NOT BETWEEN' ) ) ) {
+				$compare = '!=';
 			}
 
 		}
@@ -779,7 +925,7 @@ class SQL_Query extends Base_Query {
 
 		$cols = array();
 
-		if ( ! empty( $this->query['include_columns'] ) ) {
+		if ( ! empty( $this->query['include_columns'] ) && empty( $this->final_query['advanced_mode'] ) ) {
 			$cols = $this->query['include_columns'];
 		} elseif ( ! empty( $this->query['default_columns'] ) ) {
 			$cols = $this->query['default_columns'];
@@ -787,7 +933,14 @@ class SQL_Query extends Base_Query {
 
 		if ( ! empty( $this->query['include_calc'] ) && ! empty( $this->query['calc_cols'] ) ) {
 			foreach ( $this->query['calc_cols'] as $col ) {
-				$cols[] = sprintf( '%1$s(%2$s)', $col['function'], $col['column'] );
+
+				if ( empty( $col['column'] ) ) {
+					continue;
+				}
+
+				$col_func = ! empty( $col['function'] ) ? $col['function'] : '';
+
+				$cols[] = sprintf( '%1$s(%2$s)', $col_func, $col['column'] );
 			}
 		}
 
@@ -802,8 +955,24 @@ class SQL_Query extends Base_Query {
 		return $result;
 	}
 
+	public function get_args_to_dynamic() {
+		return array(
+			'manual_query',
+			'count_query',
+		);
+	}
+
 	public function reset_query() {
 		$this->current_query = null;
+	}
+
+	public function before_preview_body() {
+		print_r( $this->wpdb()->last_query . "\n\n" );
+
+		if ( $this->wpdb()->last_error ) {
+			print_r( esc_html__( 'ERROR:' ) . "\n" );
+			print_r( $this->wpdb()->last_error . "\n\n" );
+		}
 	}
 
 }

@@ -65,6 +65,14 @@ if ( ! class_exists( 'Jet_Engine_Modules_Installer' ) ) {
 		 */
 		public function process_module_uninstall() {
 
+			$nonce_action = jet_engine()->dashboard->get_nonce_action();
+
+			if ( empty( $_REQUEST['_nonce'] ) || ! wp_verify_nonce( $_REQUEST['_nonce'], $nonce_action ) ) {
+				wp_send_json_error( array(
+					'message' => __( 'Nonce validation failed', 'jet-engine' ),
+				) );
+			}
+
 			if ( ! current_user_can( 'install_plugins' ) ) {
 				wp_send_json_error( array( 'message' => __( '<b>Error:</b> Access denied', 'jet-engine' ) ) );
 			}
@@ -96,6 +104,14 @@ if ( ! class_exists( 'Jet_Engine_Modules_Installer' ) ) {
 		 */
 		public function process_module_installation() {
 
+			$nonce_action = jet_engine()->dashboard->get_nonce_action();
+
+			if ( empty( $_REQUEST['_nonce'] ) || ! wp_verify_nonce( $_REQUEST['_nonce'], $nonce_action ) ) {
+				wp_send_json_error( array(
+					'message' => __( 'Nonce validation failed', 'jet-engine' ),
+				) );
+			}
+
 			if ( ! current_user_can( 'install_plugins' ) ) {
 				wp_send_json_error( array( 'message' => __( '<b>Error:</b> Access denied', 'jet-engine' ) ) );
 			}
@@ -107,31 +123,13 @@ if ( ! class_exists( 'Jet_Engine_Modules_Installer' ) ) {
 			}
 
 			$slug        = $module['value'];
-			$plugin_url  = $this->get_plugin_url( $slug );
 			$plugin_file = ! empty( $module['plugin_data']['file'] ) ? $module['plugin_data']['file'] : false;
 
-			if ( ! $plugin_file ) {
-				wp_send_json_error( array( 'message' => __( '<b>Error:</b> Plugin data not found in the request', 'jet-engine' ) ) );
+			$result = $this->install_and_activate_module( $slug, $plugin_file );
+
+			if ( false === $result['success'] ) {
+				wp_send_json_error( array( 'message' => $message ) );
 			}
-
-			add_filter( 'http_request_args', array( $this, 'allow_unsafe_urls' ) );
-
-			$result   = $this->install_module( $plugin_url );
-			$activate = null;
-
-			if ( ! is_plugin_active( $plugin_file ) ) {
-				$activate = activate_plugin( $plugin_file );
-			}
-
-			if ( ! $result['success'] && is_wp_error( $activate ) ) {
-				wp_send_json_error( array( 'message' => __( '<b>Error:</b> ', 'jet-engine' ) . $result['message'] . ' <br><b>' . __( 'Please make sure your license key is activated and valid!', 'jet-engine' ) . ' <a href="' . admin_url( 'admin.php?page=jet-dashboard-license-page&subpage=license-manager' ) . '" target="_blank">' . __( 'Check it here', 'jet-engine' ) . '</a></b>' ) );
-			}
-
-			if ( is_wp_error( $activate ) ) {
-				wp_send_json_error( array( 'message' => __( '<b>Error:</b> ', 'jet-engine' ) . $activate->get_error_message() . ' <br><b>' . __( 'Please make sure your license key is activated and valid!', 'jet-engine' ) . ' <a href="' . admin_url( 'admin.php?page=jet-dashboard-license-page&subpage=license-manager' ) . '" target="_blank">' . __( 'Check it here', 'jet-engine' ) . '</a></b>' ) );
-			}
-
-			jet_engine()->modules->activate_module( $slug );
 
 			$module_instanse = jet_engine()->modules->get_module( $slug );
 
@@ -156,6 +154,46 @@ if ( ! class_exists( 'Jet_Engine_Modules_Installer' ) ) {
 			}
 
 			wp_send_json_success( array( 'message' => $message, 'actions' => $actions ) );
+
+		}
+
+		public function install_and_activate_module( $slug, $plugin_file = '' ) {
+
+			$plugin_url = $this->get_plugin_url( $slug );
+
+			if ( ! $plugin_file ) {
+				return array(
+					'success' => false,
+					'message' => __( '<b>Error:</b> Plugin data not found in the request', 'jet-engine' ) 
+				);
+			}
+
+			add_filter( 'http_request_args', array( $this, 'allow_unsafe_urls' ) );
+
+			$result   = $this->install_module( $plugin_url );
+			$activate = null;
+
+			if ( ! is_plugin_active( $plugin_file ) ) {
+				$activate = activate_plugin( $plugin_file );
+			}
+
+			if ( ! $result['success'] && is_wp_error( $activate ) ) {
+				return array(
+					'success' => false,
+					'message' => __( '<b>Error:</b> ', 'jet-engine' ) . $result['message'] . ' <br><b>' . __( 'Please make sure your license key is activated and valid!', 'jet-engine' ) . ' <a href="' . admin_url( 'admin.php?page=jet-dashboard-license-page&subpage=license-manager' ) . '" target="_blank">' . __( 'Check it here', 'jet-engine' ) . '</a></b>' 
+				);
+			}
+
+			if ( is_wp_error( $activate ) ) {
+				return array(
+					'success' => false,
+					'message' => __( '<b>Error:</b> ', 'jet-engine' ) . $activate->get_error_message() . ' <br><b>' . __( 'Please make sure your license key is activated and valid!', 'jet-engine' ) . ' <a href="' . admin_url( 'admin.php?page=jet-dashboard-license-page&subpage=license-manager' ) . '" target="_blank">' . __( 'Check it here', 'jet-engine' ) . '</a></b>'
+				);
+			}
+
+			jet_engine()->modules->activate_module( $slug );
+
+			return array( 'success' => true );
 
 		}
 

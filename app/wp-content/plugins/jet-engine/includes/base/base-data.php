@@ -98,7 +98,10 @@ if ( ! class_exists( 'Jet_Engine_Base_Data' ) ) {
 			}
 
 			$item = $this->sanitize_item_from_request();
-			$id   = $this->update_item_in_db( $item );
+
+			$this->before_item_update( $item, true );
+
+			$id = $this->update_item_in_db( $item );
 
 			$this->after_item_update( $item, true );
 
@@ -386,8 +389,10 @@ if ( ! class_exists( 'Jet_Engine_Base_Data' ) ) {
 			foreach ( $meta_fields as $key => $field ) {
 
 				// If name is empty - create it from title, else - santize it
-				if ( empty( $field['name'] ) ) {
+				if ( empty( $field['name'] ) && isset( $field['label'] ) ) {
 					$field['name'] = $this->sanitize_slug( $field['label'] );
+				} elseif ( empty( $field['name'] ) && isset( $field['title'] ) ) {
+					$field['name'] = $this->sanitize_slug( $field['title'] );
 				} else {
 					$field['name'] = $this->sanitize_slug( $field['name'] );
 				}
@@ -402,6 +407,12 @@ if ( ! class_exists( 'Jet_Engine_Base_Data' ) ) {
 					$meta_fields[ $key ]['name'] = '_' . $field['name'];
 				} else {
 					$meta_fields[ $key ]['name'] = $field['name'];
+				}
+
+				// migrate legacy options_from_glossary option to new options_source
+				if ( ! isset( $field['options_source'] ) && ! empty( $field['options_from_glossary'] ) ) {
+					$field['options_source'] = 'glossary';
+					$meta_fields[ $key ] = $field;
 				}
 			}
 
@@ -419,13 +430,22 @@ if ( ! class_exists( 'Jet_Engine_Base_Data' ) ) {
 			return $this->db->query(
 				$this->table,
 				$this->query_args,
-				array( $this, 'filter_item_for_register' )
+				array( $this, '_filter_item_for_register' )
 			);
+
+		}
+		
+		public function _filter_item_for_register( $item ) {
+
+			$result = $this->filter_item_for_register( $item );
+			$result['id'] = $item['id'];
+
+			return $result;
 
 		}
 
 		/**
-		 * Returns blacklisted post types slugs
+		 * Returns blacklisted meta fields slugs
 		 *
 		 * @return array
 		 */
@@ -501,6 +521,8 @@ if ( ! class_exists( 'Jet_Engine_Base_Data' ) ) {
 				'tag-name',
 				'slug',
 				'description',
+				'general',
+				'advanced',
 			);
 		}
 

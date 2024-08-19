@@ -315,6 +315,18 @@ class Jet_Elements_Advanced_Carousel extends Jet_Elements_Base {
 		);
 
 		$this->add_control(
+			'image_lazyload',
+			array(
+				'label'        => esc_html__( 'Lazy Load Images', 'jet-elements' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'label_on'     => esc_html__( 'Yes', 'jet-elements' ),
+				'label_off'    => esc_html__( 'No', 'jet-elements' ),
+				'return_value' => 'true',
+				'default'      => 'true',
+			)
+		);
+
+		$this->add_control(
 			'link_title',
 			array(
 				'label'     => esc_html__( 'Link Title', 'jet-elements' ),
@@ -2214,6 +2226,7 @@ class Jet_Elements_Advanced_Carousel extends Jet_Elements_Base {
 		$settings = $this->get_settings_for_display();
 		$size     = isset( $settings['img_size'] ) ? $settings['img_size'] : 'full';
 		$image    = isset( $this->_processed_item['item_image'] ) ? $this->_processed_item['item_image'] : '';
+		$image_lazyload   = isset( $settings['image_lazyload'] ) ? $settings['image_lazyload'] : 'true';
 
 		if ( ! $image ) {
 			return;
@@ -2229,9 +2242,11 @@ class Jet_Elements_Advanced_Carousel extends Jet_Elements_Base {
 			return;
 		}
 
+		$lazyload = 'true' === $image_lazyload ? 'lazy' : '';
+
 		$alt = esc_attr( Control_Media::get_image_alt( $image ) );
 
-		return sprintf( '<img src="%1$s" class="%2$s" alt="%3$s" loading="lazy">', $url, $class, $alt );
+		return sprintf( '<img src="%1$s" class="%2$s" alt="%3$s" loading="%4$s">', $url, $class, $alt, $lazyload );
 
 	}
 

@@ -10,8 +10,7 @@ if ( ! defined( 'ABSPATH' ) )
  */
 class Cookie_Notice_Frontend {
 
-	private $is_bot = false;
-	private $hide_banner = false;
+	private $compliance = false;
 
 	/**
 	 * Class constructor.
@@ -19,119 +18,252 @@ class Cookie_Notice_Frontend {
 	 * @return void
 	 */
 	public function __construct() {
-		// actions
-		add_action( 'init', [ $this, 'init' ] );
+		// general actions
+		add_action( 'init', [ $this, 'early_init' ], 9 );
+		add_action( 'wp', [ $this, 'init' ] );
+		add_action( 'wp_head', [ $this, 'wp_print_header_scripts' ] );
+		add_action( 'wp_print_footer_scripts', [ $this, 'wp_print_footer_scripts' ] );
+
+		// compliance actions
+		add_action( 'wp_head', [ $this, 'add_dns_prefetch' ], -1 );
+		add_action( 'wp_head', [ $this, 'add_cookie_compliance' ], 0 );
+
+		// notice actions
+		add_action( 'wp_footer', [ $this, 'add_cookie_notice' ], 1000 );
+		add_action( 'wp_enqueue_scripts', [ $this, 'wp_enqueue_notice_scripts' ] );
+
+		// filters
+		add_filter( 'body_class', [ $this, 'change_body_class' ] );
 	}
 
 	/**
-	 * Initialize frontend.
-	 *
-	 * @global string $pagenow
+	 * Early initialization.
 	 *
 	 * @return void
 	 */
-	public function init() {
-		// purge cache
-		if ( isset( $_GET['hu_purge_cache'] ) )
-			$this->purge_cache();
+	public function early_init() {
+		// get main instance
+		$cn = Cookie_Notice();
 
-		// is it preview mode?
-		$this->preview_mode = isset( $_GET['cn_preview_mode'] );
+		// set compliance status
+		$this->compliance = (bool) ( $cn->get_status() === 'active' );
 
-		// is it a bot?
-		$this->is_bot = Cookie_Notice()->bot_detect->is_crawler();
+		// cookie compliance initialization
+		if ( $this->compliance ) {
+			// amp compatibility
+			if ( $cn->options['general']['amp_support'] && cn_is_plugin_active( 'amp' ) )
+				include_once( COOKIE_NOTICE_PATH . 'includes/modules/amp/amp.php' );
 
-		// is user logged in and hiding the banner is enabled
-		$this->hide_banner = is_user_logged_in() && Cookie_Notice()->options['general']['hide_banner'] === true;
+			// is caching compatibility active?
+			if ( $cn->options['general']['caching_compatibility'] ) {
+				// litespeed cache compatibility
+				if ( cn_is_plugin_active( 'litespeed' ) )
+					include_once( COOKIE_NOTICE_PATH . 'includes/modules/litespeed-cache/litespeed-cache.php' );
 
-		global $pagenow;
-
-		// bail if in preview mode or it's a bot request
-		if ( ! $this->preview_mode && ! $this->is_bot && ! $this->hide_banner && ! ( is_admin() && $pagenow === 'widgets.php' && isset( $_GET['legacy-widget-preview'] ) ) ) {
-			// init cookie compliance
-			if ( Cookie_Notice()->get_status() === 'active' ) {
-				add_action( 'send_headers', [ $this, 'add_compliance_http_header' ] );
-				add_action( 'wp_head', [ $this, 'add_cookie_compliance' ], 0 );
-
-				// contact form 7 5.1+ recaptcha v3 compatibility
-				if ( class_exists( 'WPCF7' ) && class_exists( 'WPCF7_RECAPTCHA' ) && defined( 'WPCF7_VERSION' ) && version_compare( WPCF7_VERSION, '5.1', '>=' ) ) {
-					$service = WPCF7_RECAPTCHA::get_instance();
-
-					if ( $service->is_active() )
-						add_action( 'wp_enqueue_scripts', [ $this, 'contact_form_7_recaptcha' ], 21 );
-				}
-			// init cookie notice
-			} else {
-				// actions
-				add_action( 'wp_enqueue_scripts', [ $this, 'wp_enqueue_notice_scripts' ] );
-				add_filter( 'script_loader_tag', [ $this, 'wp_enqueue_script_async' ], 10, 3 );
-				add_action( 'wp_head', [ $this, 'wp_print_header_scripts' ] );
-				add_action( 'wp_print_footer_scripts', [ $this, 'wp_print_footer_scripts' ] );
-				add_action( 'wp_footer', [ $this, 'add_cookie_notice' ], 1000 );
-
-				// filters
-				add_filter( 'body_class', [ $this, 'change_body_class' ] );
+				// wp rocket compatibility
+				if ( cn_is_plugin_active( 'wprocket' ) )
+					include_once( COOKIE_NOTICE_PATH . 'includes/modules/wp-rocket/wp-rocket.php' );
 			}
 		}
 	}
 
 	/**
-	 * Replace original recaptcha script from Contact Form 7.
+	 * Initialize plugin.
 	 *
 	 * @return void
 	 */
-	public function contact_form_7_recaptcha() {
-		// deregister original script
-		wp_deregister_script( 'wpcf7-recaptcha' );
+	public function init() {
+		if ( is_admin() )
+			return;
 
-		$service = WPCF7_RECAPTCHA::get_instance();
+		// purge cache
+		if ( isset( $_GET['hu_purge_cache'] ) )
+			$this->purge_cache();
 
-		// register new script
-		wp_register_script(
-			'wpcf7-recaptcha',
-			COOKIE_NOTICE_URL . '/includes/modules/contact-form-7/recaptcha.js',
-			[
-				'google-recaptcha',
-				'wp-polyfill',
-			],
-			WPCF7_VERSION,
-			true
-		);
+		// get main instance
+		$cn = Cookie_Notice();
 
-		wp_enqueue_script( 'wpcf7-recaptcha' );
+		// compatibility fixes
+		if ( $this->compliance ) {
+			// is caching compatibility active?
+			if ( $cn->options['general']['caching_compatibility'] ) {
+				// autoptimize compatibility
+				if ( cn_is_plugin_active( 'autoptimize' ) )
+					include_once( COOKIE_NOTICE_PATH . 'includes/modules/autoptimize/autoptimize.php' );
+			}
 
-		wp_localize_script(
-			'wpcf7-recaptcha',
-			'wpcf7_recaptcha',
-			[
-				'sitekey'	=> $service->get_sitekey(),
-				'actions'	=> apply_filters(
-					'wpcf7_recaptcha_actions',
-					[
-						'homepage'		=> 'homepage',
-						'contactform'	=> 'contactform'
-					]
-				)
-			]
-		);
+			// is blocking active?
+			if ( $cn->options['general']['app_blocking'] ) {
+				// contact form 7 compatibility
+				if ( cn_is_plugin_active( 'contactform7' ) )
+					include_once( COOKIE_NOTICE_PATH . 'includes/modules/contact-form-7/contact-form-7.php' );
+			}
+		}
 	}
 
 	/**
-	 * Add CORS header for API requests and purge cache.
+	 * Whether banner is allowed to display.
 	 *
-	 * @return void
+	 * @param array $args
+	 * @return bool
 	 */
-	public function add_compliance_http_header() {
-		header( 'Access-Control-Allow-Origin: ' . Cookie_Notice()->get_url( 'host' ) );
-		header( 'Access-Control-Allow-Methods: GET' );
+	public function maybe_display_banner( $args = [] ) {
+		$defaults = [
+			'skip_amp' => false
+		];
+
+		if ( is_array( $args ) )
+			$args = wp_parse_args( $args, $defaults );
+		else
+			$args = $defaults;
+
+		// get main instance
+		$cn = Cookie_Notice();
+
+		// is cookie compliance active?
+		if ( $this->compliance ) {
+			// elementor compatibility, needed early for is_preview_mode
+			if ( cn_is_plugin_active( 'elementor' ) )
+				include_once( COOKIE_NOTICE_PATH . 'includes/modules/elementor/elementor.php' );
+		}
+
+		// is it preview mode?
+		if ( $this->is_preview_mode() )
+			return false;
+
+		// is bot detection enabled and it's a bot?
+		if ( $cn->options['general']['bot_detection'] && $cn->bot_detect->is_crawler() )
+			return false;
+
+		// check amp
+		if ( ! $args['skip_amp'] ) {
+			if ( $cn->options['general']['amp_support'] && cn_is_plugin_active( 'amp' ) && function_exists( 'amp_is_request' ) && amp_is_request() )
+				return false;
+		}
+
+		// final check for conditional display
+		return $this->check_conditions();
 	}
 
 	/**
-	 * Run Cookie Compliance.
+	 * Whether preview mode is active.
 	 *
-	 * @return void
+	 * @return bool
 	 */
-	public function add_cookie_compliance() {
+	public function is_preview_mode() {
+		return isset( $_GET['cn_preview_mode'] ) || is_preview() || is_customize_preview() || defined( 'IFRAME_REQUEST' ) || ( function_exists( 'wp_is_json_request' ) && wp_is_json_request() ) || apply_filters( 'cn_is_preview_mode', false );
+	}
+
+	/**
+	 * Check whether banner should be displayed based on specified conditions.
+	 *
+	 * @return bool
+	 */
+	public function check_conditions() {
+		// get main instance
+		$cn = Cookie_Notice();
+
+		if ( ! $cn->options['general']['conditional_active'] )
+			return true;
+
+		// get conditions
+		$rules = $cn->options['general']['conditional_rules'];
+
+		// set access type
+		$access_type = $cn->options['general']['conditional_display'] === 'show';
+
+		// get object
+		$object = get_queried_object();
+
+		// no rules?
+		if ( empty( $rules ) )
+			$final_access = true;
+		else {
+			// check the rules
+			foreach( $rules as $index => $group ) {
+				$give_group_access = true;
+
+				foreach ( $group as $rule ) {
+					$give_rule_access = false;
+
+					switch ( $rule['param'] ) {
+						case 'page_type':
+							if ( ( $rule['operator'] === 'equal' && $rule['value'] === 'front' && is_front_page() ) || ( $rule['operator'] === 'not_equal' && $rule['value'] === 'front' && ! is_front_page() ) || ( $rule['operator'] === 'equal' && $rule['value'] === 'home' && is_home() ) || ( $rule['operator'] === 'not_equal' && $rule['value'] === 'home' && ! is_home() ) )
+								$give_rule_access = true;
+							break;
+
+						case 'page':
+							if ( ( $rule['operator'] === 'equal' && ! empty( $object ) && is_a( $object, 'WP_Post' ) && property_exists( $object, 'ID' ) && is_page( $object->ID ) && (int) $object->ID === (int) $rule['value'] ) || ( $rule['operator'] === 'not_equal' && ( empty( $object ) || ! is_page() || ( is_page() && ! empty( $object ) && is_a( $object, 'WP_Post' ) && property_exists( $object, 'ID' ) && $object->ID !== (int) $rule['value'] ) ) ) )
+								$give_rule_access = true;
+							break;
+
+						case 'post_type':
+							if ( ( $rule['operator'] === 'equal' && is_singular( $rule['value'] ) ) || ( $rule['operator'] === 'not_equal' && ! is_singular( $rule['value'] ) ) )
+								$give_rule_access = true;
+							break;
+
+						case 'post_type_archive':
+							if ( ( $rule['operator'] === 'equal' && is_post_type_archive( $rule['value'] ) ) || ( $rule['operator'] === 'not_equal' && ! is_post_type_archive( $rule['value'] ) ) )
+								$give_rule_access = true;
+							break;
+
+						case 'user_type':
+							if ( ( $rule['operator'] === 'equal' && $rule['value'] === 'logged_in' && is_user_logged_in() ) || ( $rule['operator'] === 'equal' && $rule['value'] === 'guest' && ! is_user_logged_in() ) || ( $rule['operator'] === 'not_equal' && $rule['value'] === 'logged_in' && ! is_user_logged_in() ) || ( $rule['operator'] === 'not_equal' && $rule['value'] === 'guest' && is_user_logged_in() ) )
+								$give_rule_access = true;
+							break;
+
+						case 'taxonomy_archive':
+							// check value
+							if ( strpos( $rule['value'], '|' ) !== false ) {
+								// explode it
+								$values = explode( '|', $rule['value'] );
+
+								// 2 chunks?
+								if ( count( $values ) === 2 ) {
+									$term_id = (int) $values[0];
+
+									if ( $values[1] === 'category' && ( ( $rule['operator'] === 'equal' && is_category( $term_id ) ) || ( $rule['operator'] === 'not_equal' && ! is_category( $term_id ) ) ) )
+										$give_rule_access = true;
+									elseif ( $values[1] === 'post_tag' && ( ( $rule['operator'] === 'equal' && is_tag( $term_id ) ) || ( $rule['operator'] === 'not_equal' && ! is_tag( $term_id ) ) ) )
+										$give_rule_access = true;
+									elseif ( ( $rule['operator'] === 'equal' && is_tax( $values[1], $term_id ) ) || ( $rule['operator'] === 'not_equal' && ! is_tax( $values[1], $term_id ) ) )
+										$give_rule_access = true;
+								}
+							}
+							break;
+					}
+
+					// condition failed?
+					if ( ! $give_rule_access ) {
+						// group failed
+						$give_group_access = false;
+
+						// finish group checking
+						break;
+					}
+				}
+
+				// whole group successful?
+				if ( $give_group_access ) {
+					// set final access
+					$final_access = $access_type;
+
+					// finish rules checking
+					break;
+				} else
+					$final_access = ! $access_type;
+			}
+		}
+
+		return (bool) apply_filters( 'cn_conditional_display', $final_access, $object );
+	}
+
+	/**
+	 * Get Cookie Compliance options.
+	 *
+	 * @return array
+	 */
+	public function get_cc_options() {
 		// get main instance
 		$cn = Cookie_Notice();
 
@@ -140,31 +272,114 @@ class Cookie_Notice_Frontend {
 		$locale_code = explode( '_', $locale );
 
 		// exceptions, norwegian
-		if ( in_array( $locale_code, [ 'nb', 'nn' ] ) )
-			$locale_code = 'no';
+		if ( is_array( $locale_code ) && in_array( $locale_code[0], [ 'nb', 'nn' ] ) )
+			$locale_code[0] = 'no';
 
 		$options = apply_filters(
 			'cn_cookie_compliance_args',
 			[
 				'appID'				=> $cn->options['general']['app_id'],
 				'currentLanguage'	=> $locale_code[0],
-				'blocking'			=> ( ! is_user_logged_in() ? (bool) $cn->options['general']['app_blocking'] : false ),
-				'globalCookie'		=> ( is_multisite() && $cn->options['general']['global_cookie'] && is_subdomain_install() )
+				'blocking'			=> ! is_user_logged_in() ? $cn->options['general']['app_blocking'] : false,
+				'globalCookie'		=> is_multisite() && $cn->options['general']['global_cookie'] && is_subdomain_install()
 			]
 		);
 
+		// get config timestamp
+		if ( is_multisite() && $cn->is_plugin_network_active() && $cn->network_options['global_override'] )
+			$timestamp = (int) get_site_transient( 'cookie_notice_config_update' );
+		else
+			$timestamp = (int) get_transient( 'cookie_notice_config_update' );
+
+		// update config?
+		if ( $timestamp > 0 ) {
+			$options['cachePurge'] = true;
+			$options['cacheTimestamp'] = $timestamp;
+		}
+
+		// debug mode
 		if ( $cn->options['general']['debug_mode'] )
 			$options['debugMode'] = true;
 
-		// message output
-		$output = '
-		<!-- Hu Banner -->
-		<script type="text/javascript">
-			var huOptions = ' . json_encode( $options ) . ';
-		</script>
-		<script type="text/javascript" src="' . $cn->get_url( 'widget' ) . '"></script>';
+		// custom scripts?
+		if ( $cn->options['general']['app_blocking'] ) {
+			if ( is_multisite() && $cn->is_network_admin() && $cn->is_plugin_network_active() && $cn->network_options['global_override'] )
+				$blocking = get_site_option( 'cookie_notice_app_blocking' );
+			else
+				$blocking = get_option( 'cookie_notice_app_blocking' );
 
-		echo apply_filters( 'cn_cookie_compliance_output', $output, $options );
+			$providers = ! empty( $blocking['providers'] ) && is_array( $blocking['providers'] ) ? $this->get_custom_items( $blocking['providers'] ) : [];
+			$patterns = ! empty( $blocking['patterns'] ) && is_array( $blocking['patterns'] ) ? $this->get_custom_items( $blocking['patterns'] ) : [];
+
+			$options['customProviders'] = ! empty( $providers ) ? $providers : [];
+			$options['customPatterns'] = ! empty( $patterns ) ? $patterns : [];
+
+			// google consent mode default categories
+			$gcd = [];
+
+			if ( ! empty( $blocking['google_consent_default'] ) && is_array( $blocking['google_consent_default'] ) ) {
+				foreach ( $blocking['google_consent_default'] as $storage => $category ) {
+					if ( (int) $category === 1 )
+						$gcd[$storage] = 'granted';
+				}
+			}
+
+			if ( ! empty( $gcd ) )
+				$options['googleConsentDefault'] = $gcd;
+		}
+
+		return $options;
+	}
+
+	/**
+	 * Get Cookie Compliance output.
+	 *
+	 * @param array $options
+	 * @return string
+	 */
+	public function get_cc_output( $options ) {
+		$output = '
+		<!-- Cookie Compliance -->
+		<script type="text/javascript">var huOptions = ' . wp_json_encode( $options ) . ';</script>
+		<script type="text/javascript" src="' . esc_url( ( is_ssl() ? 'https:' : 'http:' ) . Cookie_Notice()->get_url( 'widget' ) ) . '"></script>';
+
+		return apply_filters( 'cn_cookie_compliance_output', $output, $options );
+	}
+
+	/**
+	 * Add DNS Prefetch.
+	 *
+	 * @return void
+	 */
+	public function add_dns_prefetch() {
+		if ( ! $this->compliance )
+			return;
+
+		// is banner allowed to display?
+		if ( ! $this->maybe_display_banner() )
+			return;
+
+		echo '<link rel="dns-prefetch" href="//cdn.hu-manity.co" />';
+	}
+
+	/**
+	 * Run Cookie Compliance.
+	 *
+	 * @return void
+	 */
+	public function add_cookie_compliance() {
+		if ( ! $this->compliance )
+			return;
+
+		// is banner allowed to display?
+		if ( ! $this->maybe_display_banner() )
+			return;
+
+		// get options
+		$options = $this->get_cc_options();
+
+		// display output
+		echo $this->get_cc_output( $options );
 	}
 
 	/**
@@ -173,6 +388,13 @@ class Cookie_Notice_Frontend {
 	 * @return void
 	 */
 	public function add_cookie_notice() {
+		if ( $this->compliance )
+			return;
+
+		// is banner allowed to display?
+		if ( ! $this->maybe_display_banner() )
+			return;
+
 		// get main instance
 		$cn = Cookie_Notice();
 
@@ -244,40 +466,140 @@ class Cookie_Notice_Frontend {
 			'aria_label'			=> 'Cookie Notice'
 		] );
 
-		// check legacy parameters
-		$options = $cn->check_legacy_params( $options, [ 'refuse_opt', 'see_more' ] );
-
-		if ( $options['see_more'] === true )
-			$options['message_text'] = do_shortcode( wp_kses_post( $options['message_text'] ) );
-		else
-			$options['message_text'] = wp_kses_post( $options['message_text'] );
-
-		$options['revoke_message_text'] = wp_kses_post( $options['revoke_message_text'] );
-
-		// escape css classes
-		$options['css_class'] = esc_attr( $options['css_class'] );
-		$options['button_class'] = esc_attr( $options['button_class'] );
-
 		// message output
 		$output = '
-		<!-- Cookie Notice plugin v' . $cn->defaults['version'] . ' by Hu-manity.co https://hu-manity.co/ -->
-		<div id="cookie-notice" role="dialog" class="cookie-notice-hidden cookie-revoke-hidden cn-position-' . esc_attr( $options['position'] ) . '" aria-label="' . esc_attr( $options['aria_label'] ) . '" style="background-color: rgba(' . implode( ',', $cn->hex2rgb( $options['colors']['bar'] ) ) . ',' . ( (int) $options['colors']['bar_opacity'] ) * 0.01 . ');">'
-			. '<div class="cookie-notice-container" style="color: ' . esc_attr( $options['colors']['text'] ) . ';">'
-			. '<span id="cn-notice-text" class="cn-text-container">'. $options['message_text'] . '</span>'
-			. '<span id="cn-notice-buttons" class="cn-buttons-container"><a href="#" id="cn-accept-cookie" data-cookie-set="accept" class="cn-set-cookie ' . $options['button_class'] . ( $options['css_class'] !== '' ? ' cn-button-custom ' . $options['css_class'] : '' ) . '" aria-label="' . esc_attr( $options['accept_text'] ) . '"' . ( $options['css_class'] == '' ? ' style="background-color: ' . esc_attr( $options['colors']['button'] ) . '"' : '' ) . '>' . esc_html( $options['accept_text'] ) . '</a>'
-			. ( $options['refuse_opt'] === true ? '<a href="#" id="cn-refuse-cookie" data-cookie-set="refuse" class="cn-set-cookie ' . $options['button_class'] . ( $options['css_class'] !== '' ? ' cn-button-custom ' . $options['css_class'] : '' ) . '" aria-label="' . esc_attr( $options['refuse_text'] ) . '"' . ( $options['css_class'] == '' ? ' style="background-color: ' . esc_attr( $options['colors']['button'] ) . '"' : '' ) . '>' . esc_html( $options['refuse_text'] ) . '</a>' : '' )
-			. ( $options['see_more'] === true && $options['link_position'] === 'banner' ? '<a href="' . ( $options['see_more_opt']['link_type'] === 'custom' ? esc_url( $options['see_more_opt']['link'] ) : esc_url( $permalink ) ) . '" target="' . esc_attr( $options['link_target'] ) . '" id="cn-more-info" class="cn-more-info ' . $options['button_class'] . ( $options['css_class'] !== '' ? ' cn-button-custom ' . $options['css_class'] : '' ) . '" aria-label="' . esc_attr( $options['see_more_opt']['text'] ) . '"' . ( $options['css_class'] == '' ? ' style="background-color: ' . esc_attr( $options['colors']['button'] ) . '"' : '' ) . '>' . esc_html( $options['see_more_opt']['text'] ) . '</a>' : '' )
+		<!-- Cookie Notice plugin v' . esc_attr( $cn->defaults['version'] ) . ' by Hu-manity.co https://hu-manity.co/ -->
+		<div id="cookie-notice" role="dialog" class="cookie-notice-hidden cookie-revoke-hidden cn-position-' . esc_attr( $options['position'] ) . '" aria-label="' . esc_attr( $options['aria_label'] ) . '" style="background-color: __CN_BG_COLOR__">'
+			. '<div class="cookie-notice-container" style="color: ' . esc_attr( $options['colors']['text'] ) . '">'
+			. '<span id="cn-notice-text" class="cn-text-container">'. ( $options['see_more'] ? do_shortcode( $options['message_text'] ) : $options['message_text'] ) . '</span>'
+			. '<span id="cn-notice-buttons" class="cn-buttons-container"><a href="#" id="cn-accept-cookie" data-cookie-set="accept" class="cn-set-cookie ' . esc_attr( $options['button_class'] ) . ( $options['css_class'] !== '' ? ' cn-button-custom ' . esc_attr( $options['css_class'] ) : '' ) . '" aria-label="' . esc_attr( $options['accept_text'] ) . '"' . ( $options['css_class'] == '' ? ' style="background-color: ' . esc_attr( $options['colors']['button'] ) . '"' : '' ) . '>' . esc_html( $options['accept_text'] ) . '</a>'
+			. ( $options['refuse_opt'] ? '<a href="#" id="cn-refuse-cookie" data-cookie-set="refuse" class="cn-set-cookie ' . esc_attr( $options['button_class'] ) . ( $options['css_class'] !== '' ? ' cn-button-custom ' . esc_attr( $options['css_class'] ) : '' ) . '" aria-label="' . esc_attr( $options['refuse_text'] ) . '"' . ( $options['css_class'] == '' ? ' style="background-color: ' . esc_attr( $options['colors']['button'] ) . '"' : '' ) . '>' . esc_html( $options['refuse_text'] ) . '</a>' : '' )
+			. ( $options['see_more'] && $options['link_position'] === 'banner' ? '<a href="' . esc_url( $options['see_more_opt']['link_type'] === 'custom' ? $options['see_more_opt']['link'] : $permalink ) . '" target="' . esc_attr( $options['link_target'] ) . '" id="cn-more-info" class="cn-more-info ' . esc_attr( $options['button_class'] ) . ( $options['css_class'] !== '' ? ' cn-button-custom ' . esc_attr( $options['css_class'] ) : '' ) . '" aria-label="' . esc_attr( $options['see_more_opt']['text'] ) . '"' . ( $options['css_class'] == '' ? ' style="background-color: ' . esc_attr( $options['colors']['button'] ) . '"' : '' ) . '>' . esc_html( $options['see_more_opt']['text'] ) . '</a>' : '' )
 			. '</span><span id="cn-close-notice" data-cookie-set="accept" class="cn-close-icon" title="' . esc_attr( $options['refuse_text'] ) . '"></span>'
 			. '</div>
-			' . ( $options['refuse_opt'] === true && $options['revoke_cookies'] == true ?
-			'<div class="cookie-revoke-container" style="color: ' . esc_attr( $options['colors']['text'] ) . ';">'
+			' . ( $options['refuse_opt'] && $options['revoke_cookies'] ?
+			'<div class="cookie-revoke-container" style="color: ' . esc_attr( $options['colors']['text'] ) . '">'
 			. ( ! empty( $options['revoke_message_text'] ) ? '<span id="cn-revoke-text" class="cn-text-container">' . $options['revoke_message_text'] . '</span>' : '' )
-			. '<span id="cn-revoke-buttons" class="cn-buttons-container"><a href="#" class="cn-revoke-cookie ' . $options['button_class'] . ( $options['css_class'] !== '' ? ' cn-button-custom ' . $options['css_class'] : '' ) . '" aria-label="' . esc_attr( $options['revoke_text'] ) . '"' . ( $options['css_class'] == '' ? ' style="background-color: ' . esc_attr( $options['colors']['button'] ) . '"' : '' ) . '>' . esc_html( $options['revoke_text'] ) . '</a></span>
+			. '<span id="cn-revoke-buttons" class="cn-buttons-container"><a href="#" class="cn-revoke-cookie ' . esc_attr( $options['button_class'] ) . ( $options['css_class'] !== '' ? ' cn-button-custom ' . esc_attr( $options['css_class'] ) : '' ) . '" aria-label="' . esc_attr( $options['revoke_text'] ) . '"' . ( $options['css_class'] == '' ? ' style="background-color: ' . esc_attr( $options['colors']['button'] ) . '"' : '' ) . '>' . esc_html( $options['revoke_text'] ) . '</a></span>
 			</div>' : '' ) . '
 		</div>
 		<!-- / Cookie Notice plugin -->';
 
-		echo apply_filters( 'cn_cookie_notice_output', $output, $options );
+		add_filter( 'safe_style_css', [ $this, 'allow_style_attributes' ] );
+
+		$output = apply_filters( 'cn_cookie_notice_output', wp_kses_post( $output ), $options );
+
+		remove_filter( 'safe_style_css', [ $this, 'allow_style_attributes' ] );
+
+		// convert rgb color to hex
+		$bg_rgb_color = $this->hex2rgb( $options['colors']['bar'] );
+
+		// invalid color? use default
+		if ( $bg_rgb_color === false )
+			$bg_rgb_color = $this->hex2rgb( $cn->defaults['general']['colors']['bar'] );
+
+		// allow rgba background
+		echo str_replace( '__CN_BG_COLOR__', esc_attr( 'rgba(' . implode( ',', $bg_rgb_color ) . ',' . ( (int) $options['colors']['bar_opacity'] ) * 0.01 . ');' ), $output );
+
+	}
+
+	/**
+	 * Add new properties to style safe list.
+	 *
+	 * @param array $styles
+	 * @return array
+	 */
+	public function allow_style_attributes( $styles ) {
+		$styles[] = 'display';
+
+		return $styles;
+	}
+
+	/**
+	 * Convert HEX to RGB color.
+	 *
+	 * @param string $color
+	 * @return bool|array
+	 */
+	public function hex2rgb( $color ) {
+		if ( ! is_string( $color ) )
+			return false;
+
+		// with hash?
+		if ( $color[0] === '#' )
+			$color = substr( $color, 1 );
+
+		if ( sanitize_hex_color_no_hash( $color ) !== $color )
+			return false;
+
+		// 6 hex digits?
+		if ( strlen( $color ) === 6 )
+			list( $r, $g, $b ) = [ $color[0] . $color[1], $color[2] . $color[3], $color[4] . $color[5] ];
+		// 3 hex digits?
+		elseif ( strlen( $color ) === 3 )
+			list( $r, $g, $b ) = [ $color[0] . $color[0], $color[1] . $color[1], $color[2] . $color[2] ];
+		else
+			return false;
+
+		return [ 'r' => hexdec( $r ), 'g' => hexdec( $g ), 'b' => hexdec( $b ) ];
+	}
+
+	/**
+	 * Add blocking class to scripts, iframes and links.
+	 *
+	 * @param string $type
+	 * @param string $code
+	 * @return string
+	 */
+	public function add_block_class( $type, $code ) {
+		// clear and disable libxml errors and allow user to fetch error information as needed
+		libxml_use_internal_errors( true );
+
+		// create new dom object
+		$document = new DOMDocument( '1.0', 'UTF-8' );
+
+		// set attributes
+		$document->formatOutput = true;
+		$document->preserveWhiteSpace = false;
+
+		// load code
+		$document->loadHTML( '<div>' . wp_kses( trim( $code ), Cookie_Notice()->get_allowed_html( $type ) ) . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD );
+
+		$container = $document->getElementsByTagName( 'div' )->item( 0 );
+		$container = $container->parentNode->removeChild( $container );
+
+		while ( $document->firstChild ) {
+			$document->removeChild( $document->firstChild );
+		}
+
+		while ( $container->firstChild ) {
+			$document->appendChild( $container->firstChild );
+		}
+
+		// set blocked tags
+		if ( $type === 'body' )
+			$blocked_tags = [ 'script', 'iframe' ];
+		elseif ( $type === 'head' )
+			$blocked_tags = [ 'script', 'link' ];
+
+		foreach ( $blocked_tags as $blocked_tag ) {
+			$tags = $document->getElementsByTagName( $blocked_tag );
+
+			// any tags?
+			if ( ! empty( $tags ) && is_object( $tags ) ) {
+				foreach ( $tags as $tag ) {
+					$tag->setAttribute( 'class', 'hu-block' );
+				}
+			}
+		}
+
+		// save new HTML
+		$output = $document->saveHTML();
+
+		// reenable libxml errors
+		libxml_use_internal_errors( false );
+
+		return $output;
 	}
 
 	/**
@@ -286,51 +608,62 @@ class Cookie_Notice_Frontend {
 	 * @return void
 	 */
 	public function wp_enqueue_notice_scripts() {
+		if ( $this->compliance )
+			return;
+
+		// is banner allowed to display?
+		if ( ! $this->maybe_display_banner() )
+			return;
+
 		// get main instance
 		$cn = Cookie_Notice();
 
 		wp_enqueue_script( 'cookie-notice-front', COOKIE_NOTICE_URL . '/js/front' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.js', [], $cn->defaults['version'], isset( $cn->options['general']['script_placement'] ) && $cn->options['general']['script_placement'] === 'footer' );
 
-		wp_localize_script(
-			'cookie-notice-front',
-			'cnArgs',
-			[
-				'ajaxUrl'				=> admin_url( 'admin-ajax.php' ),
-				'nonce'					=> wp_create_nonce( 'cn_save_cases' ),
-				'hideEffect'			=> $cn->options['general']['hide_effect'],
-				'position'				=> $cn->options['general']['position'],
-				'onScroll'				=> (int) $cn->options['general']['on_scroll'],
-				'onScrollOffset'		=> (int) $cn->options['general']['on_scroll_offset'],
-				'onClick'				=> (int) $cn->options['general']['on_click'],
-				'cookieName'			=> 'cookie_notice_accepted',
-				'cookieTime'			=> $cn->settings->times[$cn->options['general']['time']][1],
-				'cookieTimeRejected'	=> $cn->settings->times[$cn->options['general']['time_rejected']][1],
-				'globalCookie'			=> (int) ( is_multisite() && $cn->options['general']['global_cookie'] && is_subdomain_install() ),
-				'redirection'			=> (int) $cn->options['general']['redirection'],
-				'cache'					=> (int) ( defined( 'WP_CACHE' ) && WP_CACHE ),
-				'refuse'				=> (int) $cn->options['general']['refuse_opt'],
-				'revokeCookies'			=> (int) $cn->options['general']['revoke_cookies'],
-				'revokeCookiesOpt'		=> $cn->options['general']['revoke_cookies_opt'],
-				'secure'				=> (int) is_ssl()
-			]
-		);
+		// not array? changeable by cn_cookie_expiry filter
+		if ( is_array( $cn->settings->times ) ) {
+			// check cookie expiration time
+			if ( array_key_exists( $cn->options['general']['time'], $cn->settings->times ) && array_key_exists( 1, $cn->settings->times[$cn->options['general']['time']] ) )
+				$cookie_time = (int) $cn->settings->times[$cn->options['general']['time']][1];
+			else {
+				// fallback to default length of month
+				$cookie_time = MONTH_IN_SECONDS;
+			}
 
-		wp_enqueue_style( 'cookie-notice-front', COOKIE_NOTICE_URL . '/css/front' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.css' );
-	}
+			// check cookie rejection expiration time
+			if ( array_key_exists( $cn->options['general']['time_rejected'], $cn->settings->times ) && array_key_exists( 1, $cn->settings->times[$cn->options['general']['time_rejected']] ) )
+				$cookie_time_rejected = (int) $cn->settings->times[$cn->options['general']['time_rejected']][1];
+			else {
+				// fallback to default length of month
+				$cookie_time_rejected = MONTH_IN_SECONDS;
+			}
+		} else {
+			// fallback to default length of month
+			$cookie_time = $cookie_time_rejected = MONTH_IN_SECONDS;
+		}
 
-	/**
-	 * Make a JavaScript Asynchronous.
-	 *
-	 * @param string $tag The original enqueued script tag
-	 * @param string $handle The registered unique name of the script
-	 * @param string $src
-	 * @return string $tag The modified script tag
-	 */
-	public function wp_enqueue_script_async( $tag, $handle, $src ) {
-		if ( 'cookie-notice-front' === $handle )
-			$tag = str_replace( '<script', '<script async', $tag );
+		// prepare script data
+		$script_data = [
+			'ajaxUrl'				=> admin_url( 'admin-ajax.php' ),
+			'nonce'					=> wp_create_nonce( 'cn_save_cases' ),
+			'hideEffect'			=> $cn->options['general']['hide_effect'],
+			'position'				=> $cn->options['general']['position'],
+			'onScroll'				=> $cn->options['general']['on_scroll'],
+			'onScrollOffset'		=> (int) $cn->options['general']['on_scroll_offset'],
+			'onClick'				=> $cn->options['general']['on_click'],
+			'cookieName'			=> 'cookie_notice_accepted',
+			'cookieTime'			=> $cookie_time,
+			'cookieTimeRejected'	=> $cookie_time_rejected,
+			'globalCookie'			=> is_multisite() && $cn->options['general']['global_cookie'] && is_subdomain_install(),
+			'redirection'			=> $cn->options['general']['redirection'],
+			'cache'					=> defined( 'WP_CACHE' ) && WP_CACHE,
+			'revokeCookies'			=> $cn->options['general']['revoke_cookies'],
+			'revokeCookiesOpt'		=> $cn->options['general']['revoke_cookies_opt']
+		];
 
-		return $tag;
+		wp_add_inline_script( 'cookie-notice-front', 'var cnArgs = ' . wp_json_encode( $script_data ) . ";\n", 'before' );
+
+		wp_enqueue_style( 'cookie-notice-front', COOKIE_NOTICE_URL . '/css/front' . ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ? '.min' : '' ) . '.css', [], $cn->defaults['version'] );
 	}
 
 	/**
@@ -339,11 +672,14 @@ class Cookie_Notice_Frontend {
 	 * @return void
 	 */
 	public function wp_print_footer_scripts() {
-		if ( Cookie_Notice()->cookies_accepted() ) {
-			$scripts = apply_filters( 'cn_refuse_code_scripts_html', html_entity_decode( trim( wp_kses( Cookie_Notice()->options['general']['refuse_code'], Cookie_Notice()->get_allowed_html() ) ) ), 'body' );
+		// get main instance
+		$cn = Cookie_Notice();
+
+		if ( $cn->cookies_accepted() || $this->compliance ) {
+			$scripts = apply_filters( 'cn_refuse_code_scripts_html', $cn->options['general']['refuse_code'], 'body' );
 
 			if ( ! empty( $scripts ) )
-				echo $scripts;
+				echo html_entity_decode( wp_kses( $scripts, $cn->get_allowed_html( 'body' ) ) );
 		}
 	}
 
@@ -353,12 +689,64 @@ class Cookie_Notice_Frontend {
 	 * @return void
 	 */
 	public function wp_print_header_scripts() {
-		if ( Cookie_Notice()->cookies_accepted() ) {
-			$scripts = apply_filters( 'cn_refuse_code_scripts_html', html_entity_decode( trim( wp_kses( Cookie_Notice()->options['general']['refuse_code_head'], Cookie_Notice()->get_allowed_html() ) ) ), 'head' );
+		// get main instance
+		$cn = Cookie_Notice();
+
+		if ( $cn->cookies_accepted() || $this->compliance ) {
+			$scripts = apply_filters( 'cn_refuse_code_scripts_html', $cn->options['general']['refuse_code_head'], 'head' );
 
 			if ( ! empty( $scripts ) )
-				echo $scripts;
+				echo html_entity_decode( wp_kses( $scripts, $cn->get_allowed_html( 'head' ) ) );
 		}
+	}
+
+	/**
+	 * Get custom providers or patterns.
+	 *
+	 * @param array $items
+	 * @return array
+	 */
+	public function get_custom_items( $items ) {
+		$result = [];
+
+		if ( ! empty( $items ) && is_array( $items ) ) {
+			foreach ( $items as $index => $item ) {
+				if ( isset( $item->IsCustom ) && $item->IsCustom == true ) {
+					$sanitized_item = [];
+
+					foreach ( $item as $key => $value ) {
+						$sanitized_item[$key] = $this->sanitize_field( $value, $key );
+					}
+
+					$result[] = (object) $sanitized_item;
+				}
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Sanitize field.
+	 *
+	 * @param mixed $value
+	 * @param string $key
+	 * @return mixed
+	 */
+	private function sanitize_field( $value, $key ) {
+		$sanitized_value = $value;
+
+		switch ( $key ) {
+			case 'CategoryID':
+				$sanitized_value = (int) $value;
+				break;
+
+			case 'IsCustom':
+				$sanitized_value = (bool) $value;
+				break;
+		}
+
+		return $sanitized_value;
 	}
 
 	/**
@@ -390,6 +778,21 @@ class Cookie_Notice_Frontend {
 	 * @return void
 	 */
 	public function purge_cache() {
-		delete_transient( 'cookie_notice_compliance_cache' );
+		// get main instance
+		$cn = Cookie_Notice();
+
+		if ( is_multisite() && $cn->is_plugin_network_active() && $cn->network_options['global_override'] ) {
+			$app_id = $cn->network_options['app_id'];
+			$app_key = $cn->network_options['app_key'];
+		} else {
+			$app_id = $cn->options['general']['app_id'];
+			$app_key = $cn->options['general']['app_key'];
+		}
+
+		// compliance active only
+		if ( $app_id !== '' && $app_key !== '' ) {
+			// request for new config data too
+			$cn->welcome_api->get_app_config( $app_id, true );
+		}
 	}
 }

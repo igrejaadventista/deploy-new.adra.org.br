@@ -12,6 +12,7 @@
 		data: function() {
 			return {
 				tablesList: window.jet_query_component_sql.tables,
+				castObjectsList: window.jet_query_component_sql.cast_objects,
 				operators: window.JetEngineQueryConfig.operators_list,
 				dataTypes: window.JetEngineQueryConfig.data_types,
 				query: {},
@@ -29,25 +30,26 @@
 			this.presetCols()
 		},
 		computed: {
-			availableColumns: function() {
-
+			columnSchema: function() {
+				
 				var result = [];
 
 				if ( this.query.table ) {
+					
 					let columns = this.getColumns( this.query.table );
-					result = JSON.parse( JSON.stringify( columns ) );
+					
+					result.push( {
+						table: this.query.table,
+						columns: [ ...columns ],
+					} );
+
 				}
 
 				if ( this.query.use_join && this.query.join_tables.length ) {
 
-					for (var i = 0; i < result.length; i++) {
-						result[ i ].value = this.query.table + '.' + result[ i ].value;
-						result[ i ].label = this.query.table + '.' + result[ i ].label;
-					}
-
 					let processedTables = { [ this.query.table ]: 1 };
 
-					for (var i = 0; i < this.query.join_tables.length; i++) {
+					for ( var i = 0; i < this.query.join_tables.length; i++ ) {
 
 						let joinTable = this.query.join_tables[ i ].table;
 						let preparedJoinTable = joinTable;
@@ -62,14 +64,21 @@
 						if ( preparedJoinTable ) {
 
 							let joinColumns = this.getColumns( joinTable );
-								joinColumns = JSON.parse( JSON.stringify( joinColumns ) );
+							let preparedColumns = [];
+							
+							joinColumns = [ ...joinColumns ];
 
 							for ( var j = 0; j < joinColumns.length; j++ ) {
-								result.push( {
+								preparedColumns.push( {
 									value: preparedJoinTable + '.' + joinColumns[ j ].value,
 									label: preparedJoinTable + '.' + joinColumns[ j ].label,
 								} )
 							}
+
+							result.push( {
+								table: preparedJoinTable,
+								columns: preparedColumns,
+							} );
 						}
 
 					}
@@ -77,6 +86,52 @@
 				}
 
 				return result;
+
+			},
+			availableColumns: function() {
+
+				var result = [];
+				var schema = JSON.parse( JSON.stringify( this.columnSchema ) );
+
+				for ( var i = 0; i < schema.length; i++ ) {
+
+					let addPrefix = false;
+
+					if ( 0 === i && 1 < schema.length ) {
+						addPrefix = true;
+					}
+
+					for ( var j = 0; j < schema[ i ].columns.length; j++ ) {
+						if ( addPrefix ) {
+							schema[ i ].columns[ j ].value = schema[ i ].table + '.' + schema[ i ].columns[ j ].value;
+							schema[ i ].columns[ j ].label = schema[ i ].table + '.' + schema[ i ].columns[ j ].label;
+						}
+
+						result.push( schema[ i ].columns[ j ] );
+					}
+
+				}
+
+				return result;
+
+			},
+			availableOrderByColumns: function() {
+				var columns = JSON.parse( JSON.stringify( this.availableColumns ) );
+
+				if ( this.query?.include_calc && this.query?.calc_cols?.length ) {
+
+					for ( var i = 0; i < this.query.calc_cols.length; i++ ) {
+						if ( this.query.calc_cols[ i ]?.column && this.query.calc_cols[ i ]?.function ) {
+							columns.push( {
+								label: this.query.calc_cols[ i ].function + '(' + this.query.calc_cols[ i ].column + ')',
+								value: this.query.calc_cols[ i ].function + '(' + this.query.calc_cols[ i ].column + ')',
+							} );
+						}
+					}
+
+				}
+
+				return columns;
 
 			},
 		},
@@ -119,6 +174,12 @@
 				} else if ( 'object' !== typeof this.dynamicQuery.where || undefined !== this.dynamicQuery.where.length ) {
 					this.$set( this.dynamicQuery, 'where', {} );
 				}
+
+				for ( var itemID in this.dynamicQuery.where ) {
+					if ( 'object' !== typeof this.dynamicQuery.where[ itemID ] || undefined !== this.dynamicQuery.where[ itemID ].length ) {
+						this.$set( this.dynamicQuery.where, itemID, {} );
+					}
+				}
 			},
 			presetCols: function() {
 				if ( ! this.query.calc_cols ) {
@@ -141,6 +202,42 @@
 			},
 			getColumns: function( table ) {
 				return window.jet_query_component_sql.columns[ table ] || [];
+			},
+			getJoinTitle( item, currentIndex ) {
+				
+				const allColumns = [ ...this.columnSchema ];
+
+				currentIndex++;
+				
+				for ( var i = 0; i < allColumns.length; i++ ) {
+
+					if ( i === currentIndex ) {
+						return allColumns[ i ].table;
+					}
+					
+				}
+
+			},
+			getJoinColumns( currentIndex ) {
+
+				const allColumns = [ ...this.columnSchema ];
+				const result = [];
+
+				currentIndex++;
+
+				for ( var i = 0; i < allColumns.length; i++ ) {
+
+					if ( i !== currentIndex ) {
+						result.push( {
+							label: allColumns[ i ].table,
+							options: allColumns[ i ].columns,
+						} );
+					}
+					
+				}
+
+				return result;
+
 			},
 			presetOrder: function() {
 				if ( ! this.query.orderby ) {

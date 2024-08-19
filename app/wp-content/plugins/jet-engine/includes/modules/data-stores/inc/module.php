@@ -13,7 +13,13 @@ class Module {
 	private static $instance = null;
 
 	public $slug = 'data-stores';
-	public $stores;
+	public $data = null;
+	public $settings = null;
+	public $stores = null;
+	public $elementor_integration = null;
+	public $blocks_integration = null;
+	public $bricks_integration = null;
+	public $render = null;
 
 	/**
 	 * Constructor for the class
@@ -42,16 +48,26 @@ class Module {
 		require_once jet_engine()->modules->modules_path( 'data-stores/inc/query.php' );
 		require_once jet_engine()->modules->modules_path( 'data-stores/inc/render-links.php' );
 		require_once jet_engine()->modules->modules_path( 'data-stores/inc/stores/manager.php' );
+		require_once jet_engine()->modules->modules_path( 'data-stores/inc/compatibility.php' );
+
+		// Bricks Integration
+		require jet_engine()->modules->modules_path( 'data-stores/inc/bricks-views/manager.php' );
+
+		// Twig integration
+		require jet_engine()->modules->modules_path( 'data-stores/inc/twig-views/manager.php' );
 
 		$this->data                  = new Data( $this );
 		$this->settings              = new Settings();
 		$this->stores                = new Stores\Manager();
 		$this->elementor_integration = new Elementor_Integration();
+		$this->bricks_integration    = new Bricks_Views\Manager();
 		$this->blocks_integration    = new Blocks_Integration();
 		$this->render                = new Render_Links();
 
+		new Twig_Views\Manager();
 		new Macros();
 		new Query();
+		new Compatibility();
 
 	}
 

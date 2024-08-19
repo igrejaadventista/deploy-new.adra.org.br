@@ -24,6 +24,10 @@ class CCT_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 
 		$content_type = Module::instance()->manager->get_content_types( $type );
 
+		if ( ! $content_type ) {
+			return $result;
+		}
+
 		$order  = ! empty( $this->final_query['order'] ) ? $this->final_query['order'] : array();
 		$args   = ! empty( $this->final_query['args'] ) ? $this->final_query['args'] : array();
 		$offset = ! empty( $this->final_query['offset'] ) ? absint( $this->final_query['offset'] ) : 0;
@@ -40,6 +44,8 @@ class CCT_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 				'value'    => $status,
 			);
 		}
+
+		$content_type->db->set_query_object( $this );
 
 		$args   = $content_type->prepare_query_args( $args );
 		$result = $content_type->db->query( $args, $limit, $offset, $order );
@@ -85,6 +91,7 @@ class CCT_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 	 */
 	public function get_items_total_count() {
 
+		
 		$cached = $this->get_cached_data( 'count' );
 
 		if ( false !== $cached ) {
@@ -99,7 +106,23 @@ class CCT_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 		}
 
 		$content_type = Module::instance()->manager->get_content_types( $type );
-		$args         = ! empty( $this->final_query['args'] ) ? $this->final_query['args'] : array();
+
+		if ( ! $content_type ) {
+			return $result;
+		}
+
+		$args   = ! empty( $this->final_query['args'] ) ? $this->final_query['args'] : array();
+		$status = ! empty( $this->final_query['status'] ) ? $this->final_query['status'] : '';
+
+		if ( $status ) {
+			$args[] = array(
+				'field'    => 'cct_status',
+				'operator' => '=',
+				'value'    => $status,
+			);
+		}
+
+		$content_type->db->set_query_object( $this );
 
 		$args   = $content_type->prepare_query_args( $args );
 		$result = $content_type->db->count( $args );
@@ -196,7 +219,7 @@ class CCT_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 
 				if ( 'orderby' === $prop ) {
 					$key = 'type';
-					$value = ( 'meta_key' === $value ) ? 'CHAR' : 'DECIMAL';
+					$value = ( 'meta_value' === $value ) ? 'CHAR' : 'DECIMAL';
 				} elseif ( 'meta_key' === $prop ) {
 					$key = 'orderby';
 				}
@@ -207,41 +230,50 @@ class CCT_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 			case 'meta_query':
 
 				foreach ( $value as $row ) {
-
-					if ( ! empty( $row['relation'] ) ) {
-
-						$prepared_row = array(
-							'relation' => $row['relation'],
-						);
-
-						unset( $row['relation'] );
-
-						foreach ( $row as $inner_row ) {
-							$prepared_row[] = array(
-								'field'    => ! empty( $inner_row['key'] ) ? $inner_row['key'] : false,
-								'operator' => ! empty( $inner_row['compare'] ) ? $inner_row['compare'] : '=',
-								'value'    => ! empty( $inner_row['value'] ) ? $inner_row['value'] : '',
-								'type'     => ! empty( $inner_row['type'] ) ? $inner_row['type'] : false,
-							);
-						}
-
-					} else {
-						$prepared_row = array(
-							'field'    => ! empty( $row['key'] ) ? $row['key'] : false,
-							'operator' => ! empty( $row['compare'] ) ? $row['compare'] : '=',
-							'value'    => ! empty( $row['value'] ) ? $row['value'] : '',
-							'type'     => ! empty( $row['type'] ) ? $row['type'] : false,
-						);
-					}
-
-					$this->update_args_row( $prepared_row );
-
+					$this->update_args_row( $this->prepare_args_row( $row ) );
 				}
 
 				break;
 
+			default: 
+				
+				$this->merge_default_props( $prop, $value );
+				break;
+
 		}
 
+	}
+
+	/**
+	 * Prepare arguments row.
+	 *
+	 * @param  array $row
+	 * @return array
+	 */
+	public function prepare_args_row( $row ) {
+
+		if ( ! empty( $row['relation'] ) ) {
+
+			$prepared_row = array(
+				'relation' => $row['relation'],
+			);
+
+			unset( $row['relation'] );
+
+			foreach ( $row as $inner_row ) {
+				$prepared_row[] = $this->prepare_args_row( $inner_row );
+			}
+
+		} else {
+			$prepared_row = array(
+				'field'    => ! empty( $row['key'] ) ? $row['key'] : false,
+				'operator' => ! empty( $row['compare'] ) ? $row['compare'] : '=',
+				'value'    => ! empty( $row['value'] ) ? $row['value'] : '',
+				'type'     => ! empty( $row['type'] ) ? $row['type'] : false,
+			);
+		}
+
+		return $prepared_row;
 	}
 
 	/**
@@ -265,7 +297,7 @@ class CCT_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 	}
 
 	/**
-	 * Update argumnts row in the arguments list of the final query
+	 * Update arguments row in the arguments list of the final query
 	 *
 	 * @param  [type] $row [description]
 	 * @return [type]      [description]
@@ -290,6 +322,93 @@ class CCT_Query extends \Jet_Engine\Query_Builder\Queries\Base_Query {
 		}
 
 		$this->final_query['args'][] = $row;
+
+	}
+
+	/**
+	 * Adds date range query arguments to given query parameters.
+	 * Required to allow ech query to ensure compatibility with Dynamic Calendar
+	 * 
+	 * @param array $args [description]
+	 */
+	public function add_date_range_args( $args = array(), $dates_range = array(), $settings = array() ) {
+
+		$group_by = $settings['group_by'];
+
+		if ( empty( $args['args'] ) ) {
+			$args['args'] = array();
+		}
+
+		switch ( $group_by ) {
+
+			case 'item_date':
+
+				$args['args'][] = array(
+					'field'    => 'cct_created',
+					'operator' => 'BETWEEN',
+					'value'    => array( date( 'Y-m-d H:i:s', $dates_range['start'] ), date( 'Y-m-d H:i:s', $dates_range['end'] ) ),
+				);
+
+				break;
+
+			case 'meta_date':
+
+				if ( $settings['group_by_key'] ) {
+					$meta_key = esc_attr( $settings['group_by_key'] );
+				}
+				
+				$calendar_query = array();
+
+				if ( $meta_key ) {
+
+					$calendar_query = array_merge( $calendar_query, array(
+						array(
+							'field'    => $meta_key,
+							'operator' => 'BETWEEN',
+							'value'    => array( $dates_range['start'], $dates_range['end'] ),
+						),
+					) );
+
+				}
+
+				if ( ! empty( $settings['allow_multiday'] ) && ! empty( $settings['end_date_key'] ) ) {
+
+					$calendar_query = array_merge( $calendar_query, array(
+						array(
+							'field'    => esc_attr( $settings['end_date_key'] ),
+							'value'    => array( $dates_range['start'], $dates_range['end'] ),
+							'operator' => 'BETWEEN',
+						),
+						array(
+							'relation' => 'AND',
+							array(
+								'field'    => $meta_key,
+								'value'    => $dates_range['start'],
+								'operator' => '<'
+							),
+							array(
+								'field'    => esc_attr( $settings['end_date_key'] ),
+								'value'    => $dates_range['end'],
+								'operator' => '>'
+							)
+						),
+					) );
+
+					$calendar_query['relation'] = 'OR';
+
+				}
+
+				if ( 1 === count( $calendar_query ) ) {
+					$args['args'][] = $calendar_query[0];
+				} else {
+					$args['args'][] = $calendar_query;
+				}
+
+				break;
+
+		}
+
+		return $args;
 
 	}
 

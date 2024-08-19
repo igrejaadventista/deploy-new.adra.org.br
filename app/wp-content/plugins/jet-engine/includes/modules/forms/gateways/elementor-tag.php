@@ -29,7 +29,7 @@ class Message_Tag extends \Elementor\Core\DynamicTags\Tag {
 		return false;
 	}
 
-	protected function _register_controls() {}
+	protected function register_controls() {}
 
 	public function render() {
 

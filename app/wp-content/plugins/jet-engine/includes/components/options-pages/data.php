@@ -179,20 +179,29 @@ if ( ! class_exists( 'Jet_Engine_Options_Data' ) ) {
 
 			$args         = array();
 			$regular_args = array(
-				'parent'     => '',
-				'icon'       => 'dashicons-admin-generic',
-				'capability' => 'manage_options',
-				'position'   => '',
+				'parent'           => '',
+				'icon'             => 'dashicons-admin-generic',
+				'capability'       => 'manage_options',
+				'position'         => '',
+				'storage_type'     => 'default',
+				'option_prefix'    => true,
+				'hide_field_names' => false,
 			);
 
 			foreach ( $regular_args as $key => $default ) {
-				$args[ $key ] = ! empty( $request[ $key ] ) ? $request[ $key ] : $default;
+				if ( in_array( $key, array( 'option_prefix', 'hide_field_names' ) ) ) {
+					$args[ $key ] = isset( $request[ $key ] ) ? filter_var( $request[ $key ], FILTER_VALIDATE_BOOLEAN ) : $default;
+				} else {
+					$args[ $key ] = ! empty( $request[ $key ] ) ? $request[ $key ] : $default;
+				}
 			}
 
 			/**
 			 * @todo Validate meta fields before saving - ensure that used correct types and all names was set.
 			 */
-			$meta_fields = ! empty( $request['fields'] ) ? $request['fields'] : array();
+			$meta_fields = ! empty( $request['meta_fields'] )
+								? $request['meta_fields'] : ( ! empty( $request['fields'] )
+									? $request['fields'] : array() );
 
 			$result['slug']        = $slug;
 			$result['labels']      = $labels;
@@ -201,40 +210,6 @@ if ( ! class_exists( 'Jet_Engine_Options_Data' ) ) {
 
 			return $result;
 
-		}
-
-		/**
-		 * Sanitize meta fields
-		 *
-		 * @param  [type] $meta_fields [description]
-		 * @return [type]              [description]
-		 */
-		public function sanitize_meta_fields( $meta_fields ) {
-
-			foreach ( $meta_fields as $key => $field ) {
-
-				// If name is empty - create it from title, else - santize it
-				if ( empty( $field['name'] ) ) {
-					$field['name'] = $this->sanitize_slug( $field['title'] );
-				} else {
-					$field['name'] = $this->sanitize_slug( $field['name'] );
-				}
-
-				// If still empty - create random name
-				if ( empty( $field['name'] ) ) {
-					$field['name'] = '_field_' . rand( 10000, 99999 );
-				}
-
-				// If name in blak list - add underscore at start
-				if ( in_array( $field['name'], $this->meta_blacklist() ) ) {
-					$meta_fields[ $key ]['name'] = '_' . $field['name'];
-				} else {
-					$meta_fields[ $key ]['name'] = $field['name'];
-				}
-
-			}
-
-			return $meta_fields;
 		}
 
 		/**
@@ -275,6 +250,16 @@ if ( ! class_exists( 'Jet_Engine_Options_Data' ) ) {
 			$args   = maybe_unserialize( $item['args'] );
 			$labels = maybe_unserialize( $item['labels'] );
 			$fields = array();
+
+			// Set default value for `storage_type` setting if setting is not existing.
+			if ( empty( $args['storage_type'] ) ) {
+				$args['storage_type'] = 'default';
+			}
+
+			// Set default value for `option_prefix` setting if setting is not existing.
+			if ( ! isset( $args['option_prefix'] ) ) {
+				$args['option_prefix'] = true;
+			}
 
 			$result['general_settings'] = array_merge( array( 'slug' => $item['slug'] ), $labels, $args );
 

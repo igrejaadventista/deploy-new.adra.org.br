@@ -34,11 +34,20 @@
 			</optgroup>
 		</template>
 		<template v-else>
-			<option
-				v-for="option in options"
-				:value="option.value"
-				:selected="isOptionSelected( option )"
-			>{{ option.label }}</option>
+            <template v-for="option in options">
+                <optgroup v-if="option.hasOwnProperty('options')" :label="option.label">
+                    <option
+                        v-for="option in option.options"
+                        :value="option.value"
+                        :selected="isOptionSelected( option )"
+                    >{{ option.label }}</option>
+                </optgroup>
+                <option
+                    v-if="!option.hasOwnProperty('options')"
+                    :value="option.value"
+                    :selected="isOptionSelected( option )"
+                >{{ option.label }}</option>
+            </template>
 		</template>
 	</select>
 	<slot></slot>

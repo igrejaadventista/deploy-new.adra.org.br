@@ -7,23 +7,45 @@ Vue.component( 'jet-query-dynamic-args', {
 		return {
 			isActive: false,
 			macrosList: window.JetEngineQueryDynamicArgs.macros_list,
-			argumentsList: window.JetEngineQueryDynamicArgs.dynamic_args_list,
+			contextList: window.JetEngineQueryDynamicArgs.context_list,
 			currentMacros: {},
 			editMacros: false,
+			editSettings: false,
 			result: {},
+			advancedSettings: {},
+			searchKeyword: '',
 		};
 	},
 	created: function() {
 
 		if ( 'string' !== typeof this.value || ! this.value.includes( '%' ) ) {
+			this.$set( this.advancedSettings, 'context', 'default_object' );
 			return;
 		}
 
-		let data = this.value.substring( 1, this.value.length - 1 );
+		const regexp = /%([a-z_-]+)(\|[a-zA-Z0-9_\-\,\.\+\:\/\s\'\"\=\?\!\|\]\[\{\}%&]*)?%(\{.+\})?/;
+		const parsedData = this.value.match( regexp ) || [];
+		
+		let macros = parsedData[1] || null;
+		let data = null;
 
-		data = data.split( '|' );
+		if ( ! macros ) {
+			console.warn( this.value + ' - incorrect macros value' );
+			return;
+		}
 
-		let macros = data[0];
+		if ( parsedData[2] ) {
+			data = parsedData[2].substring( 1, parsedData[2].length );
+			data = data.split( '|' );
+		} else {
+			data = [];
+		}
+
+		if ( parsedData[3] ) {
+			this.advancedSettings = JSON.parse( parsedData[3] );
+		} else {
+			this.$set( this.advancedSettings, 'context', 'default_object' );
+		}
 
 		for ( var i = 0; i < this.macrosList.length; i++ ) {
 
@@ -35,8 +57,8 @@ Vue.component( 'jet-query-dynamic-args', {
 					macrosControls: this.macrosList[ i ].controls,
 				};
 
-				if ( 1 < data.length && this.macrosList[ i ].controls ) {
-					let index = 1;
+				if ( data.length && this.macrosList[ i ].controls ) {
+					let index = 0;
 					for ( const prop in this.macrosList[ i ].controls ) {
 
 						if ( data[ index ] ) {
@@ -44,6 +66,7 @@ Vue.component( 'jet-query-dynamic-args', {
 						}
 
 						index++;
+
 					}
 				}
 
@@ -52,10 +75,43 @@ Vue.component( 'jet-query-dynamic-args', {
 		}
 
 	},
+	computed: {
+		filteredMacrosList: function () {
+			let result = [ ...this.macrosList ];
+
+			if ( this.searchKeyword ) {
+				let searchKeyword = this.searchKeyword.toLowerCase();
+
+				result = result.filter( ( item ) => {
+					return ( item?.name && -1 !== item.name.toLowerCase().indexOf( searchKeyword ) );
+				} );
+			}
+
+			return result;
+		}
+	},
+	watch: {
+		advancedSettings: {
+			handler: function( newSettings ) {
+				this.$set( this.result, 'advancedSettings', newSettings );
+			},
+			deep: true,
+		},
+		result: {
+			handler: function( newSettings ) {
+				this.$emit( 'input', this.formatResult() );
+			},
+			deep: true,
+		}
+	},
 	methods: {
+		advancedSettingsPanel: function( state ) {
+			this.editSettings = state;
+		},
 		applyMacros: function( macros, force ) {
 
 			force = force || false;
+			this.searchKeyword = '';
 
 			if ( macros ) {
 				this.$set( this.result, 'macros', macros.id );
@@ -100,11 +156,15 @@ Vue.component( 'jet-query-dynamic-args', {
 		},
 		formatResult: function() {
 
+			if ( ! this.result.macros ) {
+				return;
+			}
+
 			let res = '%';
 			res += this.result.macros;
 
 			if ( this.result.macrosControls ) {
-				for ( const prop in this.currentMacros.controls ) {
+				for ( const prop in this.result.macrosControls ) {
 					res += '|';
 
 					if ( undefined !== this.result[ prop ] ) {
@@ -115,16 +175,23 @@ Vue.component( 'jet-query-dynamic-args', {
 			}
 
 			res += '%';
+
+			if ( this.result.advancedSettings && ( this.result.advancedSettings.fallback || this.result.advancedSettings.context ) ) {
+				res += JSON.stringify( this.result.advancedSettings );
+			}
+
 			return res;
 
 		},
 		onClickOutside: function() {
 			this.isActive = false;
 			this.editMacros = false;
+			this.advancedSettingsPanel( false );
 			this.currentMacros = {};
 		},
 		resetEdit: function() {
 			this.editMacros = false;
+			this.advancedSettingsPanel( false );
 			this.currentMacros = {};
 		},
 		getPreparedControls: function() {
@@ -145,6 +212,10 @@ Vue.component( 'jet-query-dynamic-args', {
 
 					case 'text':
 						type = 'cx-vui-input';
+						break;
+
+					case 'textarea':
+						type = 'cx-vui-textarea';
 						break;
 
 					case 'select':

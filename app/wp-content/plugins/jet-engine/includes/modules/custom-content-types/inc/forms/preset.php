@@ -52,7 +52,13 @@ class Preset {
 			return false;
 		}
 
-		if ( current_user_can( 'manage_options' ) ) {
+		$cct = Module::instance()->manager->get_content_types( $source['cct_slug'] );
+
+		if ( ! $cct ) {
+			return false;
+		}
+
+		if ( $cct->user_has_access() ) {
 			return $res;
 		}
 
@@ -145,6 +151,10 @@ class Preset {
 	public function get_content_type_item( $slug, $args ) {
 
 		$content_type = Module::instance()->manager->get_content_types( $slug );
+
+		if ( ! $content_type ) {
+			return false;
+		}
 
 		$item      = false;
 		$from      = ! empty( $args['post_from'] ) ? $args['post_from'] : 'current_post';

@@ -150,7 +150,6 @@ const DynamicBlockControls = function( props ) {
 
 		}
 
-
 	};
 
 	var hasDynamicData = false;

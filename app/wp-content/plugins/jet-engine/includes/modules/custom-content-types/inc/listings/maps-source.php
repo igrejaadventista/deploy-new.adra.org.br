@@ -47,17 +47,71 @@ class CCT_Maps_Source extends \Jet_Engine\Modules\Maps_Listings\Source\Base {
 		return $content_type->db->get_item( $id );
 	}
 
+	public function delete_field_value( $obj, $field ) {
+		// keep old data for better backward compatibility
+		return;
+	}
+
 	public function get_field_value( $obj, $field ) {
 
-		if ( ! isset( $obj->cct_slug ) ) {
+		if ( is_object( $obj ) ) {
+			$obj = get_object_vars( $obj );
+		}
+
+		if ( ! isset( $obj['cct_slug'] ) ) {
 			return '';
 		}
 
-		if ( ! isset( $obj->$field ) ) {
+		if ( ! isset( $obj[ $field ] ) ) {
 			return '';
 		}
 
-		return $obj->$field;
+		return $obj[ $field ];
+	}
+
+	/**
+	 * Returns coordinates data based on multiple fields (support preloaded values and map control)
+	 * 
+	 * @param  [type]
+	 * @param  string
+	 * @param  [type]
+	 * @return [type]
+	 */
+	public function get_field_coordinates( $obj, $location_string = '', $field_name = null ) {
+
+		if ( ! $field_name ) {
+			$field_name = $this->lat_lng->meta_key;
+		}
+
+		$field_name = str_replace( '+', '_', $field_name );
+
+		$location_hash = $this->get_field_value( $obj, $field_name . '_hash' );
+
+		// Try to get legacy preloaded data and update it
+		if ( ! $location_hash ) {
+			
+			$legacy_data = $this->get_field_value( $obj, $this->lat_lng->meta_key );
+
+			if ( ! empty( $legacy_data ) ) {
+				$location_hash = $legacy_data['key'];
+				$this->update_field_value( $obj, $field_name, $legacy_data );
+				$this->delete_field_value( $obj, $this->lat_lng->meta_key );
+			}
+			
+		}
+
+		if ( ! $location_hash ) {
+			return;
+		}
+
+		return array(
+			'key'   => $location_hash,
+			'coord' => array(
+				'lat' => $this->get_field_value( $obj, $field_name . '_lat' ),
+				'lng' => $this->get_field_value( $obj, $field_name . '_lng' ),
+			),
+		);
+		
 	}
 
 	public function update_field_value( $obj, $field, $value ) {
@@ -66,19 +120,36 @@ class CCT_Maps_Source extends \Jet_Engine\Modules\Maps_Listings\Source\Base {
 			return;
 		}
 
+		$field = str_replace( '+', '_', $field );
+
 		$content_type = Module::instance()->manager->get_content_types( $obj->cct_slug );
 
 		if ( ! $content_type ) {
 			return;
 		}
 
-		$coord_key = $this->lat_lng->meta_key;
+		$hash_col = $field . '_hash';
+		$lat_col  = $field . '_lat';
+		$lng_col  = $field . '_lng';
 
-		if ( ! $content_type->db->column_exists( $coord_key ) ) {
-			$content_type->db->insert_table_columns( array( $coord_key => 'text' ) );
+		if ( ! $content_type->db->column_exists( $hash_col ) ) {
+			$content_type->db->insert_table_columns( array( $hash_col => 'text' ) );
 		}
 
-		$content_type->db->update( array( $coord_key => $value ), array( '_ID' => $obj->_ID ) );
+		if ( ! $content_type->db->column_exists( $lat_col ) ) {
+			$content_type->db->insert_table_columns( array( $lat_col => 'text' ) );
+		}
+
+		if ( ! $content_type->db->column_exists( $lng_col ) ) {
+			$content_type->db->insert_table_columns( array( $lng_col => 'text' ) );
+		}
+
+		$content_type->db->update( array( 
+			$hash_col => $value['key'],
+			$lat_col  => $value['coord']['lat'],
+			$lng_col  => $value['coord']['lng'],
+		), array( '_ID' => $obj->_ID ) );
+
 	}
 
 	public function get_failure_key( $obj ) {
@@ -117,14 +188,41 @@ class CCT_Maps_Source extends \Jet_Engine\Modules\Maps_Listings\Source\Base {
 
 				$this->lat_lng->set_current_source( $this->get_id() );
 				$address = $this->lat_lng->get_address_from_fields_group( $cct_item, $fields );
+				
 
 				if ( ! $address ) {
 					return;
 				}
 
+				// get remote or local data (if location the same)
 				$coord = $this->lat_lng->get( $cct_item, $address );
 
+				if ( $coord ) {
+					
+					$field = implode( '+', $fields );
+
+					// write this data into appropriate service columns for current field
+					$this->update_field_value( $cct_item, $field, array(
+						'key'   => md5( $address ),
+						'coord' => $coord,
+					) );
+				}
+
 			}, 10, 3 );
+
+			// Prevent deletions address columns after updated CCT.
+			$col_prefix = implode( '_', $fields );
+
+			$cols = array(
+				$col_prefix . '_hash',
+				$col_prefix . '_lat',
+				$col_prefix . '_lng'
+			);
+
+			add_filter( 'jet-engine/custom-content-types/db/exclude-fields', function ( $exclude ) use ( $cols ) {
+				return array_merge( $exclude, $cols );
+			} );
+
 		}
 	}
 

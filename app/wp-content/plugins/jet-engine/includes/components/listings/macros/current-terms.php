@@ -51,6 +51,11 @@ class Current_Terms extends \Jet_Engine_Base_Macros {
 		}
 
 		$object = $this->get_macros_object();
+
+		if ( ! $object || ! is_object( $object ) ) {
+			return '';
+		}
+
 		$class  = get_class( $object );
 
 		if ( 'WP_Post' !== $class ) {
@@ -59,8 +64,12 @@ class Current_Terms extends \Jet_Engine_Base_Macros {
 
 		$terms = wp_get_post_terms( $object->ID, $taxonomy, array( 'fields' => 'ids' ) );
 
-		if ( empty( $terms ) ) {
+		if ( empty( $terms ) || is_wp_error( $terms ) ) {
 			return '';
+		}
+
+		if ( is_array( $terms ) && 1 === count( $terms ) ) {
+			return absint( $terms[0] );
 		}
 
 		return implode( ',', $terms );

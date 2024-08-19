@@ -9,45 +9,44 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Alphabet_Filter' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Alphabet_Filter class
 	 */
 	class Jet_Smart_Filters_Alphabet_Filter extends Jet_Smart_Filters_Filter_Base {
-
 		/**
 		 * Get provider name
-		 *
-		 * @return string
 		 */
 		public function get_name() {
+
 			return __( 'Alphabet', 'jet-smart-filters' );
 		}
 
 		/**
 		 * Get provider ID
-		 *
-		 * @return string
 		 */
 		public function get_id() {
+
 			return 'alphabet';
 		}
 
 		/**
+		 * Get icon URL
+		 */
+		public function get_icon_url() {
+
+			return jet_smart_filters()->plugin_url( 'admin/assets/img/filter-types/alphabet.png' );
+		}
+
+		/**
 		 * Get provider wrapper selector
-		 *
-		 * @return string
 		 */
 		public function get_scripts() {
+
 			return false;
 		}
 
 		/**
 		 * Prepare filter template argumnets
-		 *
-		 * @param  [type] $args [description]
-		 *
-		 * @return [type]       [description]
 		 */
 		public function prepare_args( $args ) {
 
@@ -60,11 +59,12 @@ if ( ! class_exists( 'Jet_Smart_Filters_Alphabet_Filter' ) ) {
 				return false;
 			}
 
-			$query_type   = 'alphabet';
-			$query_var    = '';
-			$behavior     = get_post_meta( $filter_id, '_alphabet_behavior', true );
-			$can_deselect = filter_var( get_post_meta( $filter_id, '_alphabet_radio_deselect', true ), FILTER_VALIDATE_BOOLEAN );
-			$options      = array_map( 'trim', explode( ',', get_post_meta( $filter_id, '_alphabet_options', true ) ) );
+			$query_type       = 'alphabet';
+			$query_var        = '';
+			$behavior         = get_post_meta( $filter_id, '_alphabet_behavior', true );
+			$can_deselect     = filter_var( get_post_meta( $filter_id, '_alphabet_radio_deselect', true ), FILTER_VALIDATE_BOOLEAN );
+			$options          = array_map( 'trim', explode( ',', get_post_meta( $filter_id, '_alphabet_options', true ) ) );
+			$predefined_value = $this->get_predefined_value( $filter_id );
 
 			$result = array(
 				'options'              => $options,
@@ -76,14 +76,18 @@ if ( ! class_exists( 'Jet_Smart_Filters_Alphabet_Filter' ) ) {
 				'apply_type'           => $apply_type,
 				'filter_id'            => $filter_id,
 				'behavior'             => $behavior,
+				'accessibility_label'  => $this->get_accessibility_label( $filter_id )
 			);
 
 			if ( $can_deselect ) {
 				$result['can_deselect'] = $can_deselect;
 			}
 
-			return $result;
+			if ( $predefined_value !== false ) {
+				$result['predefined_value'] = $predefined_value;
+			}
 
+			return $result;
 		}
 
 		public function additional_filter_data_atts( $args ) {
@@ -93,9 +97,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Alphabet_Filter' ) ) {
 			if ( ! empty( $args['can_deselect'] ) ) $additional_filter_data_atts['data-can-deselect'] = $args['can_deselect'];
 
 			return $additional_filter_data_atts;
-
 		}
-
 	}
-
 }

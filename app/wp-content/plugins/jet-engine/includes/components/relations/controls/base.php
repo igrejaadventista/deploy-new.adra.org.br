@@ -206,9 +206,9 @@ class Base {
 		$single_label = jet_engine()->relations->types_helper->get_type_label( 'single', $from_object['object_type'], $from_object['object'] );
 
 		if ( $this->_is( 'parent_object' ) ) {
-			$key = 'parent_page_control_';
-		} else {
 			$key = 'child_page_control_';
+		} else {
+			$key = 'parent_page_control_';
 		}
 
 		return array(
@@ -239,9 +239,9 @@ class Base {
 		$this->setup_type();
 
 		if ( $this->_is( 'parent_object' ) ) {
-			$key = 'parent_page_control_title';
-		} else {
 			$key = 'child_page_control_title';
+		} else {
+			$key = 'parent_page_control_title';
 		}
 
 		$label = $this->get_label( $key );
@@ -314,6 +314,16 @@ class Base {
 			'_nonce' => wp_create_nonce( 'jet-engine-relations-control' ),
 			'help'   => array(
 				'emptyObject' => $this->get_empty_object_help(),
+			),
+			'i18n' => array(
+				'yes'           => esc_html__( 'Yes', 'jet-engine' ),
+				'no'            => esc_html__( 'No', 'jet-engine' ),
+				'edit'          => esc_html__( 'Edit', 'jet-engine' ),
+				'view'          => esc_html__( 'View', 'jet-engine' ),
+				'disconnect'    => esc_html__( 'Disconnect', 'jet-engine' ),
+				'deleteItem'    => esc_html__( 'Delete Item', 'jet-engine' ),
+				'confirmText'   => esc_html__( 'Are you sure?', 'jet-engine' ),
+				'confirmDelete' => esc_html__( 'Are you sure? This item will be removed from your website.', 'jet-engine' ),
 			),
 		);
 

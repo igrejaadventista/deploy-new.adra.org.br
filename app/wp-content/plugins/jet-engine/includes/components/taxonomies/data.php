@@ -37,6 +37,15 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 		public $edit = 'edit-tax';
 
 		/**
+		 * Query arguments
+		 *
+		 * @var array
+		 */
+		public $query_args = array(
+			'status' => 'publish',
+		);
+
+		/**
 		 * Sanitizr post type request
 		 *
 		 * @return void
@@ -48,7 +57,7 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 
 			if ( empty( $request['slug'] ) ) {
 				$valid = false;
-				$this->cpt->add_notice(
+				$this->parent->add_notice(
 					'error',
 					__( 'Please set taxonomy slug', 'jet-engine' )
 				);
@@ -56,7 +65,7 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 
 			if ( empty( $request['slug'] ) ) {
 				$valid = false;
-				$this->cpt->add_notice(
+				$this->parent->add_notice(
 					'error',
 					__( 'Please set taxonomy name', 'jet-engine' )
 				);
@@ -64,7 +73,7 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 
 			if ( empty( $request['object_type'] ) ) {
 				$valid = false;
-				$this->cpt->add_notice(
+				$this->parent->add_notice(
 					'error',
 					__( 'Please set post type for taxonomy', 'jet-engine' )
 				);
@@ -72,7 +81,7 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 
 			if ( isset( $request['slug'] ) && in_array( $request['slug'], $this->items_blacklist() ) ) {
 				$valid = false;
-				$this->cpt->add_notice(
+				$this->parent->add_notice(
 					'error',
 					__( 'Please change taxonomy slug. Current is reserved for WordPress needs', 'jet-engine' )
 				);
@@ -198,9 +207,15 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 		 *
 		 * @return array
 		 */
-		public function sanitize_item_from_request() {
+		public function sanitize_item_from_request( $is_built_in = false ) {
 
 			$request = $this->request;
+
+			if ( $is_built_in ) {
+				$status = 'built-in';;
+			} else {
+				$status = 'publish';
+			}
 
 			$result = array(
 				'slug'        => '',
@@ -210,16 +225,39 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 				'meta_fields' => array(),
 			);
 
-			$slug = ! empty( $request['slug'] ) ? $this->sanitize_slug( $request['slug'] ) : false;
+			if ( $is_built_in && ! empty( $request['id'] ) ) {
+				$result['id'] = absint( $request['id'] );
+			}
+
+			if ( $is_built_in ) {
+				$slug = ! empty( $request['slug'] ) ? $request['slug'] : false;
+			} else {
+				$slug = ! empty( $request['slug'] ) ? $this->sanitize_slug( $request['slug'] ) : false;
+			}
+
 			$name = ! empty( $request['name'] ) ? sanitize_text_field( $request['name'] ) : false;
 
 			if ( ! $slug ) {
 				return false;
 			}
 
-			$labels = array(
-				'name' => $name,
-			);
+			$labels = array();
+
+			if ( $is_built_in ) {
+
+				if ( $name ) {
+					$labels = array(
+						'name' => $name,
+					);
+				} else {
+					$name = array();
+				}
+
+			} else {
+				$labels = array(
+					'name' => $name,
+				);
+			}
 
 			$labels_list = array(
 				'name',
@@ -239,6 +277,7 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 				'add_or_remove_items',
 				'choose_from_most_used',
 				'not_found',
+				'back_to_items',
 			);
 
 			foreach ( $labels_list as $label_key ) {
@@ -255,26 +294,42 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 				'show_in_menu',
 				'show_in_nav_menus',
 				'show_in_rest',
-				'query_var',
 				'rewrite',
 				'hierarchical',
 				'with_front',
 				'show_edit_link',
+				'hide_field_names',
+				'delete_metadata',
+				'rewrite_hierarchical',
 			);
 
 			foreach ( $ensure_bool as $key ) {
-				$args[ $key ] = ! empty( $request[ $key ] )
+				if ( $is_built_in ) {
+					if ( isset( $request[ $key ] ) ) {
+						$args[ $key ] = filter_var( $request[ $key ], FILTER_VALIDATE_BOOLEAN );
+					}
+				} else {
+					$args[ $key ] = ! empty( $request[ $key ] )
 									? filter_var( $request[ $key ], FILTER_VALIDATE_BOOLEAN )
 									: false;
+				}
 			}
 
 			$regular_args = array(
+				'query_var'       => '',
 				'rewrite_slug'    => $slug,
 				'capability_type' => '',
+				'description'     => '',
 			);
 
 			foreach ( $regular_args as $key => $default ) {
-				$args[ $key ] = ! empty( $request[ $key ] ) ? $request[ $key ] : $default;
+				if ( $is_built_in ) {
+					if ( isset( $request[ $key ] ) ) {
+						$args[ $key ] = $request[ $key ];
+					}
+				} else {
+					$args[ $key ] = ! empty( $request[ $key ] ) ? $request[ $key ] : $default;
+				}
 			}
 
 			/**
@@ -308,17 +363,22 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 
 			$result = array_merge( $item, $args );
 
-			if ( false !== $result['rewrite'] ) {
+			if ( isset( $result['rewrite'] ) && false !== $result['rewrite'] ) {
 
 				$with_front = isset( $result['with_front'] ) ? $result['with_front'] : true;
 				$with_front = filter_var( $with_front, FILTER_VALIDATE_BOOLEAN );
 
+				$rewrite_hierarchical = isset( $result['rewrite_hierarchical'] ) ? $result['rewrite_hierarchical'] : false;
+				$rewrite_hierarchical = filter_var( $rewrite_hierarchical, FILTER_VALIDATE_BOOLEAN );
+
 				$result['rewrite'] = array(
-					'slug'       => $result['rewrite_slug'],
-					'with_front' => $with_front,
+					'slug'         => $result['rewrite_slug'],
+					'with_front'   => $with_front,
+					'hierarchical' => $rewrite_hierarchical,
 				);
 
 				unset( $result['rewrite_slug'] );
+				unset( $result['rewrite_hierarchical'] );
 			}
 
 			unset( $result['args'] );
@@ -347,10 +407,13 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 			$name        = ! empty( $labels['name'] ) ? $labels['name'] : '';
 
 			$result['general_settings'] = array(
-				'name'           => $name,
-				'slug'           => $item['slug'],
-				'object_type'    => $object_type,
-				'show_edit_link' => isset( $args['show_edit_link'] ) ? $args['show_edit_link'] : false,
+				'name'             => $name,
+				'slug'             => $item['slug'],
+				'id'               => $item['id'],
+				'object_type'      => $object_type,
+				'show_edit_link'   => isset( $args['show_edit_link'] ) ? $args['show_edit_link'] : false,
+				'hide_field_names' => isset( $args['hide_field_names'] ) ? $args['hide_field_names'] : false,
+				'delete_metadata'  => isset( $args['delete_metadata'] ) ? $args['delete_metadata'] : false,
 			);
 
 			$meta_fields = array();
@@ -382,40 +445,6 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 		}
 
 		/**
-		 * Sanitize meta fields
-		 *
-		 * @param  [type] $meta_fields [description]
-		 * @return [type]              [description]
-		 */
-		public function sanitize_meta_fields( $meta_fields ) {
-
-			foreach ( $meta_fields as $key => $field ) {
-
-				// If name is empty - create it from title, else - santize it
-				if ( empty( $field['name'] ) ) {
-					$field['name'] = $this->sanitize_slug( $field['title'] );
-				} else {
-					$field['name'] = $this->sanitize_slug( $field['name'] );
-				}
-
-				// If still empty - create random name
-				if ( empty( $field['name'] ) ) {
-					$field['name'] = '_field_' . rand( 10000, 99999 );
-				}
-
-				// If name in blak list - add underscore at start
-				if ( in_array( $field['name'], $this->meta_blacklist() ) ) {
-					$meta_fields[ $key ]['name'] = '_' . $field['name'];
-				} else {
-					$meta_fields[ $key ]['name'] = $field['name'];
-				}
-
-			}
-
-			return $meta_fields;
-		}
-
-		/**
 		 * Before item delete
 		 */
 		public function before_item_delete( $item_id ) {
@@ -438,6 +467,8 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 		 * Before item update
 		 */
 		public function before_item_update( $item ) {
+
+			$this->delete_metadata_on_update( $item );
 			
 			if ( empty( $item['id'] ) ) {
 				return;
@@ -519,6 +550,270 @@ if ( ! class_exists( 'Jet_Engine_CPT_Tax_Data' ) ) {
 
 			$wp_roles->remove_cap( 'administrator', $cap );
 			$wp_roles->remove_cap( 'editor', $cap );
+
+		}
+
+		/**
+		 * Edit built-in post type
+		 *
+		 * @param  boolean $redirect [description]
+		 * @return [type]            [description]
+		 */
+		public function edit_built_in_item( $redirect = true ) {
+
+			if ( ! current_user_can( 'manage_options' ) ) {
+				$this->parent->add_notice(
+					'error',
+					__( 'You don\'t have permissions to do this', 'jet-engine' )
+				);
+				return false;
+			}
+
+			$item = $this->sanitize_item_from_request( true );
+
+			if ( ! $item ) {
+				$this->parent->add_notice(
+					'error',
+					__( 'Post type name not found in request. Please check your data and try again.', 'jet-engine' )
+				);
+				return false;
+			}
+
+			$this->query_args['status'] = 'built-in';
+
+			$id = $this->update_item_in_db( $item );
+
+			if ( ! $id ) {
+				return false;
+			} else {
+				return $id;
+			}
+
+		}
+
+		/**
+		 * Get built-in post type from data base
+		 *
+		 * @param  [type] $post_type [description]
+		 * @return [type]            [description]
+		 */
+		public function get_built_in_item_from_db( $slug = null ) {
+
+			$item = $this->db->query(
+				$this->table,
+				array(
+					'slug'   => $slug,
+					'status' => 'built-in',
+				),
+				array( $this, 'filter_item_for_edit' )
+			);
+
+			if ( ! empty( $item ) ) {
+				return $item[0];
+			} else {
+				return false;
+			}
+
+		}
+
+		/**
+		 * Remove modified data for built-in post type
+		 *
+		 * @return [type] [description]
+		 */
+		public function reset_built_in_item( $slug = null ) {
+
+			$this->db->delete(
+				$this->table,
+				array(
+					'slug'   => $slug,
+					'status' => 'built-in',
+				),
+				array( '%s', '%s' )
+			);
+
+			return true;
+
+		}
+
+		/**
+		 * Return user-modified built-in post types
+		 *
+		 * @return [type] [description]
+		 */
+		public function get_modified_built_in_items() {
+
+			$items = $this->db->query(
+				$this->table,
+				array(
+					'status' => 'built-in',
+				)
+			);
+
+			if ( ! $items ) {
+				return array();
+			} else {
+				return $items;
+			}
+
+		}
+
+		/**
+		 * Returns default built-in post type
+		 *
+		 * @return [type] [description]
+		 */
+		public function get_default_built_in_item( $slug ) {
+
+			$object = get_taxonomy( $slug );
+
+			if ( ! $object ) {
+
+				$this->parent->add_notice(
+					'error',
+					__( 'Taxonomy not found', 'jet-engine' )
+				);
+
+				return false;
+			}
+
+			$object->labels = (array) $object->labels;
+			$object         = (array) $object;
+
+			$_defaults = ! empty( $this->parent->built_in_defaults[ $slug ] ) ? $this->parent->built_in_defaults[ $slug ] : false;
+
+			if ( $_defaults ) {
+				if ( ! empty( $_defaults['labels'] ) ) {
+
+					$_defaults['labels'] = (array) $_defaults['labels'];
+
+					$object['labels'] = array_merge( $object['labels'], $_defaults['labels'] );
+
+					if ( ! empty( $_defaults['labels']['name'] ) ) {
+						$object['label'] = $_defaults['labels']['name'];
+					}
+
+					unset( $_defaults['labels'] );
+				}
+
+				if ( ! empty( $_defaults ) ) {
+					$object = array_merge( $object, $_defaults );
+				}
+
+			}
+
+			$data = array(
+				'general_settings' => array(
+					'name'             => $object['label'],
+					'slug'             => $object['name'],
+					'object_type'      => $object['object_type'],
+					'show_edit_link'   => false,
+					'hide_field_names' => false,
+					'delete_metadata'  => false,
+				),
+				'labels'        => $object['labels'],
+				'meta_fields'   => array(),
+			);
+
+			unset( $object['labels'] );
+			unset( $object['cap'] );
+			unset( $object['label'] );
+			unset( $object['name'] );
+
+			$data['advanced_settings'] = $object;
+
+			return $data;
+
+		}
+
+		/**
+		 * Maybe delete metadata on update item
+		 */
+		public function delete_metadata_on_update( $item = array() ) {
+
+			$args = ! empty( $item['args'] ) ? $item['args'] : array();
+
+			if ( empty( $args['delete_metadata'] ) ) {
+				return;
+			}
+
+			if ( empty( $item['id'] ) ) {
+				return;
+			}
+
+			$prev_item = $this->get_item_for_edit( $item['id'] );
+
+			if ( ! $prev_item ) {
+				return;
+			}
+
+			$prev_meta_fields = ! empty( $prev_item['meta_fields'] ) ? $prev_item['meta_fields'] : array();
+			$new_meta_fields  = ! empty( $item['meta_fields'] ) ? $item['meta_fields'] : array();
+
+			if ( empty( $prev_meta_fields ) ) {
+				return;
+			}
+
+			$prev_meta_names = wp_list_pluck( $prev_meta_fields, 'name' );
+			$new_meta_names  = wp_list_pluck( $new_meta_fields, 'name' );
+
+			$to_delete = array_diff( $prev_meta_names, $new_meta_names );
+
+			if ( empty( $to_delete ) ) {
+				return;
+			}
+
+			$this->delete_metadata( $prev_item, $to_delete );
+		}
+
+		/**
+		 * Delete metadata of Taxonomy
+		 */
+		public function delete_metadata( $item = null, $keys_to_delete = array(), $on_delete = false ) {
+
+			$args = ! empty( $item['general_settings'] ) ? $item['general_settings'] : array();
+
+			if ( $on_delete && empty( $args['delete_metadata'] ) ) {
+				return;
+			}
+
+			$meta_fields = ! empty( $item['meta_fields'] ) ? $item['meta_fields'] : array();
+
+			if ( empty( $meta_fields ) ) {
+				return;
+			}
+
+			$meta_names  = wp_list_pluck( $meta_fields, 'name' );
+			$meta_fields = array_combine( $meta_names, $meta_fields );
+
+			if ( $on_delete ) {
+				$keys_to_delete = $meta_names;
+			}
+
+			$to_delete = array_filter( $keys_to_delete, function ( $name ) use ( $meta_fields ) {
+
+				if ( ! empty( $meta_fields[ $name ]['object_type'] ) && 'field' !== $meta_fields[ $name ]['object_type'] ) {
+					return false;
+				}
+
+				if ( ! empty( $meta_fields[ $name ]['type'] ) && 'html' === $meta_fields[ $name ]['type'] ) {
+					return false;
+				}
+
+				return true;
+			} );
+
+			if ( empty( $to_delete ) ) {
+				return;
+			}
+
+			Jet_Engine_Tools::delete_metadata_by_object_where(
+				'term',
+				$to_delete,
+				array(
+					'taxonomy' => $args['slug'],
+				)
+			);
 
 		}
 

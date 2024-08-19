@@ -57,19 +57,26 @@ class Update_Preview extends \Jet_Engine_Base_API_Endpoint {
 			) );
 		}
 
+		$count = $query->get_items_total_count();
 		$items = $query->get_items();
 		$more  = '';
 		$count = $query->get_items_total_count();
 
-		if ( 10 < $count ) {
-			$items = array_slice( $items, 0, 10 );
+		$max_count = absint( $preview['query_count'] ?? 10 );
+
+		if( ! $max_count  ) {
+			$max_count = 10;
+		}
+
+		if ( $max_count < $count ) {
+			$items = array_slice( $items, 0, $max_count );
 			$more  = "\r\n...";
 		}
 
 		return rest_ensure_response( array(
 			'success' => true,
-			'count'   => $query->get_items_total_count(),
-			'data'    => $this->stringify_data( $items, $more ),
+			'count'   => $count,
+			'data'    => $this->stringify_data( $query, $items, $more ),
 		) );
 
 	}
@@ -91,6 +98,21 @@ class Update_Preview extends \Jet_Engine_Base_API_Endpoint {
 
 		}
 
+		if ( ! empty( $preview['page_url'] ) ) {
+			$_SERVER['REQUEST_URI'] = preg_replace(
+				'/wp-json\/.*/',
+				ltrim( $preview['page_url'], '/' ),
+				$_SERVER['REQUEST_URI']
+			);
+
+			global $wp;
+
+			$wp->parse_request();
+			$wp->query_posts();
+			wp_reset_postdata();
+
+		}
+
 		if ( ! empty( $preview['query_string'] ) ) {
 
 			parse_str( $preview['query_string'], $query_array );
@@ -106,8 +128,9 @@ class Update_Preview extends \Jet_Engine_Base_API_Endpoint {
 
 	}
 
-	public function stringify_data( $items = array(), $more = '' ) {
+	public function stringify_data( $query = null, $items = array(), $more = '' ) {
 		ob_start();
+		$query->before_preview_body();
 		print_r( $items );
 		return ob_get_clean() . $more;
 	}

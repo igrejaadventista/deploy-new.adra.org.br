@@ -9,22 +9,20 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Block_Search class
 	 */
 	class Jet_Smart_Filters_Block_Search extends Jet_Smart_Filters_Block_Base {
-
 		/**
 		 * Returns block name
-		 *
-		 * @return string
 		 */
 		public function get_name() {
+
 			return 'search';
 		}
 
-		public function set_css_scheme(){
+		public function set_css_scheme() {
+
 			$this->css_scheme = apply_filters(
 				'jet-smart-filters/widgets/search/css-scheme',
 				array(
@@ -41,7 +39,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 			);
 		}
 
-		public function add_style_manager_options(){
+		public function add_style_manager_options() {
 
 			$this->controls_manager->start_section(
 				'style_controls',
@@ -178,6 +176,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 					],
 				],
 			]);
+
 			$this->controls_manager->end_section();
 
 			$this->controls_manager->start_section(
@@ -188,6 +187,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 					'title'       => esc_html__( 'Input', 'jet-smart-filters' )
 				]
 			);
+
 			$this->controls_manager->add_control([
 				'id'         => 'search_input_typography',
 				'type'       => 'typography',
@@ -195,6 +195,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 					'{{WRAPPER}} ' . $this->css_scheme['input'] => 'font-family: {{FAMILY}}; font-weight: {{WEIGHT}}; text-transform: {{TRANSFORM}}; font-style: {{STYLE}}; text-decoration: {{DECORATION}}; line-height: {{LINEHEIGHT}}{{LH_UNIT}}; letter-spacing: {{LETTERSPACING}}{{LS_UNIT}}; font-size: {{SIZE}}{{S_UNIT}};',
 				],
 			]);
+
 			$this->controls_manager->add_control([
 				'id'       => 'search_input_color',
 				'type'     => 'color-picker',
@@ -209,6 +210,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 					'{{WRAPPER}} ' . $this->css_scheme['input-loading']                     => 'color: {{VALUE}}'
 				),
 			]);
+
 			$this->controls_manager->add_control([
 				'id'       => 'search_input_background_color',
 				'type'     => 'color-picker',
@@ -218,6 +220,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 					'{{WRAPPER}} ' . $this->css_scheme['input'] => 'background-color: {{VALUE}}',
 				),
 			]);
+
 			$this->controls_manager->add_control([
 				'id'         => 'item_border',
 				'type'       => 'border',
@@ -226,6 +229,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 					'{{WRAPPER}} ' . $this->css_scheme['input'] => 'border-style: {{STYLE}}; border-width: {{WIDTH}}; border-radius: {{RADIUS}}; border-color: {{COLOR}}',
 				),
 			]);
+
 			$this->controls_manager->add_control([
 				'id'         => 'search_input_padding',
 				'type'       => 'dimensions',
@@ -236,6 +240,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 				),
 				'separator'    => 'before',
 			]);
+
 			$this->controls_manager->add_control([
 				'id'         => 'search_input_margin',
 				'type'       => 'dimensions',
@@ -493,8 +498,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 
 		/**
 		 * Return callback
-		 *
-		 * @return html
 		 */
 		public function render_callback( $settings = array() ) {
 
@@ -508,11 +511,12 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 				return $this->is_editor() ? __( 'Please select a provider', 'jet-smart-filters' ) : false;
 			}
 
-			$filter_id  = $settings['filter_id'];
-			$base_class = 'jet-smart-filters-' . $this->get_name();
-			$provider   = $settings['content_provider'];
-			$query_id   = 'default';
-			$show_label = $settings['show_label'];
+			$filter_id            = apply_filters( 'jet-smart-filters/render_filter_template/filter_id', $settings['filter_id'] );
+			$base_class           = 'jet-smart-filters-' . $this->get_name();
+			$provider             = $settings['content_provider'];
+			$query_id             = ! empty( $settings['query_id'] ) ? $settings['query_id'] : 'default';
+			$show_label           = $settings['show_label'];
+			$additional_providers = jet_smart_filters()->utils->get_additional_providers( $settings );
 
 			if ( in_array( $settings['apply_type'], ['ajax', 'mixed'] ) ) {
 				$apply_type = $settings['apply_type'] . '-reload';
@@ -520,21 +524,27 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 				$apply_type = $settings['apply_type'];
 			}
 
-			jet_smart_filters()->admin_bar->register_post_item( $filter_id );
+			jet_smart_filters()->admin_bar_register_item( $filter_id );
 
 			ob_start();
 
-			printf( '<div class="%1$s jet-filter">', $base_class );
+			printf(
+				'<div class="%1$s jet-filter" data-is-block="jet-smart-filters/%2$s">',
+				$base_class,
+				$this->get_name()
+			);
 
 			include jet_smart_filters()->get_template( 'common/filter-label.php' );
 
 			jet_smart_filters()->filter_types->render_filter_template( $this->get_name(), array(
-				'filter_id'         => $settings['filter_id'],
-				'content_provider'  => $provider,
-				'query_id'          => $query_id,
-				'apply_type'        => $apply_type,
-				'button_text'       => $settings['apply_button_text'],
-				'min_letters_count' => $settings['typing_min_letters_count'],
+				'filter_id'            => $filter_id,
+				'content_provider'     => $provider,
+				'query_id'             => $query_id,
+				'additional_providers' => $additional_providers,
+				'apply_type'           => $apply_type,
+				'button_text'          => $settings['apply_button_text'],
+				'hide_apply_button'    => $settings['hide_apply_button'],
+				'min_letters_count'    => $settings['typing_min_letters_count'],
 				//'button_icon'          => $icon,
 				//'button_icon_position' => $settings['filter_apply_button_icon_position'],
 			) );
@@ -544,9 +554,6 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Search' ) ) {
 			$filter_layout = ob_get_clean();
 
 			return $filter_layout;
-
 		}
-
 	}
-
 }

@@ -30,7 +30,10 @@ class Jet_Engine_CPT_Rest_Add_Post_Type extends Jet_Engine_Base_API_Endpoint {
 		jet_engine()->cpt->data->set_request( array(
 			'name'                  => $this->safe_get( $params, 'general_settings', 'name' ),
 			'slug'                  => $this->safe_get( $params, 'general_settings', 'slug' ),
+			'custom_storage'        => $this->safe_get( $params, 'general_settings', 'custom_storage' ),
 			'show_edit_link'        => $this->safe_get( $params, 'general_settings', 'show_edit_link' ),
+			'hide_field_names'      => $this->safe_get( $params, 'general_settings', 'hide_field_names' ),
+			'delete_metadata'       => $this->safe_get( $params, 'general_settings', 'delete_metadata' ),
 			'singular_name'         => $this->safe_get( $params, 'labels', 'singular_name' ),
 			'menu_name'             => $this->safe_get( $params, 'labels', 'menu_name' ),
 			'name_admin_bar'        => $this->safe_get( $params, 'labels', 'name_admin_bar' ),
@@ -72,8 +75,16 @@ class Jet_Engine_CPT_Rest_Add_Post_Type extends Jet_Engine_Base_API_Endpoint {
 			'admin_filters'         => ! empty( $params['admin_filters'] ) ? $params['admin_filters'] : array(),
 			'meta_fields'           => ! empty( $params['meta_fields'] ) ? $params['meta_fields'] : array(),
 		) );
-
-		$post_type_id = jet_engine()->cpt->data->create_item( false );
+		
+		try {
+			$post_type_id = jet_engine()->cpt->data->create_item( false );
+		} catch ( \Exception $e ) {
+			return rest_ensure_response( array(
+				'success' => false,
+				'item_id' => false,
+				'notices' => [ [ 'message' => $e->getMessage() ] ],
+			) );
+		}
 
 		return rest_ensure_response( array(
 			'success' => ! empty( $post_type_id ),

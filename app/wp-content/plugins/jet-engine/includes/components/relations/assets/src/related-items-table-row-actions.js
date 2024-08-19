@@ -69,7 +69,7 @@ class RowActions extends Component {
 
 	confirmPopover( text ) {
 
-		text = text || 'Are you sure?';
+		text = text || window.JetEngineRelationsCommon.i18n.confirmText;
 
 		return <Popover
 			position="top center"
@@ -78,23 +78,34 @@ class RowActions extends Component {
 				this.cancelDisconnect();
 			} }
 		>
-			{ text }
-			<a
-				href="#"
-				onClick={ ( event ) => {
-					event.preventDefault();
-					event.stopPropagation();
-					this.processDisconnect();
-				} }
-			>{ 'Yes' }</a>
-			<a
-				href="#"
-				onClick={ ( event ) => {
-					event.preventDefault();
-					event.stopPropagation();
-					this.cancelDisconnect();
-				} }
-			>{ 'No' }</a>
+			<div style={ { 
+				width: '100px',
+				display: 'flex',
+				padding: '3px',
+				justifyContent: 'center',
+				textAlign: 'center',
+				flexWrap: 'wrap'
+			} }>
+				{ text }
+				<a
+					href="#"
+					style={{ margin: '0 4px' }}
+					onClick={ ( event ) => {
+						event.preventDefault();
+						event.stopPropagation();
+						this.processDisconnect();
+					} }
+				>{ window.JetEngineRelationsCommon.i18n.yes }</a>
+				<a
+					href="#"
+					style={{ margin: '0 4px' }}
+					onClick={ ( event ) => {
+						event.preventDefault();
+						event.stopPropagation();
+						this.cancelDisconnect();
+					} }
+				>{ window.JetEngineRelationsCommon.i18n.no }</a>
+			</div>
 		</Popover>
 	}
 
@@ -107,7 +118,7 @@ class RowActions extends Component {
 				onClick={ () => {
 					window.open( this.props.actions.edit, '_blank' ).focus();
 				} }
-			>{ 'Edit' }</Button> }
+			>{ window.JetEngineRelationsCommon.i18n.edit }</Button> }
 			{ this.props.actions.view && <Button
 				isSecondary
 				isSmall
@@ -115,7 +126,7 @@ class RowActions extends Component {
 				onClick={ () => {
 					window.open( this.props.actions.view, '_blank' ).focus();
 				} }
-			>{ 'View' }</Button> }
+			>{ window.JetEngineRelationsCommon.i18n.view }</Button> }
 			{ this.props.actions.disconnect && <Button
 				isSecondary
 				isDestructive
@@ -128,7 +139,7 @@ class RowActions extends Component {
 					} );
 				} }
 			>
-				{ 'Disconnect' }
+				{ window.JetEngineRelationsCommon.i18n.disconnect }
 				{ ( this.state.isDisconnect && ! this.state.isTrash ) && this.confirmPopover() }
 			</Button> }
 			{ this.props.actions.trash && <Button
@@ -143,8 +154,8 @@ class RowActions extends Component {
 					} );
 				} }
 			>
-				{ 'Delete Item' }
-				{ ( this.state.isDisconnect && this.state.isTrash ) && this.confirmPopover( 'Are you sure? This item will be removed from your website.' ) }
+				{ window.JetEngineRelationsCommon.i18n.deleteItem }
+				{ ( this.state.isDisconnect && this.state.isTrash ) && this.confirmPopover( window.JetEngineRelationsCommon.i18n.confirmDelete ) }
 			</Button> }
 		</div> );
 	}

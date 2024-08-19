@@ -58,10 +58,24 @@ if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Page_Edit' ) ) {
 		 */
 		public static function enqueue_meta_fields( $args = array() ) {
 
+			jet_engine()->register_jet_plugins_js();
+
+			wp_enqueue_script( 'jet-plugins' );
+
+			do_action( 'jet-engine/meta-fields/enqueue-assets' );
+
 			wp_enqueue_script(
 				'jet-engine-admin-tools',
 				jet_engine()->plugin_url( 'assets/js/admin/tools.js' ),
 				array(),
+				jet_engine()->get_version(),
+				true
+			);
+
+			wp_enqueue_script(
+				'jet-engine-meta-field-conditions',
+				jet_engine()->plugin_url( 'includes/components/meta-boxes/assets/js/field-conditions-dialog.js' ),
+				array( 'cx-vue-ui', 'wp-api-fetch' ),
 				jet_engine()->get_version(),
 				true
 			);
@@ -74,10 +88,11 @@ if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Page_Edit' ) ) {
 				true
 			);
 
-			$title         = ! empty( $args['title'] ) ? $args['title'] : __( 'Meta fields', 'jet-engine' );
-			$button        = ! empty( $args['button'] ) ? $args['button'] : __( 'New Meta Field', 'jet-engine' );
-			$disabled      = ! empty( $args['disabled'] ) ? $args['disabled'] : array();
-			$allowed_types = ! empty( $args['allowed_types'] ) ? $args['allowed_types'] : false;
+			$title           = ! empty( $args['title'] ) ? $args['title'] : __( 'Meta fields', 'jet-engine' );
+			$button          = ! empty( $args['button'] ) ? $args['button'] : __( 'New Meta Field', 'jet-engine' );
+			$disabled        = ! empty( $args['disabled'] ) ? $args['disabled'] : array();
+			$allowed_types   = ! empty( $args['allowed_types'] ) ? $args['allowed_types'] : false;
+			$allowed_sources = Jet_Engine_Meta_Boxes_Option_Sources::instance()->get_allowed_sources_for_js();
 
 			wp_localize_script( 'jet-engine-meta-fields', 'JetEngineFieldsConfig', apply_filters( 'jet-engine/meta-fields/config', array(
 				'title'               => $title,
@@ -85,8 +100,12 @@ if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Page_Edit' ) ) {
 				'post_types'          => Jet_Engine_Tools::get_post_types_for_js(),
 				'disabled'            => $disabled,
 				'quick_edit_supports' => array( 'text', 'date', 'time', 'datetime-local', 'textarea', 'select', 'radio', 'checkbox', 'number' ),
-				'i18n'                => array( 'select_field' => __( 'Select field...', 'jet-engine' ), ),
 				'allowed_types'       => $allowed_types,
+				'allowed_sources'     => $allowed_sources,
+				'i18n'                => array(
+					'select_field'    => esc_html__( 'Select field...', 'jet-engine' ),
+					'select_operator' => esc_html__( 'Select operator...', 'jet_engine' )
+				),
 				'field_types'         => array(
 					array(
 						'value' => 'text',
@@ -160,7 +179,80 @@ if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Page_Edit' ) ) {
 						'value' => 'html',
 						'label' => __( 'HTML', 'jet-engine' ),
 					),
-				)
+				),
+				'condition_operators' => array(
+					array(
+						'value'      => 'equal',
+						'label'      => esc_html__( 'Equal', 'jet-engine' ),
+						'not_fields' => array( 'repeater', 'media', 'gallery', 'posts', 'iconpicker' ),
+					),
+					array(
+						'value'      => 'not_equal',
+						'label'      => esc_html__( 'Not Equal', 'jet-engine' ),
+						'not_fields' => array( 'repeater', 'media', 'gallery', 'posts', 'iconpicker' ),
+					),
+					array(
+						'value'  => 'in',
+						'label'  => esc_html__( 'In the list', 'jet-engine' ),
+						'fields' => array( 'text', 'textarea', 'number', 'radio', 'checkbox', 'select' ),
+					),
+					array(
+						'value'  => 'not_in',
+						'label'  => esc_html__( 'Not In the list', 'jet-engine' ),
+						'fields' => array( 'text', 'textarea', 'number', 'radio', 'checkbox', 'select' ),
+					),
+					array(
+						'value'      => 'empty',
+						'label'      => esc_html__( 'Empty', 'jet-engine' ),
+						'not_fields' => array( 'switcher' ),
+					),
+					array(
+						'value'      => '!empty',
+						'label'      => esc_html__( 'Not Empty', 'jet-engine' ),
+						'not_fields' => array( 'switcher' ),
+					),
+					array(
+						'value'  => 'contains',
+						'label'  => esc_html__( 'Contains', 'jet-engine' ),
+						'fields' => array( 'text', 'textarea', 'wysiwyg' ),
+					),
+					array(
+						'value'  => '!contains',
+						'label'  => esc_html__( 'Not Contains', 'jet-engine' ),
+						'fields' => array( 'text', 'textarea', 'wysiwyg' ),
+					),
+					array(
+						'value'  => 'regexp',
+						'label'  => esc_html__( 'Regexp', 'jet-engine' ),
+						'fields' => array( 'text', 'textarea', 'wysiwyg' ),
+					),
+					array(
+						'value'  => '!regexp',
+						'label'  => esc_html__( 'Not Regexp', 'jet-engine' ),
+						'fields' => array( 'text', 'textarea', 'wysiwyg' ),
+					),
+					array(
+						'value'  => 'greater_than',
+						'label'  => esc_html__( 'Greater Than', 'jet-engine' ),
+						'fields' => array( 'number' ),
+					),
+					array(
+						'value'  => 'less_than',
+						'label'  => esc_html__( 'Less Than', 'jet-engine' ),
+						'fields' => array( 'number' ),
+					),
+					array(
+						'value'  => 'chars_greater_than',
+						'label'  => esc_html__( 'Number of characters is greater than', 'jet-engine' ),
+						'fields' => array( 'text', 'textarea', 'wysiwyg' ),
+					),
+					array(
+						'value'  => 'chars_less_than',
+						'label'  => esc_html__( 'Number of characters is less than', 'jet-engine' ),
+						'fields' => array( 'text', 'textarea', 'wysiwyg' ),
+					),
+				),
+				'icons_libraries' => \Jet_Engine_Icons_Manager::get_icons_libraries_list( true ),
 			) ) );
 
 			add_action( 'admin_footer', array( __CLASS__, 'add_meta_fields_template' ) );
@@ -180,6 +272,8 @@ if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Page_Edit' ) ) {
 			$ui->enqueue_assets();
 
 			self::enqueue_meta_fields();
+
+			do_action( 'jet-engine/meta-boxes/enqueue-assets' );
 
 			wp_enqueue_script(
 				'jet-engine-meta-delete-dialog',
@@ -280,10 +374,28 @@ if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Page_Edit' ) ) {
 		public static function add_meta_fields_template() {
 
 			ob_start();
+			include jet_engine()->plugin_path( 'includes/components/meta-boxes/templates/field-conditions-dialog.php' );
+			$conditions_template = ob_get_clean();
+
+			printf( '<script type="text/x-template" id="jet-meta-field-conditions-dialog">%s</script>', $conditions_template );
+
+			ob_start();
 			include jet_engine()->plugin_path( 'includes/components/meta-boxes/templates/fields.php' );
 			$content = ob_get_clean();
 
 			printf( '<script type="text/x-template" id="jet-meta-fields">%s</script>', $content );
+
+			ob_start();
+			include jet_engine()->plugin_path( 'includes/components/meta-boxes/templates/field.php' );
+			$content = ob_get_clean();
+
+			printf( '<script type="text/x-template" id="jet-meta-field">%s</script>', $content );
+
+			ob_start();
+			include jet_engine()->plugin_path( 'includes/components/meta-boxes/templates/field-options.php' );
+			$content = ob_get_clean();
+
+			printf( '<script type="text/x-template" id="jet-meta-field-options">%s</script>', $content );
 
 		}
 

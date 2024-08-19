@@ -31,7 +31,7 @@ class Open_Map_Popup extends \Elementor\Core\DynamicTags\Tag {
 		return true;
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 
 		$this->add_control(
 			'specific_post_id',
@@ -39,6 +39,9 @@ class Open_Map_Popup extends \Elementor\Core\DynamicTags\Tag {
 				'label'       => __( 'Specific post ID (optional)', 'jet-engine' ),
 				'label_block' => true,
 				'type'        => \Elementor\Controls_Manager::TEXT,
+				'ai'          => array(
+					'active' => false,
+				),
 			)
 		);
 
@@ -55,13 +58,28 @@ class Open_Map_Popup extends \Elementor\Core\DynamicTags\Tag {
 
 			)
 		);
+
+		$this->add_control(
+			'zoom',
+			array(
+				'label' => __( 'Zoom', 'jet-engine' ),
+				'type'  => \Elementor\Controls_Manager::NUMBER,
+			)
+		);
 	}
 
 	public function render() {
 		$specific_post_id = $this->get_settings( 'specific_post_id' );
 		$event = $this->get_settings( 'event' );
+		$zoom  = $this->get_settings( 'zoom' );
 
-		echo Module::instance()->get_action_url( $specific_post_id, $event );
+		$params = array();
+
+		if ( ! empty( $zoom ) ) {
+			$params['zoom'] = $zoom;
+		}
+
+		echo Module::instance()->get_action_url( $specific_post_id, $event, $params );
 	}
 
 }

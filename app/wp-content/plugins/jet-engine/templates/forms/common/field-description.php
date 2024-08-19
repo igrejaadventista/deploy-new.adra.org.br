@@ -12,7 +12,7 @@ if ( 'heading' === $args['type'] ) {
 }
 
 printf(
-	'<%1$s class="%2$s">%3$s</%1$s>',
+	'<%1$s class="%2$s"><span class="jet-form__desc-text">%3$s</span></%1$s>',
 	$tag,
 	$class,
 	$args['desc']

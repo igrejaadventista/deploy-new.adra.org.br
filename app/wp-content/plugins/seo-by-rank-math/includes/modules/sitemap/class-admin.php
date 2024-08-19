@@ -15,8 +15,8 @@ use RankMath\Helper;
 use RankMath\Traits\Ajax;
 use RankMath\Module\Base;
 use RankMath\Admin\Options;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -26,6 +26,20 @@ defined( 'ABSPATH' ) || exit;
 class Admin extends Base {
 
 	use Ajax;
+
+	/**
+	 * Module ID.
+	 *
+	 * @var string
+	 */
+	public $id = '';
+
+	/**
+	 * Module directory.
+	 *
+	 * @var string
+	 */
+	public $directory = '';
 
 	/**
 	 * The Constructor.
@@ -42,13 +56,18 @@ class Admin extends Base {
 		parent::__construct();
 
 		$this->action( 'init', 'register_setting_page', 999 );
+		$this->action( 'admin_footer', 'admin_scripts' );
 		$this->filter( 'rank_math/settings/sitemap', 'post_type_settings' );
 		$this->filter( 'rank_math/settings/sitemap', 'taxonomy_settings' );
 
 		// Attachment.
 		$this->filter( 'media_send_to_editor', 'media_popup_html', 10, 2 );
-		$this->filter( 'attachment_fields_to_edit', 'media_popup_fields', 20, 2 );
-		$this->filter( 'attachment_fields_to_save', 'media_popup_fields_save', 20, 2 );
+
+		if ( Helper::has_cap( 'sitemap' ) ) {
+			$this->filter( 'attachment_fields_to_edit', 'media_popup_fields', 20, 2 );
+			$this->filter( 'attachment_fields_to_save', 'media_popup_fields_save', 20, 2 );
+		}
+
 		$this->ajax( 'remove_nginx_notice', 'remove_nginx_notice' );
 	}
 
@@ -56,17 +75,25 @@ class Admin extends Base {
 	 * Register setting page.
 	 */
 	public function register_setting_page() {
-		$sitemap_url = Router::get_base_url( 'sitemap_index.xml' );
+		$sitemap_url = Router::get_base_url( Sitemap::get_sitemap_index_slug() . '.xml' );
 
 		$tabs = [
 			'general' => [
 				'icon'      => 'rm-icon rm-icon-settings',
 				'title'     => esc_html__( 'General', 'rank-math' ),
 				'file'      => $this->directory . '/settings/general.php',
-				'desc'      => esc_html__( 'This tab contains General settings related to the XML sitemaps.', 'rank-math' ) . ' <a href="' . KB::get( 'sitemap-general' ) . '" target="_blank">' . esc_html__( 'Learn more', 'rank-math' ) . '</a>',
+				'desc'      => esc_html__( 'This tab contains General settings related to the XML sitemaps.', 'rank-math' ) . ' <a href="' . KB::get( 'sitemap-general', 'Options Panel Sitemap General Tab' ) . '" target="_blank">' . esc_html__( 'Learn more', 'rank-math' ) . '</a>',
 				/* translators: sitemap url */
 				'after_row' => $this->get_notice_start() . sprintf( esc_html__( 'Your sitemap index can be found here: %s', 'rank-math' ), '<a href="' . $sitemap_url . '" target="_blank">' . $sitemap_url . '</a>' ) . '</p></div>' . $this->get_nginx_notice(),
 			],
+		];
+
+		$tabs['html_sitemap'] = [
+			'icon'    => 'rm-icon rm-icon-sitemap',
+			'title'   => esc_html__( 'HTML Sitemap', 'rank-math' ),
+			'file'    => $this->directory . '/settings/html-sitemap.php',
+			'desc'    => esc_html__( 'This tab contains settings related to the HTML sitemap.', 'rank-math' ) . ' <a href="' . KB::get( 'sitemap-general', 'Options Panel Sitemap HTML Tab' ) . '" target="_blank">' . esc_html__( 'Learn more', 'rank-math' ) . '</a>',
+			'classes' => 'html-sitemap',
 		];
 
 		if ( Helper::is_author_archive_indexable() ) {
@@ -74,7 +101,7 @@ class Admin extends Base {
 				'icon'  => 'rm-icon rm-icon-users',
 				'title' => esc_html__( 'Authors', 'rank-math' ),
 				/* translators: Learn more link. */
-				'desc'  => sprintf( esc_html__( 'Set the sitemap options for author archive pages. %s.', 'rank-math' ), '<a href="https://s.rankmath.com/sitemaps" target="_blank">' . esc_html__( 'Learn more', 'rank-math' ) . '</a>' ),
+				'desc'  => sprintf( esc_html__( 'Set the sitemap options for author archive pages. %s.', 'rank-math' ), '<a href="' . KB::get( 'configure-sitemaps', 'Options Panel Sitemap Authors Tab' ) . '#authors" target="_blank">' . esc_html__( 'Learn more', 'rank-math' ) . '</a>' ),
 				'file'  => $this->directory . '/settings/authors.php',
 			];
 		}
@@ -108,8 +135,10 @@ class Admin extends Base {
 			'product'    => esc_html__( 'your product pages', 'rank-math' ),
 		];
 		$urls   = [
-			'attachment' => KB::get( 'sitemap-media' ),
-			'product'    => KB::get( 'sitemap-product' ),
+			'post'       => KB::get( 'sitemap-post', 'Options Panel Sitemap Posts Tab' ),
+			'page'       => KB::get( 'sitemap-page', 'Options Panel Sitemap Page Tab' ),
+			'attachment' => KB::get( 'sitemap-media', 'Options Panel Sitemap Attachments Tab' ),
+			'product'    => KB::get( 'sitemap-product', 'Options Panel Sitemap Product Tab' ),
 		];
 
 		// Post type label seprator.
@@ -126,7 +155,7 @@ class Admin extends Base {
 
 			/* translators: Post Type label */
 			$thing = isset( $things[ $post_type ] ) ? $things[ $post_type ] : sprintf( __( 'single %s', 'rank-math' ), $name );
-			$url   = isset( $urls[ $post_type ] ) ? $urls[ $post_type ] : ( in_array( $name, [ 'post', 'page' ], true ) ? KB::get( "sitemap-{$name}" ) : '' );
+			$url   = isset( $urls[ $post_type ] ) ? $urls[ $post_type ] : KB::get( 'configure-sitemaps' );
 
 			$tabs[ 'sitemap-post-type-' . $object->name ] = [
 				'title'     => 'attachment' === $post_type ? esc_html__( 'Attachments', 'rank-math' ) : $object->label,
@@ -168,22 +197,30 @@ class Admin extends Base {
 			if ( 'post_format' === $taxonomy->name ) {
 				continue;
 			}
+
+			$hash_links = [
+				'category'    => '#categories',
+				'post_tag'    => '#tags',
+				'product_cat' => '#product-categories',
+				'product_tag' => '#product-tags',
+			];
+
 			$sitemap_url = Router::get_base_url( $taxonomy->name . '-sitemap.xml' );
 			$notice_end  = '</p><div class="rank-math-cmb-dependency hidden" data-relation="or"><span class="hidden" data-field="tax_' . $taxonomy->name . '_sitemap" data-comparison="=" data-value="on"></span></div></div>';
 
+			$taxonomy_name = strtolower( $taxonomy->name );
+			$url           = isset( $hash_links[ $taxonomy_name ] ) ? KB::get( 'configure-sitemaps', 'Options Panel Sitemap ' . $taxonomy->labels->name . ' Tab' ) . $hash_links[ $taxonomy_name ] : KB::get( 'configure-sitemaps' );
 			switch ( $taxonomy->name ) {
 				case 'product_cat':
 				case 'product_tag':
 					/* translators: Taxonomy singular label */
 					$thing = sprintf( __( 'your product %s pages', 'rank-math' ), strtolower( $taxonomy->labels->singular_name ) );
-					$url   = KB::get( "sitemap-$taxonomy->name" );
 					break;
 
 				default:
 					/* translators: Taxonomy singular label */
 					$thing = sprintf( __( '%s archives', 'rank-math' ), strtolower( $taxonomy->labels->singular_name ) );
 					$name  = strtolower( $taxonomy->labels->name );
-					$url   = in_array( $name, [ 'category', 'tags' ], true ) ? KB::get( "sitemap-{$name}" ) : '';
 			}
 
 			$tabs[ 'sitemap-taxonomy-' . $taxonomy->name ] = [
@@ -310,10 +347,36 @@ class Admin extends Base {
 		</p>
  <pre>
  # START Nginx Rewrites for Rank Math Sitemaps
- rewrite ^/' . $sitemap_base . 'sitemap_index.xml$ /index.php?sitemap=1 last;
+ rewrite ^/' . $sitemap_base . Sitemap::get_sitemap_index_slug() . '\\.xml$ /index.php?sitemap=1 last;
  rewrite ^/' . $sitemap_base . '([^/]+?)-sitemap([0-9]+)?.xml$ /index.php?sitemap=$1&sitemap_n=$2 last;
  # END Nginx Rewrites for Rank Math Sitemaps
  </pre>
 		 </div>';
+	}
+
+	/**
+	 * Add some inline JS for the sitemap settings admin page.
+	 */
+	public function admin_scripts() {
+		if ( 'rank-math-options-sitemap' !== Param::get( 'page' ) ) {
+			return;
+		}
+
+		?>
+		<script>
+			jQuery( function( $ ) {
+				$( '.cmb2-id-html-sitemap-seo-titles input' ).on( 'change', function() {
+					if ( 'seo_titles' === $( this ).filter(':checked').val() ) {
+						$( '#html_sitemap_sort option[value="alphabetical"]' ).prop( 'disabled', true );
+						if ( $( '#html_sitemap_sort option:selected' ).prop( 'disabled' ) ) {
+							$( '#html_sitemap_sort option:first' ).prop( 'selected', true );
+						}
+					} else {
+						$( '#html_sitemap_sort option[value="alphabetical"]' ).prop( 'disabled', false );
+					}
+				} ).trigger( 'change' );
+			} );
+		</script>
+		<?php
 	}
 }

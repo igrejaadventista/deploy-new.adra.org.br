@@ -48,6 +48,8 @@ if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Data' ) ) {
 				return;
 			}
 
+			$this->before_item_delete( $id );
+
 			$raw = $this->get_raw();
 
 			if ( isset( $raw[ $id ] ) ) {
@@ -127,7 +129,7 @@ if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Data' ) ) {
 
 			if ( ! empty( $request['args'] ) ) {
 				foreach ( $request['args'] as $arg => $value ) {
-					if ( in_array( $arg, array( 'show_edit_link' ) ) ) {
+					if ( in_array( $arg, array( 'show_edit_link', 'hide_field_names', 'delete_metadata' ) ) ) {
 						$args[ $arg ] = filter_var( $value, FILTER_VALIDATE_BOOLEAN );
 					} else if ( in_array( $arg, array( 'name' ) ) ) {
 						$args[ $arg ] = sanitize_text_field( $value );
@@ -336,6 +338,147 @@ if ( ! class_exists( 'Jet_Engine_Meta_Boxes_Data' ) ) {
 			return array();
 		}
 
+		/**
+		 * Before item update
+		 */
+		public function before_item_update( $item = array() ) {
+			$this->delete_metadata_on_update( $item );
+		}
+
+		/**
+		 * Before item delete
+		 */
+		public function before_item_delete( $id = null ) {
+			$item = $this->get_item_for_edit( $id );
+
+			if ( $item ) {
+				$this->delete_metadata( $item, array(), true );
+			}
+		}
+
+		/**
+		 * Maybe delete metadata on update item
+		 */
+		public function delete_metadata_on_update( $item = array() ) {
+
+			$args = ! empty( $item['args'] ) ? $item['args'] : array();
+
+			if ( empty( $args['delete_metadata'] ) ) {
+				return;
+			}
+
+			if ( empty( $item['id'] ) ) {
+				return;
+			}
+
+			$prev_item = $this->get_item_for_edit( $item['id'] );
+
+			if ( ! $prev_item ) {
+				return;
+			}
+
+			$prev_meta_fields = ! empty( $prev_item['meta_fields'] ) ? $prev_item['meta_fields'] : array();
+			$new_meta_fields  = ! empty( $item['meta_fields'] ) ? $item['meta_fields'] : array();
+
+			if ( empty( $prev_meta_fields ) ) {
+				return;
+			}
+
+			$prev_meta_names = wp_list_pluck( $prev_meta_fields, 'name' );
+			$new_meta_names  = wp_list_pluck( $new_meta_fields, 'name' );
+
+			$to_delete = array_diff( $prev_meta_names, $new_meta_names );
+
+			if ( empty( $to_delete ) ) {
+				return;
+			}
+
+			$this->delete_metadata( $prev_item, $to_delete );
+		}
+
+		/**
+		 * Delete metadata of MetaBox
+		 */
+		public function delete_metadata( $item = array(), $keys_to_delete = array(), $on_delete = false ) {
+
+			$args = ! empty( $item['general_settings'] ) ? $item['general_settings'] : array();
+
+			if ( $on_delete && empty( $args['delete_metadata'] ) ) {
+				return;
+			}
+
+			$meta_fields = ! empty( $item['meta_fields'] ) ? $item['meta_fields'] : array();
+
+			if ( empty( $meta_fields ) ) {
+				return;
+			}
+
+			$meta_names  = wp_list_pluck( $meta_fields, 'name' );
+			$meta_fields = array_combine( $meta_names, $meta_fields );
+
+			if ( $on_delete ) {
+				$keys_to_delete = $meta_names;
+			}
+
+			$to_delete = array_filter( $keys_to_delete, function ( $name ) use ( $meta_fields ) {
+
+				if ( ! empty( $meta_fields[ $name ]['object_type'] ) && 'field' !== $meta_fields[ $name ]['object_type'] ) {
+					return false;
+				}
+
+				if ( ! empty( $meta_fields[ $name ]['type'] ) && 'html' === $meta_fields[ $name ]['type'] ) {
+					return false;
+				}
+
+				return true;
+			} );
+
+			if ( empty( $to_delete ) ) {
+				return;
+			}
+
+			if ( empty( $args['object_type'] ) ) {
+				return;
+			}
+
+			switch ( $args['object_type'] ) {
+				case 'post':
+
+					Jet_Engine_Tools::delete_metadata_by_object_where(
+						'post',
+						$to_delete,
+						array(
+							'post_type' => $args['allowed_post_type'],
+						)
+					);
+
+					break;
+
+				case 'taxonomy':
+
+					Jet_Engine_Tools::delete_metadata_by_object_where(
+						'term',
+						$to_delete,
+						array(
+							'taxonomy' => $args['allowed_tax'],
+						)
+					);
+
+					break;
+
+				case 'user':
+
+					foreach ( $to_delete as $meta_key ) {
+						delete_metadata( 'user', null, $meta_key, null, true );
+					}
+
+					break;
+
+				default:
+					do_action( 'jet-engine/meta-boxes/data/delete-metadata/' . $args['object_type'], $to_delete, $item );
+			}
+
+		}
 	}
 
 }

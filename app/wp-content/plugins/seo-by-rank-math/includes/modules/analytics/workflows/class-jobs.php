@@ -16,6 +16,7 @@ use RankMath\Google\Api;
 use RankMath\Google\Console;
 use RankMath\Google\Url_Inspection;
 use RankMath\Analytics\DB;
+use RankMath\Traits\Cache;
 use RankMath\Traits\Hooker;
 use RankMath\Analytics\Stats;
 use RankMath\Analytics\Watcher;
@@ -27,7 +28,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class Jobs {
 
-	use Hooker;
+	use Hooker, Cache;
 
 	/**
 	 * Main instance
@@ -62,7 +63,9 @@ class Jobs {
 			$this->action( 'rank_math/analytics/data_fetch', 'data_fetch' );
 
 			// Console data fetch.
+			$this->filter( 'rank_math/analytics/get_console_days', 'get_console_days' );
 			$this->action( 'rank_math/analytics/get_console_data', 'get_console_data' );
+			$this->action( 'rank_math/analytics/handle_console_response', 'handle_console_response' );
 
 			// Inspections data fetch.
 			$this->action( 'rank_math/analytics/get_inspections_data', 'get_inspections_data' );
@@ -123,6 +126,48 @@ class Jobs {
 	}
 
 	/**
+	 * Set the console start and end dates.
+	 *
+	 * @param array $args Args containing start and end date.
+	 */
+	public function get_console_days( $args = [] ) {
+		set_time_limit( 300 );
+
+		$rows = Api::get()->get_search_analytics(
+			[
+				'start_date' => $args['start_date'],
+				'end_date'   => $args['end_date'],
+				'dimensions' => [ 'date' ],
+			]
+		);
+
+		if ( empty( $rows ) || is_wp_error( $rows ) ) {
+			return [];
+		}
+
+		$empty_dates = get_option( 'rank_math_console_empty_dates', [] );
+
+		$dates = [];
+
+		foreach ( $rows as $row ) {
+
+			// Have at least few impressions.
+			if ( $row['impressions'] ) {
+				$date = $row['keys'][0];
+
+				if ( ! DB::date_exists( $date, 'console' ) && ! in_array( $date, $empty_dates, true ) ) {
+					$dates[] = [
+						'start_date' => $date,
+						'end_date'   => $date,
+					];
+				}
+			}
+		}
+
+		return $dates;
+	}
+
+	/**
 	 * Get console data.
 	 *
 	 * @param string $date Date to fetch data for.
@@ -130,8 +175,15 @@ class Jobs {
 	public function get_console_data( $date ) {
 		set_time_limit( 300 );
 
-		$rows = Api::get()->get_search_analytics( $date, $date, [ 'query', 'page' ] );
-		if ( empty( $rows ) ) {
+		$rows = Api::get()->get_search_analytics(
+			[
+				'start_date' => $date,
+				'end_date'   => $date,
+				'dimensions' => [ 'query', 'page' ],
+			]
+		);
+
+		if ( empty( $rows ) || is_wp_error( $rows ) ) {
 			return;
 		}
 
@@ -139,7 +191,45 @@ class Jobs {
 
 		try {
 			DB::add_query_page_bulk( $date, $rows );
+
+			// Clear the cache here.
+			$this->cache_flush_group( 'rank_math_rest_keywords_rows' );
+			$this->cache_flush_group( 'rank_math_posts_rows_by_objects' );
+			$this->cache_flush_group( 'rank_math_analytics_summary' );
+
+			return $rows;
 		} catch ( Exception $e ) {} // phpcs:ignore
+	}
+
+	/**
+	 * Handlle console response.
+	 *
+	 * @param array $data API request and response data.
+	 */
+	public function handle_console_response( $data = [] ) {
+		if ( 200 !== $data['code'] ) {
+			return;
+		}
+
+		if ( isset( $data['formatted_response']['rows'] ) && ! empty( $data['formatted_response']['rows'] ) ) {
+			return;
+		}
+
+		if ( ! isset( $data['args']['startDate'] ) ) {
+			return;
+		}
+
+		$dates = get_option( 'rank_math_console_empty_dates', [] );
+		if ( ! $dates ) {
+			$dates = [];
+		}
+
+		$dates[] = $data['args']['startDate'];
+		$dates[] = $data['args']['endDate'];
+
+		$dates = array_unique( $dates );
+
+		update_option( 'rank_math_console_empty_dates', $dates );
 	}
 
 	/**
@@ -148,7 +238,6 @@ class Jobs {
 	 * @param string $page URI to fetch data for.
 	 */
 	public function get_inspections_data( $page ) {
-
 		// If the option is disabled, don't fetch data.
 		if ( ! \RankMath\Analytics\Url_Inspection::is_enabled() ) {
 			return;
@@ -169,29 +258,16 @@ class Jobs {
 	 *
 	 * @param string $action Action to perform.
 	 */
-	private function check_for_missing_dates( $action ) {
-		$count = 1;
-		$hook  = "get_{$action}_data";
-		$start = Helper::get_midnight( time() + DAY_IN_SECONDS );
-		$days  = Helper::get_settings( 'general.console_caching_control', 90 );
+	public function check_for_missing_dates( $action ) {
+		$days = Helper::get_settings( 'general.console_caching_control', 90 );
 
-		for ( $current = 1; $current <= $days; $current++ ) {
-			$date = Helper::get_date( 'Y-m-d', $start - ( DAY_IN_SECONDS * $current ), false, true );
-			if ( ! DB::date_exists( $date, $action ) ) {
-				$count++;
-				as_schedule_single_action(
-					time() + ( 60 * ( $count / 2 ) ),
-					'rank_math/analytics/' . $hook,
-					[ $date ],
-					'rank-math'
-				);
-			}
-		}
+		Workflow::do_workflow(
+			$action,
+			$days,
+			null,
+			null
+		);
 
-		// Clear cache.
-		if ( $count > 1 ) {
-			Workflow::add_clear_cache( time() + ( 60 * ( ( $count + 1 ) / 2 ) ) );
-		}
 	}
 
 	/**

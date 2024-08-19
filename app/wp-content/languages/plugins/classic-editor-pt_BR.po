@@ -2,14 +2,24 @@
 # This file is distributed under the same license as the Plugins - Classic Editor - Stable (latest release) package.
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2020-08-24 23:09:18+0000\n"
+"PO-Revision-Date: 2022-11-03 16:46:20+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: GlotPress/3.0.0-alpha.2\n"
+"X-Generator: GlotPress/4.0.0-alpha.3\n"
 "Language: pt_BR\n"
 "Project-Id-Version: Plugins - Classic Editor - Stable (latest release)\n"
+
+#: classic-editor.php:413 classic-editor.php:490 classic-editor.php:888
+msgctxt "Editor Name"
+msgid "Block editor"
+msgstr "Editor de blocos"
+
+#: classic-editor.php:409 classic-editor.php:486 classic-editor.php:888
+msgctxt "Editor Name"
+msgid "Classic editor"
+msgstr "Editor clássico"
 
 #: classic-editor.php:841
 msgctxt "Editor Name"

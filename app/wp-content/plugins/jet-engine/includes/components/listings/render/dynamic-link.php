@@ -14,6 +14,7 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 
 		private $show_field = true;
 		private $is_delete_link = false;
+		private $raw_url = null;
 
 		public function get_name() {
 			return 'jet-listing-dynamic-link';
@@ -31,7 +32,17 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 		 */
 		public function get_delete_url( $settings ) {
 
-			$redirect = ! empty( $settings['delete_link_redirect'] ) ? esc_url( $settings['delete_link_redirect'] ) : home_url( '/' );
+			$redirect = null;
+
+			if ( ! empty( $settings['delete_link_redirect'] ) ) {
+				$redirect = jet_engine()->listings->macros->do_macros( $settings['delete_link_redirect'] );
+				$redirect = esc_url( $redirect );
+			}
+
+			if ( empty( $redirect ) ) {
+				$redirect = home_url( '/' );
+			}
+
 			$type = ! empty( $settings['delete_link_type'] ) ? $settings['delete_link_type'] : 'trash';
 
 			return jet_engine()->listings->delete_post->get_delete_url( apply_filters( 'jet-engine/listings/dynamic-link/delete-url-args', array(
@@ -41,25 +52,10 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 
 		}
 
-		/**
-		 * Render link tag
-		 *
-		 * @param  [type] $settings   [description]
-		 * @param  [type] $base_class [description]
-		 * @return [type]             [description]
-		 */
-		public function render_link( $settings, $base_class ) {
-
-			$format = '<a href="%1$s" class="%2$s__link"%5$s%6$s%7$s>%3$s%4$s</a>';
+		public function get_link_url( $settings ) {
+			
 			$source = ! empty( $settings['dynamic_link_source'] ) ? $settings['dynamic_link_source'] : '_permalink';
 			$custom = ! empty( $settings['dynamic_link_source_custom'] ) ? $settings['dynamic_link_source_custom'] : '';
-
-			$pre_render_link = apply_filters( 'jet-engine/listings/dynamic-link/pre-render-link', false, $settings, $base_class, $this );
-
-			if ( $pre_render_link ) {
-				echo $pre_render_link;
-				return;
-			}
 
 			$url = apply_filters(
 				'jet-engine/listings/dynamic-link/custom-url',
@@ -71,10 +67,7 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 
 			if ( ! $url ) {
 				if ( $custom ) {
-					$url = jet_engine()->listings->data->get_meta(
-						$custom,
-						jet_engine()->listings->data->get_object_by_context( $object_context )
-					);
+					$url = jet_engine()->listings->data->get_meta_by_context( $custom, $object_context );
 				} elseif ( '_permalink' === $source ) {
 
 					$url = jet_engine()->listings->data->get_current_object_permalink(
@@ -88,10 +81,7 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 					$option = ! empty( $settings['dynamic_link_option'] ) ? $settings['dynamic_link_option'] : false;
 					$url    = jet_engine()->listings->data->get_option( $option );
 				} elseif ( $source ) {
-					$url = jet_engine()->listings->data->get_meta(
-						$source,
-						jet_engine()->listings->data->get_object_by_context( $object_context )
-					);
+					$url = jet_engine()->listings->data->get_meta_by_context( $source, $object_context );
 				}
 			}
 
@@ -100,7 +90,58 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 				$url = get_permalink( $url[0] );
 			}
 
-			$label = $this->get_link_label( $settings, $base_class, $url );
+			if ( is_object( $url ) && $url instanceof WP_Post ) {
+				$url = get_permalink( $url->ID );
+			}
+
+			$this->raw_url = $url;
+
+			$url = $this->maybe_add_query_args( $url, $settings );
+
+			if ( ! empty( $settings['url_prefix'] ) ) {
+				$url = esc_attr( $settings['url_prefix'] ) . $url;
+			}
+
+			if ( ! empty( $settings['url_anchor'] ) ) {
+
+				$url_anchor = $settings['url_anchor'];
+
+				$macros_context = jet_engine()->listings->macros->get_macros_context();
+
+				jet_engine()->listings->macros->set_macros_context( $object_context );
+
+				$url_anchor = jet_engine()->listings->macros->do_macros( $url_anchor );
+
+				// Reset macros context to initial.
+				jet_engine()->listings->macros->set_macros_context( $macros_context );
+
+				$url = $url . '#' . esc_attr( $url_anchor );
+			}
+
+			return $url;
+
+		}
+
+		/**
+		 * Render link tag
+		 *
+		 * @param  [type] $settings   [description]
+		 * @param  [type] $base_class [description]
+		 * @return [type]             [description]
+		 */
+		public function render_link( $settings, $base_class ) {
+
+			$format = '<a href="%1$s" class="%2$s__link"%5$s%6$s%7$s>%3$s%4$s</a>';
+
+			$pre_render_link = apply_filters( 'jet-engine/listings/dynamic-link/pre-render-link', false, $settings, $base_class, $this );
+
+			if ( $pre_render_link ) {
+				echo $pre_render_link;
+				return;
+			}
+
+			$url   = $this->get_link_url( $settings );
+			$label = $this->get_link_label( $settings, $base_class, $this->raw_url );
 			$icon  = $this->get_link_icon( $settings, $base_class );
 
 			if ( is_wp_error( $url ) ) {
@@ -121,23 +162,9 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 				$target = ' target="_blank"';
 			}
 
-			if ( ! empty( $settings['hide_if_empty'] ) && empty( $url ) ) {
+			if ( ! empty( $settings['hide_if_empty'] ) && empty( $this->raw_url ) ) {
 				$this->show_field = false;
 				return;
-			}
-
-			if ( is_object( $url ) && $url instanceof WP_Post ) {
-				$url = get_permalink( $url->ID );
-			}
-
-			$url = $this->maybe_add_query_args( $url, $settings );
-
-			if ( ! empty( $settings['url_prefix'] ) ) {
-				$url = esc_attr( $settings['url_prefix'] ) . $url;
-			}
-
-			if ( ! empty( $settings['url_anchor'] ) ) {
-				$url = $url . '#' . esc_attr( $settings['url_anchor'] );
 			}
 
 			$custom_attrs = '';
@@ -148,13 +175,19 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 				$custom_attrs .= ' data-delete-message="' . $message . '"';
 			}
 
+			if ( ! empty( $settings['aria_label_attr'] ) ) {
+				$custom_attrs .= ' aria-label="' . esc_attr( $settings['aria_label_attr'] ) . '"';
+			}
+
+			$custom_attrs = apply_filters( 'jet-engine/listings/dynamic-link/custom-attrs', $custom_attrs, $this );
+
 			printf( $format, $url, $base_class, $icon, $label, $rel, $target, $custom_attrs );
 
 		}
 
 		public function get_link_label( $settings, $base_class, $url ) {
 
-			$label = ! empty( $settings['link_label'] ) ? $settings['link_label'] : false;
+			$label = ! Jet_Engine_Tools::is_empty( $settings['link_label'] ) ? $settings['link_label'] : false;
 
 			if ( $label ) {
 
@@ -163,8 +196,20 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 
 				jet_engine()->listings->macros->set_macros_context( $object_context );
 
+				$format = '<span class="%1$s__label">%2$s</span>';
+
+				// If optimized DOM tweak is active and link not has an icon - we can use plain text
+				if ( $this->prevent_wrap() 
+					&& empty( $settings['link_icon'] ) 
+					&& ( empty( $settings['selected_link_icon'] ) 
+						|| empty( $settings['selected_link_icon']['value'] ) 
+					)
+				) {
+					$format = '%2$s';
+				}
+
 				$label = jet_engine()->listings->macros->do_macros( $label, $url );
-				$label = sprintf( '<span class="%1$s__label">%2$s</span>', $base_class, $label );
+				$label = sprintf( $format, $base_class, $label );
 
 				// Reset macros context to initial.
 				jet_engine()->listings->macros->set_macros_context( $macros_context );
@@ -209,24 +254,19 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 
 			ob_start();
 
-			$classes = array(
-				'jet-listing',
-				$base_class,
-			);
-
-			if ( ! empty( $settings['className'] ) ) {
-				$classes[] = esc_attr( $settings['className'] );
+			if ( ! $this->prevent_wrap() ) {
+				printf( '<%1$s class="%2$s">', $tag, implode( ' ', $this->get_wrapper_classes() ) );
 			}
 
-			printf( '<%1$s class="%2$s">', $tag, implode( ' ', $classes ) );
+			do_action( 'jet-engine/listing/dynamic-link/before-field', $this );
 
-				do_action( 'jet-engine/listing/dynamic-link/before-field', $this );
+			$this->render_link( $settings, $base_class );
 
-				$this->render_link( $settings, $base_class );
+			do_action( 'jet-engine/listing/dynamic-link/after-field', $this );
 
-				do_action( 'jet-engine/listing/dynamic-link/after-field', $this );
-
-			printf( '</%s>', $tag );
+			if ( ! $this->prevent_wrap() ) {
+				printf( '</%s>', $tag );
+			}
 
 			$content = ob_get_clean();
 
@@ -234,6 +274,10 @@ if ( ! class_exists( 'Jet_Engine_Render_Dynamic_Link' ) ) {
 				echo $content;
 			}
 
+		}
+
+		public function is_delete_link() {
+			return $this->is_delete_link;
 		}
 
 	}

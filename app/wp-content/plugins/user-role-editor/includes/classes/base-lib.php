@@ -116,7 +116,7 @@ class URE_Base_Lib {
     /*
      * Replacer for FILTER_SANITIZE_STRING deprecated with PHP 8.1
      */
-    public static function filter_string_polyfill(string $string): string {
+    public static function filter_string_polyfill( $string ) {
         
         $str = preg_replace('/\x00|<[^>]*>?/', '', $string);
         return str_replace(["'", '"'], ['&#39;', '&#34;'], $str);
@@ -332,9 +332,8 @@ class URE_Base_Lib {
         }
         
         $placeholders = array_fill( 0, count( $list_values ), $placeholder );
-        $format_str = implode(',', $placeholders );
-        
-        $result = $wpdb->prepare( $format_str, $list_values );
+        $str = implode(',', $placeholders );        
+        $result = $wpdb->prepare( $str, $list_values );
         
         return $result;        
     }

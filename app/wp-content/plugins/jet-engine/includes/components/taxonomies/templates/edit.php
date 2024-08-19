@@ -13,7 +13,7 @@
 				<cx-vui-input
 					:name="'tax_name'"
 					:label="'<?php _e( 'Taxonomy Name', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Set unique name for your post type. Eg. `Projects`', 'jet-engine' ); ?>'"
+					:description="'<?php _e( 'Set unique name for your taxonomy. Eg. `Projects`', 'jet-engine' ); ?>'"
 					:wrapper-css="[ 'equalwidth' ]"
 					:size="'fullwidth'"
 					:error="errors.name"
@@ -30,7 +30,12 @@
 					:error="errors.slug"
 					v-model="generalSettings.slug"
 					@on-focus="handleFocus( 'slug' )"
-				></cx-vui-input>
+					@on-input-change="checkSlug"
+				>
+					<div class="jet-engine-slug-error" v-if="showIncorrectSlug">
+						{{ incorrectSlugMessage }}
+					</div>
+				</cx-vui-input>
 				<cx-vui-switcher
 					label="<?php _e( 'Update Terms', 'jet-engine' ); ?>"
 					description="<?php _e( 'Check this if you already have created terms of this taxonomy and want to automatically change tax for these terms.', 'jet-engine' ); ?>"
@@ -51,9 +56,15 @@
 				></cx-vui-f-select>
 				<cx-vui-switcher
 					label="<?php _e( '`Edit taxonomy/meta box` link', 'jet-engine' ); ?>"
-					description="<?php _e( 'Add `Edit post type/meta box` link to post edit page.', 'jet-engine' ); ?>"
+					description="<?php _e( 'Add `Edit taxonomy/meta box` link to term edit page.', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					v-model="generalSettings.show_edit_link"
+				></cx-vui-switcher>
+				<cx-vui-switcher
+					label="<?php _e( 'Hide meta field names', 'jet-engine' ); ?>"
+					description="<?php _e( 'Hide meta field names on term edit page.', 'jet-engine' ); ?>"
+					:wrapper-css="[ 'equalwidth' ]"
+					v-model="generalSettings.hide_field_names"
 				></cx-vui-switcher>
 			</div>
 		</cx-vui-collapse>
@@ -126,7 +137,7 @@
 				<cx-vui-input
 					:name="'query_var'"
 					:label="'<?php _e( 'Register Query Var', 'jet-engine' ); ?>'"
-					:description="'<?php _e( 'Sets the query_var key for this post type', 'jet-engine' ); ?>'"
+					:description="'<?php _e( 'Sets the query_var key for this taxonomy', 'jet-engine' ); ?>'"
 					:wrapper-css="[ 'equalwidth' ]"
 					:size="'fullwidth'"
 					v-model="advancedSettings.query_var"
@@ -166,6 +177,20 @@
 						}
 					]"
 					v-model="advancedSettings.with_front"
+				></cx-vui-switcher>
+				<cx-vui-switcher
+					:name="'rewrite_hierarchical'"
+					:label="'<?php _e( 'Rewrite Hierarchical', 'jet-engine' ); ?>'"
+					:description="'<?php _e( 'Either hierarchical rewrite tag or not', 'jet-engine' ); ?>'"
+					:wrapper-css="[ 'equalwidth' ]"
+					:conditions="[
+						{
+							'input':    advancedSettings.rewrite,
+							'compare': 'equal',
+							'value':    true,
+						}
+					]"
+					v-model="advancedSettings.rewrite_hierarchical"
 				></cx-vui-switcher>
 				<cx-vui-input
 					:name="'capability_type'"
@@ -217,13 +242,36 @@
 					v-if="isEdit"
 				>
 					<cx-vui-button
-						:button-style="'link-error'"
-						:size="'link'"
+						button-style="link-error"
+						size="link"
+						@click="resetDialog = true"
+						v-if="isBuiltIn"
+					>
+						<span slot="label"><?php _e( 'Reset to defaults', 'jet-engine' ); ?></span>
+					</cx-vui-button>
+					<cx-vui-button
+						button-style="link-error"
+						size="link"
 						@click="showDeleteDialog = true"
+						v-else
 					>
 						<svg slot="label" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.28564 14.1921V3.42857H13.7142V14.1921C13.7142 14.6686 13.5208 15.089 13.1339 15.4534C12.747 15.8178 12.3005 16 11.7946 16H4.20529C3.69934 16 3.25291 15.8178 2.866 15.4534C2.4791 15.089 2.28564 14.6686 2.28564 14.1921Z"/><path d="M14.8571 1.14286V2.28571H1.14282V1.14286H4.57139L5.56085 0H10.4391L11.4285 1.14286H14.8571Z"/></svg>
 						<span slot="label"><?php _e( 'Delete', 'jet-engine' ); ?></span>
 					</cx-vui-button>
+					<div
+						v-if="resetDialog"
+						class="cx-vui-tooltip"
+					>
+						<?php _e( 'Are you sure?', 'jet-engine' ); ?>
+						<br>
+						<span
+							class="cx-vui-repeater-item__confrim-del"
+							@click="resetToDefaults"
+						><?php _e( 'Yes', 'jet-engine' ); ?></span>/<span
+							class="cx-vui-repeater-item__cancel-del"
+							@click="resetDialog = false"
+						><?php _e( 'No', 'jet-engine' ); ?></span>
+					</div>
 				</div>
 			</div>
 			<div
@@ -237,6 +285,18 @@
 							:key="'notice_' + index"
 						>{{ notice }}</div>
 					</div>
+				</div>
+			</div>
+			<div class="jet-engine-edit-page__actions-extra-settings cx-vui-panel">
+				<div class="jet-engine-reverse-switcher cx-vui-component">
+					<div class="cx-vui-component__control">
+						<cx-vui-switcher
+							:prevent-wrap="true"
+							v-model="generalSettings.delete_metadata"
+						></cx-vui-switcher>
+						<div class="cx-vui-component__label"><?php _e( 'Delete metadata', 'jet-engine' ); ?></div>
+					</div>
+					<div class="cx-vui-component__desc"><?php _e( 'Toggle this option to delete metadata from the database for the deleted meta fields.', 'jet-engine' ); ?></div>
 				</div>
 			</div>
 			<div class="cx-vui-hr"></div>

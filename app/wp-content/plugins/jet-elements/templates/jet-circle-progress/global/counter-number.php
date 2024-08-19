@@ -7,12 +7,12 @@ $value = 0;
 if ( 'percent' === $settings['values_type'] ) {
 	$value = 100 <= $settings['percent_value']['size'] ? 100 : $settings['percent_value']['size'];
 } else {
-	$value  = $settings['absolute_value_curr'];
+	$value  = is_string( $settings['absolute_value_curr'] ) ? str_replace(",", "", $settings['absolute_value_curr']) : $settings['absolute_value_curr'];
 }
 
 $this->add_render_attribute( 'circle-counter', array(
 	'class'         => 'circle-counter__number',
-	'data-to-value' => $value,
+	'data-to-value' => floatval($value),
 ) );
 
 if ( ! empty( $settings['thousand_separator'] ) ) {

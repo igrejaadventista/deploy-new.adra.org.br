@@ -15,6 +15,7 @@
 			this.$template = document.getElementById( 'jet_engine_cct_quick_edit_template' );
 
 			$( document ).on( 'click.JetEngineQuickEdit', '.jet-engine-cct-quick-edit', ( event ) => {
+				event.preventDefault();
 
 				this.$trigger = $( event.target );
 
@@ -45,6 +46,11 @@
 				formData = new FormData( form ),
 				itemData = {},
 				$spinner = form.querySelector( '.spinner' );
+
+			if ( 'undefined' !== typeof form.checkValidity && 'undefined' !== typeof form.reportValidity && !form.checkValidity() ) {
+				form.reportValidity();
+				return;
+			}
 
 			$spinner.style.visibility = 'visible';
 			this.cleanErrors();
@@ -133,6 +139,7 @@
 			this.$row.style.display = 'none';
 
 			this.$quickEditRow.classList.add( 'quick-edit-row' );
+			this.$quickEditRow.classList.add( 'inline-edit-row' );
 			this.$quickEditRow.appendChild( quickEditContent );
 
 			for ( const field in this.fieldsData ) {

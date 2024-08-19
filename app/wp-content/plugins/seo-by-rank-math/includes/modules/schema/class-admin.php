@@ -10,13 +10,10 @@
 
 namespace RankMath\Schema;
 
-use RankMath\KB;
 use RankMath\Helper;
 use RankMath\Module\Base;
-use RankMath\Rest\Sanitize;
 use RankMath\Admin\Admin_Helper;
-use MyThemeShop\Helpers\Arr;
-use MyThemeShop\Helpers\Str;
+use RankMath\Helpers\Str;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -24,6 +21,20 @@ defined( 'ABSPATH' ) || exit;
  * Admin class.
  */
 class Admin extends Base {
+
+	/**
+	 * Module ID.
+	 *
+	 * @var string
+	 */
+	public $id = '';
+
+	/**
+	 * Module directory.
+	 *
+	 * @var string
+	 */
+	public $directory = '';
 
 	/**
 	 * The Constructor.
@@ -41,17 +52,18 @@ class Admin extends Base {
 
 		$this->action( 'cmb2_admin_init', 'add_kb_links', 50 );
 		$this->action( 'rank_math/admin/editor_scripts', 'enqueue' );
-		$this->action( 'rank_math/post/column/seo_details', 'display_schema_type' );
+		$this->action( 'rank_math/post/column/seo_details', 'display_schema_type', 10, 2 );
 	}
 
 	/**
 	 * Display schema type in the `seo_details` column on the posts.
 	 *
-	 * @param int $post_id The current post ID.
+	 * @param int   $post_id The current post ID.
+	 * @param array $data    SEO data of current post.
 	 */
-	public function display_schema_type( $post_id ) {
-		$schema = absint( get_option( 'page_for_posts' ) ) !== $post_id ? $this->get_schema_types( $post_id ) : 'CollectionPage';
-		$schema = ! empty( $schema ) ? $schema : Helper::get_default_schema_type( $post_id, true, true );
+	public function display_schema_type( $post_id, $data ) {
+		$schema = absint( get_option( 'page_for_posts' ) ) !== $post_id ? $this->get_schema_types( $data, $post_id ) : 'CollectionPage';
+		$schema = ! empty( $schema ) ? $schema : $this->get_schema_name( Helper::get_default_schema_type( $post_id, true ) );
 		$schema = $schema ? $schema : esc_html__( 'Off', 'rank-math' );
 		?>
 			<span class="rank-math-column-display schema-type">
@@ -84,6 +96,7 @@ class Admin extends Base {
 		$screen = get_current_screen();
 		if ( 'rank_math_schema' !== $screen->post_type ) {
 			wp_enqueue_script( 'rank-math-schema', rank_math()->plugin_url() . 'includes/modules/schema/assets/js/schema-gutenberg.js', [ 'rank-math-editor' ], rank_math()->version, true );
+			wp_set_script_translations( 'rank-math-schema', 'rank-math' );
 		}
 	}
 
@@ -94,9 +107,7 @@ class Admin extends Base {
 		Helper::add_json(
 			'assessor',
 			[
-				'articleKBLink'       => KB::get( 'article' ),
 				'reviewConverterLink' => Helper::get_admin_url( 'status', 'view=tools' ),
-				'richSnippetsKBLink'  => KB::get( 'rich-snippets' ),
 			]
 		);
 	}
@@ -139,6 +150,11 @@ class Admin extends Base {
 
 		$schemas['new-9999']['headline']    = $name ? $name : '';
 		$schemas['new-9999']['description'] = $description ? $description : '';
+		$schemas['new-9999']['keywords']    = '%keywords%';
+		$schemas['new-9999']['author']      = [
+			'@type' => 'Person',
+			'name'  => '%name%',
+		];
 
 		return $schemas;
 	}
@@ -183,20 +199,29 @@ class Admin extends Base {
 	/**
 	 * Get schema types for current post.
 	 *
-	 * @param int $post_id The current post ID.
+	 * @param array $data    Current post SEO data.
+	 * @param int   $post_id Current post ID.
 	 *
 	 * @return string Comma separated schema types.
 	 */
-	private function get_schema_types( $post_id ) {
-		$schemas = DB::get_schemas( $post_id );
-		if ( empty( $schemas ) ) {
+	private function get_schema_types( $data, $post_id ) {
+		if ( empty( $data ) ) {
 			return false;
 		}
 
 		$types = [];
-		foreach ( $schemas as $schema ) {
+		foreach ( $data as $key => $value ) {
+			if ( ! Str::starts_with( 'rank_math_schema_', $key ) ) {
+				continue;
+			}
+
+			$schema = maybe_unserialize( $value );
+			if ( empty( $schema['@type'] ) ) {
+				continue;
+			}
+
 			if ( ! is_array( $schema['@type'] ) ) {
-				$types[] = Helper::sanitize_schema_title( $schema['@type'] );
+				$types[] = $this->get_schema_name( $schema['@type'] );
 				continue;
 			}
 
@@ -204,14 +229,38 @@ class Admin extends Base {
 				$types,
 				array_map(
 					function( $type ) {
-						return Helper::sanitize_schema_title( $type );
+						return $this->get_schema_name( $type );
 					},
 					$schema['@type']
 				)
 			);
 		}
 
-		return implode( ', ', $types );
+		if ( empty( $types ) && Helper::get_default_schema_type( $post_id ) ) {
+			$types[] = $this->get_schema_name( Helper::get_default_schema_type( $post_id ) );
+		}
+
+		if ( has_block( 'rank-math/faq-block', $post_id ) ) {
+			$types[] = 'FAQPage';
+		}
+
+		if ( has_block( 'rank-math/howto-block', $post_id ) ) {
+			$types[] = 'HowTo';
+		}
+
+		return empty( $types ) ? false : implode( ', ', $types );
+	}
+
+	/**
+	 * Function to get Sanitized schema name with sub-schema.
+	 *
+	 * @param string $schema Selected schema type.
+	 *
+	 * @return string Schema name with sub-schema.
+	 */
+	private function get_schema_name( $schema ) {
+		$subtitle = in_array( $schema, [ 'BlogPosting', 'NewsArticle' ], true ) ? " ($schema)" : '';
+		return Helper::sanitize_schema_title( $schema ) . $subtitle;
 	}
 
 	/**

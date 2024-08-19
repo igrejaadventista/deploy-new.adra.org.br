@@ -23,7 +23,7 @@
 						} );
 
 						btInitPaymentMethod( 'credit_card' );
-						// token failed
+					// token failed
 					} catch ( e ) {
 						btGatewayFail( 'btInit catch' );
 					}
@@ -367,7 +367,7 @@
 					cnWelcomeScreen( e.target );
 
 					return false;
-					// licesne
+				// licesne
 				} else if ( formData.plan === 'license' ) {
 					// payment screen?
 					var paymentEl = $( '.cn-sidebar form[data-action="payment"]' );
@@ -405,7 +405,7 @@
 							cnDisplayError( response.error, $( form[0] ) );
 
 							return false;
-							// message
+						// message
 						} else {
 							var targetEl = $( '#cn_submit_license' ).find( '.cn-screen-button[data-screen="4"]' );
 

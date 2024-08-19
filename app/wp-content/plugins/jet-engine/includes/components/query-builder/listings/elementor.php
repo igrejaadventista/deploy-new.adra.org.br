@@ -25,7 +25,6 @@ class Elementor {
 		add_filter( 'elementor/document/config', array( $this, 'setup_editor_settings' ), 10, 2 );
 		add_action( 'jet-engine/listings/document/custom-source-control', array( $this, 'add_elementor_listing_settings' ) );
 		add_action( 'elementor/document/after_save', array( $this, 'update_settings_on_document_save' ), 10, 2 );
-		add_action( 'jet-engine/listings/document/get-preview/' . $this->source, array( Query_Manager::instance()->listings, 'setup_preview' ) );
 
 	}
 
@@ -104,7 +103,7 @@ class Elementor {
 			$this->source_meta,
 			array(
 				'label'       => esc_html__( 'Query:', 'jet-engine' ),
-				'type'        => \Elementor\Controls_Manager::SELECT,
+				'type'        => \Elementor\Controls_Manager::SELECT2,
 				'default'     => '',
 				'label_block' => true,
 				'options'     => Query_Manager::instance()->get_queries_for_options(),

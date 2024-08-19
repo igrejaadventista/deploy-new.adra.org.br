@@ -1,6 +1,7 @@
 (function($) {
 
 	var $wp_inline_edit = inlineEditPost.edit,
+		$wp_inline_save = inlineEditPost.save,
 		$document       = $( document );
 
 	$document.on(
@@ -137,6 +138,25 @@
 			} );
 
 		}
+	};
+
+	inlineEditPost.save = function( id ) {
+
+		if ( typeof( id ) == 'object' ) {
+			$post_id = parseInt( this.getId( id ) );
+		}
+
+		if ( $post_id > 0 ) {
+			var $edit_row = $( '#edit-' + $post_id ),
+				$form     = $edit_row.closest( 'form' );
+
+			if ( 'undefined' !== typeof $form[0].checkValidity && 'undefined' !== typeof $form[0].reportValidity && !$form[0].checkValidity() ) {
+				$form[0].reportValidity();
+				return;
+			}
+		}
+
+		$wp_inline_save.apply( this, arguments );
 	};
 
 })(jQuery);

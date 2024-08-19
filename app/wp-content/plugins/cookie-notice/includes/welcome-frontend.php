@@ -28,7 +28,7 @@ class Cookie_Notice_Welcome_Frontend {
 	 */
 	public function preview_init() {
 		// check preview mode
-		$this->preview_mode = isset( $_GET['cn_preview_mode'] ) ? absint( $_GET['cn_preview_mode'] ) : false;
+		$this->preview_mode = isset( $_GET['cn_preview_mode'] ) ? (int) $_GET['cn_preview_mode'] : false;
 
 		if ( $this->preview_mode !== false ) {
 			// filters
@@ -52,20 +52,22 @@ class Cookie_Notice_Welcome_Frontend {
 	 * @return void
 	 */
 	public function wp_enqueue_scripts() {
+		// get main instance
+		$cn = Cookie_Notice();
+
 		// show only in live preview
 		if ( $this->preview_mode === 1 ) {
-			wp_enqueue_script( 'cookie-notice-welcome-frontend', COOKIE_NOTICE_URL . '/js/front-welcome.js', [ 'jquery', 'underscore' ], Cookie_Notice()->defaults['version'] );
+			wp_enqueue_script( 'cookie-notice-welcome-frontend', COOKIE_NOTICE_URL . '/js/front-welcome.js', [ 'jquery', 'underscore' ], $cn->defaults['version'] );
 
-			wp_localize_script(
-				'cookie-notice-welcome-frontend',
-				'cnFrontWelcome',
-				[
-					'previewMode'	=> $this->preview_mode,
-					'allowedURLs'	=> $this->get_allowed_urls(),
-					'levelNames'	=> Cookie_Notice()->settings->level_names,
-					'textStrings'	=> Cookie_Notice()->settings->text_strings
-				]
-			);
+			// prepare script data
+			$script_data = [
+				'previewMode'	=> $this->preview_mode,
+				'allowedURLs'	=> $this->get_allowed_urls(),
+				'levelNames'	=> $cn->settings->level_names,
+				'textStrings'	=> $cn->settings->text_strings
+			];
+
+			wp_add_inline_script( 'cookie-notice-welcome-frontend', 'var cnFrontWelcome = ' . wp_json_encode( $script_data ) . ";\n", 'before' );
 		}
 	}
 
@@ -96,12 +98,10 @@ class Cookie_Notice_Welcome_Frontend {
 		];
 
 		echo '
-		<!-- Hu Banner -->
-		<script type="text/javascript">
-			var huOptions = ' . json_encode( $options ) . ';
-		</script>
-		<script type="text/javascript" src="' . Cookie_Notice()->get_url( 'widget' ) . '"></script>
-		<style>.hu-preview-mode #hu::after {content: "";position: fixed;width: 100%;height: 100%;display: block;top: 0;left: 0;}</style>';
+		<!-- Cookie Compliance -->
+		<script type="text/javascript">var huOptions = ' . wp_json_encode( $options ) . ';</script>
+		<script type="text/javascript" src="' . esc_url( ( is_ssl() ? 'https:' : 'http:' ) . Cookie_Notice()->get_url( 'widget' ) ) . '"></script>
+		<style>.hu-preview-mode #hu::after {content: "";position: fixed;width: 100%;height: 100%;display: block;top: 0;left: 0}</style>';
 	}
 
 	/**

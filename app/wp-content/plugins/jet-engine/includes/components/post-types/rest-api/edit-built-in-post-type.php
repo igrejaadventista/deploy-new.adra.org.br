@@ -47,7 +47,10 @@ class Jet_Engine_CPT_Rest_Edit_BI_Post_Type extends Jet_Engine_Base_API_Endpoint
 			'id'                    => $this->safe_get( $params, 'general_settings', 'id' ),
 			'name'                  => $this->safe_get( $params, 'general_settings', 'name' ),
 			'slug'                  => $this->safe_get( $params, 'general_settings', 'slug' ),
+			'custom_storage'        => $this->safe_get( $params, 'general_settings', 'custom_storage' ),
 			'show_edit_link'        => $this->safe_get( $params, 'general_settings', 'show_edit_link' ),
+			'hide_field_names'      => $this->safe_get( $params, 'general_settings', 'hide_field_names' ),
+			'delete_metadata'       => $this->safe_get( $params, 'general_settings', 'delete_metadata' ),
 			'singular_name'         => $this->safe_get( $params, 'labels', 'singular_name' ),
 			'menu_name'             => $this->safe_get( $params, 'labels', 'menu_name' ),
 			'name_admin_bar'        => $this->safe_get( $params, 'labels', 'name_admin_bar' ),
@@ -77,6 +80,7 @@ class Jet_Engine_CPT_Rest_Edit_BI_Post_Type extends Jet_Engine_Base_API_Endpoint
 			'show_in_rest'          => $this->safe_get( $params, 'advanced_settings', 'show_in_rest' ),
 			'query_var'             => $this->safe_get( $params, 'advanced_settings', 'query_var' ),
 			'rewrite'               => $this->safe_get( $params, 'advanced_settings', 'rewrite' ),
+			'map_meta_cap'          => $this->safe_get( $params, 'advanced_settings', 'map_meta_cap' ),
 			'has_archive'           => $this->safe_get( $params, 'advanced_settings', 'has_archive' ),
 			'hierarchical'          => $this->safe_get( $params, 'advanced_settings', 'hierarchical' ),
 			'rewrite_slug'          => $this->safe_get( $params, 'advanced_settings', 'rewrite_slug' ),
@@ -131,7 +135,14 @@ class Jet_Engine_CPT_Rest_Edit_BI_Post_Type extends Jet_Engine_Base_API_Endpoint
 				continue;
 			}
 
-			if ( in_array( $key, array( 'admin_columns', 'admin_filters', 'meta_fields' ) ) && ! empty( $value ) ) {
+			if ( in_array( $key, array(
+				'admin_columns',
+				'admin_filters',
+				'meta_fields',
+				'custom_storage',
+				'show_edit_link',
+				'hide_field_names',
+			) ) && ! empty( $value ) ) {
 				$to_update[ $key ] = $value;
 				continue;
 			}
@@ -156,7 +167,16 @@ class Jet_Engine_CPT_Rest_Edit_BI_Post_Type extends Jet_Engine_Base_API_Endpoint
 			}
 
 			jet_engine()->cpt->data->set_request( $to_update );
-			$item_id = jet_engine()->cpt->data->edit_built_in_item( false );
+
+			try {
+				$item_id = jet_engine()->cpt->data->edit_built_in_item( false );
+			} catch ( \Exception $e ) {
+				return rest_ensure_response( array(
+					'success' => false,
+					'item_id' => false,
+					'notices' => [ [ 'message' => $e->getMessage() ] ],
+				) );
+			}
 
 			if ( $item_id ) {
 				$updated = true;

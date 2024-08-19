@@ -5,6 +5,10 @@
  * @package WPCode
  */
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 add_action( 'plugins_loaded', 'wpcode_maybe_enable_safe_mode' );
 add_filter( 'wpcode_do_auto_insert', 'wpcode_maybe_prevent_execution' );
 
@@ -26,6 +30,7 @@ function wpcode_maybe_enable_safe_mode() {
 	add_action( 'admin_footer', 'wpcode_keep_safe_mode_admin_menu' );
 	// Show a notice informing the user we're in safe mode and offer a way to get out.
 	add_action( 'admin_notices', 'wpcode_safe_mode_notice' );
+	add_action( 'wpcode_admin_notices', 'wpcode_safe_mode_notice' );
 }
 
 /**

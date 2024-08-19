@@ -55,6 +55,56 @@ class Utils {
 	}
 
 	/**
+	 * [get_site_url description]
+	 * @return [type] [description]
+	 */
+	public static function get_license_site_url() {
+		$license_list = Utils::get_license_data( 'license-list', [] );
+
+		if ( empty( $license_list ) ) {
+			return false;
+		}
+
+		$sites = [];
+
+		foreach ( $license_list as $license_key => $license_data ) {
+
+			if ( ! isset( $license_data['licenseDetails'] ) ) {
+				continue;
+			}
+
+			$license_details = $license_data['licenseDetails'];
+
+			if ( ! isset( $license_details['site_url'] ) ) {
+				continue;
+			}
+
+			$sites[] = $license_details['site_url'];
+		}
+
+		if ( empty( $sites ) ) {
+			return false;
+		}
+
+		return $sites;
+	}
+
+	/**
+	 * @return bool
+	 */
+	public static function is_site_activated() {
+
+		$current_site = strtolower( Utils::get_site_url() );
+		$license_sites = Utils::get_license_site_url();
+
+		if ( ! in_array( $current_site, $license_sites ) ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
 	 * [get description]
 	 * @param  [type]  $setting [description]
 	 * @param  boolean $default [description]

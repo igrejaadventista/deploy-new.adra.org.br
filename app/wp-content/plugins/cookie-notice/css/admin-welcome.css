@@ -557,21 +557,14 @@
     background-color: rgba(32,193,158,0.05);
 }
 
-.cn-welcome-wrap .cn-pricing-table input#cn-pricing-plan-pro + .cn-pricing-info .cn-pricing-body p:last-child b,
-.cn-welcome-wrap .cn-pricing-table input#cn-pricing-plan-pro + .cn-pricing-info .cn-pricing-body p:last-child .cn-icon,
-.cn-welcome-wrap .cn-pricing-table input#cn-pricing-plan-pro + .cn-pricing-info .cn-pricing-body p:last-child .cn-icon:after {
-    color: #FF9E0D;
-    border-color: #FF9E0D;
-}
-
 .cn-welcome-wrap .cn-pricing-table input#cn-pricing-plan-pro + .cn-pricing-info .cn-plan-promo {
     color: #fff;
-    background: #FF9E0D;
+    background: #ffc107;
     position: absolute;
     left: 50%;
     top: 0;
     font-weight: bold;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.1em;
     text-transform: uppercase;
     display: inline-block;
@@ -614,6 +607,17 @@
 
 .cn-welcome-wrap .cn-pricing-table .cn-plan-price sup {
     font-weight: normal;
+    font-size: 0.5em;
+    color: #515151;
+    vertical-align: top;
+}
+
+.cn-welcome-wrap .cn-pricing-table .cn-plan-price sub {
+    font-weight: normal;
+    font-size: 0.5em;
+    color: #515151;
+    text-transform: none;
+    vertical-align: bottom;
 }
 
 .cn-welcome-wrap .cn-select-wrapper select {
@@ -621,7 +625,7 @@
     border: 1px solid #ccc;
     color: #191e23;
     border-radius: 25px;
-    padding: 5px 10px;
+    padding: 7.5px 35px 7.5px 20px;
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
     background-repeat: no-repeat;
     background-position: right 10px center;
@@ -739,6 +743,19 @@
     border-color: transparent;
     color: inherit;
     padding: 0;
+}
+
+.cn-btn.cn-btn-secondary {
+    background-color:#ffc107;
+    border-color:#ffc107;
+    color:#3c434a
+}
+
+.cn-btn.cn-btn-secondary:active,
+.cn-btn.cn-btn-secondary:focus,
+.cn-btn.cn-btn-secondary:hover {
+    background-color:#ffca2c;
+    border-color:#ffca2c
 }
 
 .cn-top-bar {

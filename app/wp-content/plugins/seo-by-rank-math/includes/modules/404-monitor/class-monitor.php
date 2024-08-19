@@ -11,11 +11,10 @@
 namespace RankMath\Monitor;
 
 use RankMath\Helper;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Param;
 use RankMath\Traits\Ajax;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Param;
-use MyThemeShop\Helpers\Conditional;
 use donatj\UserAgent\UserAgentParser;
 
 defined( 'ABSPATH' ) || exit;
@@ -28,6 +27,13 @@ class Monitor {
 	use Hooker, Ajax;
 
 	/**
+	 * Admin object.
+	 *
+	 * @var Admin
+	 */
+	public $admin;
+
+	/**
 	 * The Constructor.
 	 */
 	public function __construct() {
@@ -35,11 +41,11 @@ class Monitor {
 			$this->admin = new Admin();
 		}
 
-		if ( Conditional::is_ajax() ) {
+		if ( Helper::is_ajax() ) {
 			$this->ajax( 'delete_log', 'delete_log' );
 		}
 
-		if ( Helper::has_cap( '404_monitor' ) && Conditional::is_rest() ) {
+		if ( Helper::has_cap( '404_monitor' ) && Helper::is_rest() ) {
 			$this->action( 'rank_math/dashboard/widget', 'dashboard_widget', 11 );
 		}
 
@@ -58,9 +64,9 @@ class Monitor {
 		?>
 		<h3>
 			<?php esc_html_e( '404 Monitor', 'rank-math' ); ?>
-			<a href="<?php echo esc_url( Helper::get_admin_url( '404-monitor' ) ); ?>" class="rank-math-view-report" title="<?php esc_html_e( 'View Report', 'rank-math' ); ?>"><i class="dashicons dashicons-ellipsis"></i></a>
+			<a href="<?php echo esc_url( Helper::get_admin_url( '404-monitor' ) ); ?>" class="rank-math-view-report" title="<?php esc_html_e( 'View Report', 'rank-math' ); ?>"><i class="dashicons dashicons-chart-bar"></i></a>
 		</h3>
-		<div class="rank-math-dashabord-block">
+		<div class="rank-math-dashboard-block">
 			<div>
 				<h4>
 					<?php esc_html_e( 'Log Count', 'rank-math' ); ?>
@@ -123,7 +129,7 @@ class Monitor {
 		}
 
 		$uri = untrailingslashit( Helper::get_current_page_url( Helper::get_settings( 'general.404_monitor_ignore_query_parameters' ) ) );
-		$uri = str_replace( home_url( '/' ), '', $uri );
+		$uri = str_replace( Helper::get_home_url( '/' ), '', $uri );
 
 		// Check if excluded.
 		if ( $this->is_url_excluded( $uri ) ) {
@@ -160,12 +166,34 @@ class Monitor {
 		}
 
 		foreach ( $excludes as $rule ) {
+			$rule['exclude'] = empty( $rule['exclude'] ) ? '' : $this->sanitize_exclude_pattern( $rule['exclude'], $rule['comparison'] );
+
 			if ( ! empty( $rule['exclude'] ) && Str::comparison( $rule['exclude'], $uri, $rule['comparison'] ) ) {
 				return true;
 			}
 		}
 
 		return false;
+	}
+
+	/**
+	 * Check if regex pattern has delimiters or not, and add them if not.
+	 *
+	 * @param string $pattern The pattern to check.
+	 * @param string $comparison The comparison type.
+	 *
+	 * @return string
+	 */
+	private function sanitize_exclude_pattern( $pattern, $comparison ) {
+		if ( 'regex' !== $comparison ) {
+			return $pattern;
+		}
+
+		if ( preg_match( '[^(?:([^a-zA-Z0-9\\\\]).*\\1|\\(.*\\)|\\{.*\\}|\\[.*\\]|<.*>)[imsxADSUXJu]*$]', $pattern ) ) {
+			return $pattern;
+		}
+
+		return '[' . addslashes( $pattern ) . ']';
 	}
 
 	/**

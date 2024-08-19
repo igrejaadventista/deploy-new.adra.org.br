@@ -3,7 +3,6 @@ namespace Jet_Engine\Modules\Maps_Listings;
 
 class Lat_Lng {
 
-	public $geo_api_url       = 'https://maps.googleapis.com/maps/api/geocode/json';
 	public $meta_key          = '_jet_maps_coord';
 	public $field_groups      = array();
 	public $done              = false;
@@ -68,8 +67,29 @@ class Lat_Lng {
 			return;
 		}
 
+		$engine_fields = [];
+		$custom_fields = [];
+
+		foreach ( $preload_fields as $field ) {
+			if ( false === strpos( $field, '_custom::' ) ) {
+				$engine_fields[] = $field;
+			} else {
+				$custom_fields[] = $field;
+			}
+		}
+
 		foreach ( $sources as $source ) {
-			$source->preload_hooks( $preload_fields );
+			
+			// Preload non-Engine fields
+			if ( $source->is_custom() && ! empty( $custom_fields ) ) {
+				$source->preload_hooks( $custom_fields );
+			}
+
+			// Preload JetEngine fields
+			if ( ! $source->is_custom() && ! empty( $engine_fields ) ) {
+				$source->preload_hooks( $engine_fields );
+			}
+
 		}
 
 	}
@@ -159,7 +179,8 @@ class Lat_Lng {
 				continue;
 			}
 
-			$coord = $this->get( $post, $address );
+			$coord = $this->get( $post, $address, implode( '+', $fields ) );
+
 		}
 
 		$this->done = true;
@@ -173,7 +194,7 @@ class Lat_Lng {
 	 * @param  string $address
 	 * @return void
 	 */
-	public function preload( $post_id, $address ) {
+	public function preload( $post_id, $address, $field = '' ) {
 
 		if ( empty( $address ) ) {
 			return;
@@ -186,7 +207,7 @@ class Lat_Lng {
 			$post = $source->get_obj_by_id( $post_id );
 		}
 
-		$coord = $this->get( $post, $address );
+		$coord = $this->get( $post, $address, $field );
 	}
 
 	/**
@@ -197,43 +218,20 @@ class Lat_Lng {
 	 */
 	public function get_remote( $location ) {
 
-		$api_key           = Module::instance()->settings->get( 'api_key' );
-		$use_geocoding_key = Module::instance()->settings->get( 'use_geocoding_key' );
-		$geocoding_key     = Module::instance()->settings->get( 'geocoding_key' );
+		$provider_id      = Module::instance()->settings->get( 'geocode_provider' );
+		$geocode_provider = Module::instance()->providers->get_providers( 'geocode', $provider_id );
 
-		if ( $use_geocoding_key && $geocoding_key ) {
-			$api_key = $geocoding_key;
+		$decoded_location = json_decode( htmlspecialchars_decode( $location ), true );
+
+		if ( $decoded_location && $decoded_location['lat'] && $decoded_location['lng'] ) {
+			return $decoded_location;
 		}
 
-		// Do nothing if api key not provided
-		if ( ! $api_key ) {
+		if ( ! $geocode_provider ) {
 			return false;
+		} else {
+			return $geocode_provider->get_location_data( $location );
 		}
-
-		// Prepare request data
-		$location    = esc_attr( $location );
-		$api_key     = esc_attr( $api_key );
-		$request_url = add_query_arg(
-			array(
-				'address' => urlencode( $location ),
-				'key'     => urlencode( $api_key )
-			),
-			esc_url( $this->geo_api_url )
-		);
-
-		$response = wp_remote_get( $request_url );
-		$json     = wp_remote_retrieve_body( $response );
-		$data     = json_decode( $json, true );
-
-		$coord = isset( $data['results'][0]['geometry']['location'] )
-			? $data['results'][0]['geometry']['location']
-			: false;
-
-		if ( ! $coord ) {
-			return false;
-		}
-
-		return $coord;
 
 	}
 
@@ -258,7 +256,7 @@ class Lat_Lng {
 
 		}
 
-		return $coord;
+		return is_array( $coord ) ? array_map( 'floatval', $coord ) : $coord;
 
 	}
 
@@ -292,7 +290,7 @@ class Lat_Lng {
 	}
 
 	public function maybe_add_offset( $coordinates = array() ) {
-		
+
 		$add_offset = Module::instance()->settings->get( 'add_offset' );
 
 		if ( ! $add_offset ) {
@@ -305,11 +303,11 @@ class Lat_Lng {
 		$offset_lng = ( 10 - rand( 0, 20 ) ) / $offset_rate;
 
 		if ( isset( $coordinates['lat'] ) ) {
-			$coordinates['lat'] = $coordinates['lat'] + $offset_lat;
+			$coordinates['lat'] = floatval( $coordinates['lat'] ) + $offset_lat;
 		}
 
 		if ( isset( $coordinates['lng'] ) ) {
-			$coordinates['lng'] = $coordinates['lng'] + $offset_lng;
+			$coordinates['lng'] = floatval( $coordinates['lng'] ) + $offset_lng;
 		}
 
 		return $coordinates;
@@ -324,16 +322,22 @@ class Lat_Lng {
 	 *
 	 * @return array|bool
 	 */
-	public function get( $post, $location ) {
+	public function get( $post, $location, $field_name = '' ) {
 
 		if ( is_array( $location ) ) {
 			return $this->maybe_add_offset( $location );
 		}
 
-		$key   = md5( $location );
-		$meta  = $this->get_address_from_field( $post, $this->meta_key );
+		$location_hash = md5( $location );
+		$source        = $this->get_source_instance();
 
-		if ( ! empty( $meta ) && $key === $meta['key'] ) {
+		if ( ! $source ) {
+			return false;
+		}
+
+		$meta = $source->get_field_coordinates( $post, $location, $field_name );
+
+		if ( ! empty( $meta ) && $location_hash === $meta['key'] ) {
 			return $this->maybe_add_offset( $meta['coord'] );
 		}
 
@@ -346,7 +350,11 @@ class Lat_Lng {
 			return false;
 		}
 
-		$this->update_address_coord_field( $post, $key, $coord );
+		if ( ! $field_name ) {
+			$field_name = $this->meta_key;
+		}
+
+		$this->update_address_coord_field( $post, $field_name, $location_hash, $coord );
 
 		return $this->maybe_add_offset( $coord );
 
@@ -373,17 +381,17 @@ class Lat_Lng {
 		$this->failures[ $key ] = $location;
 	}
 
-	public function update_address_coord_field( $post, $key, $coord ) {
+	public function update_address_coord_field( $post, $field_name, $location_hash, $coord ) {
 
 		$value = array(
-			'key'   => $key,
+			'key'   => $location_hash,
 			'coord' => $coord,
 		);
 
 		$source = $this->get_source_instance();
 
 		if ( $source ) {
-			$source->update_field_value( $post, $this->meta_key, $value );
+			$source->update_field_value( $post, $field_name, $value );
 			return;
 		}
 

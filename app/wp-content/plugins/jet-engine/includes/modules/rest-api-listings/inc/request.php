@@ -6,6 +6,7 @@ class Request {
 	private $endpoint;
 	private $url;
 	private $error;
+	private $error_details;
 
 	public $is_sample_request = false;
 
@@ -14,12 +15,12 @@ class Request {
 		$this->endpoint          = $endpoint;
 		$this->is_sample_request = $is_sample_request;
 		$this->url               = ! empty( $this->endpoint['url'] ) ? $this->endpoint['url'] : false;
+		$this->url               = do_shortcode( jet_engine()->listings->macros->do_macros( $this->url ) );
 
 		return $this;
 	}
 
 	public function get_url() {
-		$this->url = jet_engine()->listings->macros->do_macros( $this->url );
 		return apply_filters( 'jet-engine/rest-api-listings/request/url', $this->url, $this );
 	}
 
@@ -35,6 +36,14 @@ class Request {
 		$this->error = $error;
 	}
 
+	public function get_error_details() {
+		return $this->error_details;
+	}
+
+	public function set_error_details( $error_details ) {
+		$this->error_details = $error_details;
+	}
+
 	public function send_request( $query_args = array(), $type = 'get' ) {
 
 		do_action( 'jet-engine/rest-api-listings/request/before-send', $this );
@@ -47,6 +56,7 @@ class Request {
 
 		$args       = apply_filters( 'jet-engine/rest-api-listings/request/args', $args, $this );
 		$query_args = apply_filters( 'jet-engine/rest-api-listings/request/query-args', $query_args, $this );
+		$type       = apply_filters( 'jet-engine/rest-api-listings/request/type', $type, $this );
 
 		$url = $this->get_url();
 
@@ -89,10 +99,13 @@ class Request {
 
 		if ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
 			$this->set_error( wp_remote_retrieve_response_message( $response ) );
+			$this->set_error_details( $response );
 			return false;
 		}
 
 		$body = json_decode( wp_remote_retrieve_body( $response ) );
+
+		$body = apply_filters( 'jet-engine/rest-api-listings/response/body', $body, $this, $query_args, $response );
 
 		if ( empty( $body ) ) {
 			$this->set_error( __( 'Reponse body is empty', 'jet-engine' ) );

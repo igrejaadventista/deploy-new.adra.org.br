@@ -31,6 +31,7 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Ajax_Handlers' ) ) {
 			$attrs  = $this->recursive_find_block( $blocks, $element_id );
 
 			if ( ! empty( $attrs ) ) {
+				$attrs['inline_columns_css'] = true;
 				return $attrs;
 			} else {
 				return $result;

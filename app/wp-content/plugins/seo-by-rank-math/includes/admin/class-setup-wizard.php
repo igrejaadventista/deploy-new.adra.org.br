@@ -16,7 +16,7 @@ use RankMath\Traits\Hooker;
 use RankMath\Traits\Wizard;
 use RankMath\Helpers\Security;
 use RankMath\Admin\Importers\Detector;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -70,6 +70,13 @@ class Setup_Wizard {
 	public $wizard_step = null;
 
 	/**
+	 * Hook suffix.
+	 *
+	 * @var string
+	 */
+	public $hook_suffix = '';
+
+	/**
 	 * The Constructor.
 	 */
 	public function __construct() {
@@ -108,7 +115,7 @@ class Setup_Wizard {
 				'class' => '\\RankMath\\Wizard\\Your_Site',
 			],
 
-			'analytics' => [
+			'analytics'     => [
 				'name'  => esc_html__( 'Analytics', 'rank-math' ),
 				'class' => '\\RankMath\\Wizard\\Search_Console',
 			],
@@ -212,7 +219,6 @@ class Setup_Wizard {
 		}
 
 		return $url;
-		return rank_math()->admin_dir() . "wizard/views/{$view}.php";
 	}
 
 	/**
@@ -251,7 +257,7 @@ class Setup_Wizard {
 		}
 
 		$this->hook_suffix = add_submenu_page(
-			null,
+			'',
 			esc_html__( 'Setup Wizard', 'rank-math' ),
 			esc_html__( 'Setup Wizard', 'rank-math' ),
 			'manage_options',
@@ -280,8 +286,11 @@ class Setup_Wizard {
 		rank_math()->admin_assets->register();
 		wp_enqueue_style( 'rank-math-wizard', rank_math()->plugin_url() . 'assets/admin/css/setup-wizard.css', [ 'wp-admin', 'buttons', 'cmb2-styles', 'select2-rm', 'rank-math-common', 'rank-math-cmb2' ], rank_math()->version );
 
+		// Enqueue scripts for the SEO Score Updater tool.
+		\RankMath\Tools\Update_Score::get()->enqueue();
+
 		// Enqueue javascript.
-		wp_enqueue_script( 'rank-math-wizard', rank_math()->plugin_url() . 'assets/admin/js/wizard.js', [ 'media-editor', 'select2-rm', 'lodash', 'rank-math-common', 'rank-math-validate' ], rank_math()->version, true );
+		wp_enqueue_script( 'rank-math-wizard', rank_math()->plugin_url() . 'assets/admin/js/wizard.js', [ 'media-editor', 'select2-rm', 'lodash', 'rank-math-common' ], rank_math()->version, true );
 
 		Helper::add_json( 'currentStep', $this->step );
 		Helper::add_json( 'deactivated', esc_html__( 'Deactivated', 'rank-math' ) );
@@ -356,7 +365,7 @@ class Setup_Wizard {
 		$this->steps       = $this->do_filter( 'wizard/steps', $this->steps );
 		$this->step        = Param::request( 'step', current( array_keys( $this->steps ) ) );
 		$this->step_slug   = isset( $this->steps[ $this->step ]['slug'] ) ? $this->steps[ $this->step ]['slug'] : $this->step;
-		$this->wizard_step = new $this->steps[ $this->step ]['class'];
+		$this->wizard_step = new $this->steps[ $this->step ]['class']();
 	}
 
 	/**

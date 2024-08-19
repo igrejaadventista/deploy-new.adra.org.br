@@ -30,7 +30,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 		}
 
 		public function get_title() {
-			return __( 'Calendar', 'jet-engine' );
+			return __( 'Dynamic Calendar', 'jet-engine' );
 		}
 
 		public function get_icon() {
@@ -45,7 +45,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 			return 'https://crocoblock.com/knowledge-base/articles/jetengine-calendar-listing-functionality-how-to-add-a-dynamic-calendar/?utm_source=jetengine&utm_medium=listing-calendar&utm_campaign=need-help';
 		}
 
-		protected function _register_controls() {
+		protected function register_controls() {
 
 			$this->register_general_settings();
 			$this->register_query_settings();
@@ -55,6 +55,8 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 		}
 
 		public function register_general_settings() {
+
+			$module = jet_engine()->modules->get_module( 'calendar' );
 
 			$this->start_controls_section(
 				'section_general',
@@ -80,16 +82,21 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 			);
 
 			$this->add_control(
+				'query_notice',
+				array(
+					'type'            => \Elementor\Controls_Manager::RAW_HTML,
+					'raw'             => __( '<b>Please note:</b> For non-posts listings (users, terms, CCT etc.) set Query with Custom Query settings', 'jet-engine' ),
+					'content_classes' => 'elementor-descriptor',
+				)
+			);
+
+			$this->add_control(
 				'group_by',
 				array(
 					'label'   => __( 'Group posts by', 'jet-engine' ),
 					'type'    => Controls_Manager::SELECT,
 					'default' => 'post_date',
-					'options' => array(
-						'post_date' => __( 'Post publication date', 'jet-engine' ),
-						'post_mod'  => __( 'Post modification date', 'jet-engine' ),
-						'meta_date' => __( 'Date from custom field', 'jet-engine' ),
-					),
+					'options' => $module->get_calendar_group_keys(),
 				)
 			);
 
@@ -100,7 +107,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 					'type'        => Controls_Manager::TEXT,
 					'default'     => '',
 					'label_block' => true,
-					'description' => __( 'This field must contain date to group posts by. Works only if "Save as timestamp" option for meta field is active', 'jet-engine' ),
+					'description' => __( 'Could be meta field or item peroperty field (depende on query used). This field must contain date to group items by. Works only if "Save as timestamp" option for this field is active', 'jet-engine' ),
 					'condition'   => array(
 						'group_by' => 'meta_date'
 					),
@@ -130,7 +137,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 					'type'        => Controls_Manager::TEXT,
 					'default'     => '',
 					'label_block' => true,
-					'description' => __( 'This field must contain date when events ends. Works only if "Save as timestamp" option for meta field is active', 'jet-engine' ),
+					'description' => __( 'If you used "Advanced Datetime" meta field type you can leave this field empty. This field must contain date when events ends. Works only if "Save as timestamp" option for meta field is active.', 'jet-engine' ),
 					'condition'   => array(
 						'group_by'       => 'meta_date',
 						'allow_multiday' => 'yes',
@@ -241,6 +248,14 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				)
 			);
 
+			$this->add_control(
+				'legacy_notice',
+				array(
+					'type' => Controls_Manager::RAW_HTML,
+					'raw'  => jet_engine()->listings->legacy->get_notice(),
+				)
+			);
+
 			$this->end_controls_section();
 
 		}
@@ -332,7 +347,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Padding', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%', 'em' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-caption' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -344,7 +359,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Margin', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%', 'em' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-caption' => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -366,9 +381,26 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Border Radius', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-caption' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+					),
+				)
+			);
+
+			$this->add_responsive_control(
+				'caption_gap',
+				array(
+					'label' => esc_html__( 'Gap between caption elements', 'jet-engine' ),
+					'type'  => Controls_Manager::SLIDER,
+					'range' => array(
+						'px' => array(
+							'min' => 0,
+							'max' => 100,
+						),
+					),
+					'selectors' => array(
+						'{{WRAPPER}} .jet-calendar-caption__wrap' => 'gap: {{SIZE}}{{UNIT}};',
 					),
 				)
 			);
@@ -459,7 +491,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Border Radius', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-nav__link' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -490,7 +522,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Border Radius', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-nav__link.nav-link-next' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -628,7 +660,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Padding', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%', 'em' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-header__week-day' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -640,7 +672,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Border Width', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%', 'em' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-header__week-day' => 'border-style: solid; border-top-width: {{TOP}}{{UNIT}}; border-bottom-width: {{BOTTOM}}{{UNIT}}; border-left-width: {{LEFT}}{{UNIT}}; border-right-width: 0;',
 						'{{WRAPPER}} .jet-calendar-header__week-day:last-child' => 'border-right-width: {{RIGHT}}{{UNIT}};',
@@ -686,7 +718,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Border Radius', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-header__week-day:first-child' => 'border-radius: {{TOP}}{{UNIT}} 0 0 {{LEFT}}{{UNIT}};',
 						'{{WRAPPER}} .jet-calendar-header__week-day:last-child' => 'border-radius: 0 {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} 0;',
@@ -721,7 +753,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Padding', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%', 'em' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%', 'em' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-week__day-content' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -798,7 +830,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Border Radius', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} tbody .jet-calendar-week:first-child .jet-calendar-week__day:first-child' => 'border-radius: {{TOP}}{{UNIT}} 0 0 0;',
 						'{{WRAPPER}} tbody .jet-calendar-week:first-child .jet-calendar-week__day:last-child' => 'border-radius: 0 {{RIGHT}}{{UNIT}} 0 0;',
@@ -955,7 +987,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label' => esc_html__( 'Width', 'jet-engine' ),
 					'type'  => Controls_Manager::SLIDER,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'range' => array(
 						'%' => array(
 							'min' => 1,
@@ -1004,7 +1036,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Border Radius', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-week__day-date' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -1016,7 +1048,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Padding', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-week__day-date' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -1028,7 +1060,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Margin', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-week__day-date' => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -1204,7 +1236,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Mobile Trigger Width', 'jet-engine' ),
 					'type'       => Controls_Manager::SLIDER,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'range'      => array(
 						'px' => array(
 							'min' => 10,
@@ -1269,7 +1301,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Mobile Trigger Border Radius', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-week__day-mobile-trigger' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -1281,7 +1313,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Mobile Trigger Margin', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-week__day-mobile-trigger' => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),
@@ -1293,7 +1325,7 @@ if ( ! class_exists( 'Elementor\Jet_Listing_Calendar_Widget' ) ) {
 				array(
 					'label'      => esc_html__( 'Mobile Event Margin', 'jet-engine' ),
 					'type'       => Controls_Manager::DIMENSIONS,
-					'size_units' => array( 'px', '%' ),
+					'size_units' => jet_engine()->elementor_views->add_custom_size_unit( array( 'px', '%' ) ),
 					'selectors'  => array(
 						'{{WRAPPER}} .jet-calendar-week__day-mobile-event' => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
 					),

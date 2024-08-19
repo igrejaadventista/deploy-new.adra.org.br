@@ -3,16 +3,17 @@ namespace ElementorPro\Modules\CustomCode;
 
 use Elementor\Core\Admin\Menu\Admin_Menu_Manager;
 use Elementor\Core\Documents_Manager;
-use ElementorPro\License\API;
-use ElementorPro\Modules\CustomCode\AdminMenuItems\Custom_Code_Menu_Item;
-use ElementorPro\Modules\CustomCode\AdminMenuItems\Custom_Code_Promotion_Menu_Item;
-use ElementorPro\Plugin;
+use Elementor\Icons_Manager;
 use Elementor\Settings;
 use Elementor\TemplateLibrary\Source_Local;
 use Elementor\Utils;
 use ElementorPro\Base\Module_Base;
+use ElementorPro\License\API;
+use ElementorPro\Modules\CustomCode\AdminMenuItems\Custom_Code_Menu_Item;
+use ElementorPro\Modules\CustomCode\AdminMenuItems\Custom_Code_Promotion_Menu_Item;
 use ElementorPro\Modules\ThemeBuilder\Classes\Conditions_Manager;
 use ElementorPro\Modules\ThemeBuilder\Classes\Locations_Manager;
+use ElementorPro\Plugin;
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit; // Exit if accessed directly
@@ -40,8 +41,11 @@ class Module extends Module_Base {
 		$this->meta_box = new Custom_Code_Metabox();
 
 		$this->actions();
-		$this->register_custom_post_type();
-		$this->register_metabox();
+
+		if ( $this->can_use_custom_code() ) {
+			$this->register_custom_post_type();
+			$this->register_metabox();
+		}
 	}
 
 	public function get_name() {
@@ -49,14 +53,15 @@ class Module extends Module_Base {
 	}
 
 	private function actions() {
-		// TODO: Maybe just ignore all of those when the user can't use custom code?
-		add_action( 'elementor/documents/register', function ( $documents_manager ) {
-			return $this->register_documents( $documents_manager );
-		} );
+		if ( $this->can_use_custom_code() ) {
+			add_action( 'elementor/documents/register', function ( $documents_manager ) {
+				return $this->register_documents( $documents_manager );
+			} );
 
-		add_action( 'elementor/theme/register_locations', function ( $location_manager ) {
-			return $this->register_location( $location_manager );
-		} );
+			add_action( 'elementor/theme/register_locations', function ( $location_manager ) {
+				return $this->register_location( $location_manager );
+			} );
+		}
 
 		add_action( 'elementor/admin/menu/register', function ( Admin_Menu_Manager $admin_menu_manager ) {
 			$this->add_admin_menu( $admin_menu_manager );
@@ -179,7 +184,8 @@ class Module extends Module_Base {
 					__( 'Custom code saved.', 'elementor-pro' ),
 					__( 'Custom code submitted.', 'elementor-pro' ),
 					sprintf(
-						__( 'Custom code scheduled for: %1$s.', 'elementor-pro' ),
+						/* translators: %s: The scheduled date. */
+						__( 'Custom code scheduled for %s.', 'elementor-pro' ),
 						'<strong>' . date_i18n( esc_html__( 'M j, Y @ G:i', 'elementor-pro' ), strtotime( $post->post_date ) ) . '</strong>'
 					),
 					__( 'Custom code draft updated.', 'elementor-pro' ),
@@ -248,7 +254,7 @@ class Module extends Module_Base {
 			'elementor-icons',
 			$this->get_css_assets_url( 'elementor-icons', 'assets/lib/eicons/css/' ),
 			[],
-			'5.6.2'
+			Icons_Manager::ELEMENTOR_ICONS_VERSION
 		);
 
 		wp_enqueue_script( 'react' );
@@ -293,8 +299,12 @@ class Module extends Module_Base {
 				'custom-code-metabox',
 				ELEMENTOR_PRO_ASSETS_URL . 'js/custom-code' . $min_suffix . '.js',
 				[
+					'elementor-v2-ui',
+					'elementor-v2-icons',
 					'react',
 					'select2',
+					// Temporary dependency until we will have a better way to load AI app in the admin.
+					'elementor-ai-admin',
 				],
 				ELEMENTOR_PRO_VERSION
 			);
@@ -317,7 +327,7 @@ class Module extends Module_Base {
 	}
 
 	private function can_use_custom_code() {
-		return API::is_license_active() || $this->has_custom_code_snippets();
+		return ( API::is_license_active() && API::is_licence_has_feature( static::MODULE_NAME, API::BC_VALIDATION_CALLBACK ) || $this->has_custom_code_snippets() );
 	}
 
 	private function has_custom_code_snippets() {
@@ -388,7 +398,7 @@ class Module extends Module_Base {
 			}
 
 			echo esc_html( $value );
-		} else if ( self::ADDITIONAL_COLUMN_INSTANCES === $column_name ) {
+		} elseif ( self::ADDITIONAL_COLUMN_INSTANCES === $column_name ) {
 			/** @var Conditions_Manager $conditions_manager */
 			$conditions_manager = Plugin::instance()->modules_manager->get_modules( 'theme-builder' )->get_conditions_manager();
 

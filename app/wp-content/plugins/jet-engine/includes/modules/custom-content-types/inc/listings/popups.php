@@ -17,6 +17,8 @@ class Popups {
 		add_filter( 'jet-engine/compatibility/popup-package/request-data', array( $this, 'add_content_type_data_to_request' ) );
 		add_filter( 'jet-engine/compatibility/popup-package/custom-content', array( $this, 'set_custom_content' ), 10, 2 );
 
+		add_action( 'wp_footer', array( $this, 'add_inline_js_for_blocks' ) );
+
 	}
 
 	public function set_custom_content( $content, $popup_data ) {
@@ -40,7 +42,19 @@ class Popups {
 		$type->db->set_queried_item_id( $item_id );
 		$type->db->set_queried_item( $item );
 
-		$content = \Elementor\Plugin::instance()->frontend->get_builder_content( $popup_id );
+		$content_type = ! empty( $popup_data['content_type'] ) ? $popup_data['content_type'] : 'elementor';
+
+		if ( 'elementor' === $content_type && jet_engine()->has_elementor() ) {
+			$content = \Elementor\Plugin::instance()->frontend->get_builder_content( $popup_id );
+		} else {
+			$popup_post = get_post( $popup_id );
+
+			if ( $popup_post ) {
+				$content = do_blocks( $popup_post->post_content );
+				$content = do_shortcode( $content );
+			}
+		}
+
 		$content = apply_filters( 'jet-engine/compatibility/popup-package/the_content', $content, $popup_data );
 
 		return $content;
@@ -97,5 +111,37 @@ class Popups {
 			wp_add_inline_script( 'jet-engine-frontend', $data, 'before' );
 		}
 		
+	}
+
+	public function add_inline_js_for_blocks() {
+
+		$data = "
+			jQuery( window ).on( 'jet-engine/frontend/loaded', function() {
+				window.JetPlugins.hooks.addFilter(
+					'jet-popup.show-popup.data',
+					'JetEngine.popupData',
+					function( popupData, popup, triggeredBy ) {
+
+						if ( ! triggeredBy ) {
+							return popupData;
+						}
+
+						if ( ! triggeredBy.data( 'popupIsJetEngine' ) ) {
+							return popupData;
+						}
+
+						var wrapper = triggeredBy.closest( '.jet-listing-grid__items' );
+
+						if ( wrapper.length && wrapper.data( 'cctSlug' ) ) {
+							popupData['cctSlug'] = wrapper.data( 'cctSlug' );
+						}
+
+						return popupData;
+					}
+				);
+			} );
+		";
+
+		wp_add_inline_script( 'jet-engine-frontend', $data, 'before' );
 	}
 }

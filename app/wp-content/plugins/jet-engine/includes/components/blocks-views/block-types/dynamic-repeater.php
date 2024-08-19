@@ -51,7 +51,7 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Repeater' ) ) {
 		 * @return array
 		 */
 		public function get_attributes() {
-			return array(
+			return apply_filters( 'jet-engine/blocks-views/block-types/attributes/dynamic-repeater', array(
 				'dynamic_field_source' => array(
 					'type' => 'string',
 					'default' => '',
@@ -100,7 +100,11 @@ if ( ! class_exists( 'Jet_Engine_Blocks_Views_Type_Dynamic_Repeater' ) ) {
 					'type' => 'boolean',
 					'default' => false,
 				),
-			);
+				'object_context' => array(
+					'type'    => 'string',
+					'default' => 'default_object',
+				),
+			) );
 		}
 
 		/**

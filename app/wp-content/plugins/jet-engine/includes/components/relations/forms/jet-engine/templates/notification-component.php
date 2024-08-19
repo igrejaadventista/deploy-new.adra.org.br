@@ -47,5 +47,17 @@
 				</select>
 			</div>
 		</div>
+		<div class="jet-form-editor__row">
+			<div class="jet-form-editor__row-label"><?php
+				_e( 'How to Store New Items:', 'jet-engine' );
+			?></div>
+			<div class="jet-form-editor__row-control">
+				<select @input="setField( $event, 'store_items_type' )" :value="result.store_items_type">
+					<option value="replace"><?php _e( 'Replace existing related items with items from the form (default)', 'jet-engine' ); ?></option>
+					<option value="append"><?php _e( 'Append new items to already existing related items', 'jet-engine' ); ?></option>
+					<option value="disconnect"><?php _e( 'Disconnect selected items', 'jet-engine' ); ?></option>
+				</select>
+			</div>
+		</div>
 	</div>
 </div>

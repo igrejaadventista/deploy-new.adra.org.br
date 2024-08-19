@@ -55,6 +55,9 @@ class Module {
 			new Elementor\Manager();
 		}
 
+		require_once $this->module_path( 'bricks-views/manager.php' );
+		new Bricks_Views\Manager();
+
 		add_action(
 			'jet-engine/rest-api/init-endpoints',
 			array( $this->query_dialog(), 'register_api_endpoint' )
@@ -69,11 +72,13 @@ class Module {
 		require_once $this->module_path( 'forms/create-form.php' );
 		require_once $this->module_path( 'forms/create-jfb-form.php' );
 		require_once $this->module_path( 'forms/preset-jfb.php' );
+		require_once $this->module_path( 'forms/fields-jfb.php' );
 
 		$this->form_preset = new Forms\Preset();
 		new Forms\Create_Form();
 		new Forms\Create_Jfb_Form();
 		new Forms\Preset_Jfb();
+		new Forms\Fields_Jfb();
 
 		if ( jet_engine()->modules->is_module_active( 'data-stores' ) ) {
 			require_once $this->module_path( 'data-stores/manager.php' );
@@ -83,6 +88,12 @@ class Module {
 		if ( is_admin() ) {
 			require_once $this->module_path( 'export.php' );
 			$this->export = new Export();
+
+			require_once $this->module_path( 'dashboard/skins-export-import.php' );
+			new Dashboard\Skins_Export_Import();
+
+			require_once $this->module_path( 'delete-users.php' );
+			new Delete_Users();
 		}
 
 		require_once $this->module_path( 'query-builder/manager.php' );

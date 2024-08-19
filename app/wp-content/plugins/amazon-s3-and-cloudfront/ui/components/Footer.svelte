@@ -2,6 +2,7 @@
 	import {createEventDispatcher, onDestroy} from "svelte";
 	import {slide} from "svelte/transition";
 	import {
+		revalidatingSettings,
 		settings_changed,
 		settings,
 		strings,
@@ -41,7 +42,8 @@
 		saving = true;
 		state.pausePeriodicFetch();
 		const result = await settingsStore.save();
-		state.resumePeriodicFetch();
+		$revalidatingSettings = true;
+		const statePromise = state.resumePeriodicFetch();
 
 		// The save happened, whether anything changed or not.
 		if ( result.hasOwnProperty( "saved" ) && result.hasOwnProperty( "changed_settings" ) ) {
@@ -51,6 +53,11 @@
 		// After save make sure notifications are eyeballed.
 		scrollNotificationsIntoView();
 		saving = false;
+
+		// Just make sure periodic state fetch promise is done with,
+		// even though we don't really care about it.
+		await statePromise;
+		$revalidatingSettings = false;
 	}
 
 	// On navigation away from a component showing the footer,
@@ -59,7 +66,7 @@
 </script>
 
 {#if $settingsChangedStore}
-	<div class="fixed-cta-block" transition:slide|local>
+	<div class="fixed-cta-block" transition:slide>
 		<div class="buttons">
 			<Button outline on:click={handleCancel}>{$strings.cancel_button}</Button>
 			<Button primary on:click={handleSave} {disabled}>{$strings.save_changes}</Button>

@@ -19,10 +19,18 @@ class WPCode_Auto_Insert {
 	public $types = array();
 
 	/**
+	 * The auto-insert categories.
+	 *
+	 * @var array
+	 */
+	public $type_categories = array();
+
+	/**
 	 * Constructor.
 	 */
 	public function __construct() {
 		$this->hooks();
+		$this->define_categories();
 	}
 
 	/**
@@ -32,6 +40,28 @@ class WPCode_Auto_Insert {
 	 */
 	private function hooks() {
 		add_action( 'plugins_loaded', array( $this, 'load_types' ), 1 );
+	}
+
+	/**
+	 * Define the categories of auto-insert types.
+	 *
+	 * @return void
+	 */
+	public function define_categories() {
+		$this->type_categories = array(
+			'global'    => array(
+				'label' => __( 'Global', 'insert-headers-and-footers' ),
+				'types' => array(),
+			),
+			'page'      => array(
+				'label' => __( 'Page-Specific', 'insert-headers-and-footers' ),
+				'types' => array(),
+			),
+			'ecommerce' => array(
+				'label' => __( 'eCommerce', 'insert-headers-and-footers' ),
+				'types' => array(),
+			),
+		);
 	}
 
 	/**
@@ -45,11 +75,21 @@ class WPCode_Auto_Insert {
 		require_once WPCODE_PLUGIN_PATH . 'includes/auto-insert/class-wpcode-auto-insert-site-wide.php';
 		require_once WPCODE_PLUGIN_PATH . 'includes/auto-insert/class-wpcode-auto-insert-single.php';
 		require_once WPCODE_PLUGIN_PATH . 'includes/auto-insert/class-wpcode-auto-insert-archive.php';
+		require_once WPCODE_PLUGIN_PATH . 'includes/auto-insert/class-wpcode-auto-insert-admin.php';
+	}
 
-		$this->types[] = new WPCode_Auto_Insert_Everywhere();
-		$this->types[] = new WPCode_Auto_Insert_Site_Wide();
-		$this->types[] = new WPCode_Auto_Insert_Single();
-		$this->types[] = new WPCode_Auto_Insert_Archive();
+	/**
+	 * Register an auto-insert type.
+	 *
+	 * @param WPCode_Auto_Insert_Type $type The type to add to the available types.
+	 *
+	 * @return void
+	 */
+	public function register_type( $type ) {
+		$this->types[ $type->name ] = $type;
+		if ( isset( $type->category ) ) {
+			$this->type_categories[ $type->category ]['types'][ $type->name ] = $type;
+		}
 	}
 
 	/**
@@ -59,6 +99,33 @@ class WPCode_Auto_Insert {
 	 */
 	public function get_types() {
 		return $this->types;
+	}
+
+	/**
+	 * Get the categories of auto-insert options.
+	 *
+	 * @return array
+	 */
+	public function get_type_categories() {
+		return $this->type_categories;
+	}
+
+	/**
+	 * Get the categories info for the sidebar admin view.
+	 *
+	 * @return array
+	 */
+	public function get_type_categories_for_sidebar() {
+		$sidebar_categories = array();
+		$categories         = $this->get_type_categories();
+		foreach ( $categories as $key => $category ) {
+			$sidebar_categories[] = array(
+				'slug' => $key,
+				'name' => $category['label'],
+			);
+		}
+
+		return $sidebar_categories;
 	}
 
 	/**
@@ -76,7 +143,11 @@ class WPCode_Auto_Insert {
 			 * @var WPCode_Auto_Insert_Type $type
 			 */
 			if ( isset( $type->locations[ $location ] ) ) {
-				return $type->locations[ $location ];
+				if ( isset( $type->locations[ $location ]['label'] ) ) {
+					return $type->locations[ $location ]['label'];
+				} else {
+					return $type->locations[ $location ];
+				}
 			}
 		}
 

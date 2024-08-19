@@ -3,10 +3,13 @@
  * Progress Bar template
  */
 $settings = $this->get_settings_for_display();
+$progress_type = $settings['progress_type'];
+$allowed_type = [ 'type-1', 'type-2', 'type-3', 'type-4', 'type-5', 'type-6', 'type-7' ];
+$progress_type = in_array( $progress_type, $allowed_type ) ? $progress_type : 'type-1';
 
 $this->add_render_attribute( 'main-container', 'class', array(
 	'jet-progress-bar',
-	'jet-progress-bar-' . $settings['progress_type'],
+	'jet-progress-bar-' . $progress_type,
 ) );
 
 $prefix = esc_html__( $settings['absolute_value_prefix'] );
@@ -35,9 +38,10 @@ if ( 'percent' === $settings['values_type'] ) {
 	$this->add_render_attribute( 'main-container', 'data-max-value', $max_value );
 }
 
-$this->add_render_attribute( 'main-container', 'data-type', $settings['progress_type'] );
+$this->add_render_attribute( 'main-container', 'data-type', $progress_type );
 
 ?>
 <div <?php echo $this->get_render_attribute_string( 'main-container' ); ?>>
-	<?php include $this->_get_type_template( $settings['progress_type'] ); ?>
+	<?php include $this->_get_type_template( sanitize_file_name( $progress_type ) ); ?>
 </div>
+

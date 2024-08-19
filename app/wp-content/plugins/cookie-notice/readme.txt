@@ -1,10 +1,10 @@
 === Cookie Notice & Compliance for GDPR / CCPA ===
 Contributors: humanityco
-Tags: gdpr, ccpa, cookies, consent, compliance
-Requires at least: 4.7
-Requires PHP: 5.4
-Tested up to: 6.0.2
-Stable tag: 2.4.1
+Tags: gdpr, ccpa, cookies, consent, privacy
+Requires at least: 4.9.6
+Requires PHP: 7.4
+Tested up to: 6.6.1
+Stable tag: 2.4.18
 License: MIT License
 License URI: http://opensource.org/licenses/MIT
 
@@ -51,6 +51,8 @@ Cookie Compliance gives you access to the most up-to-date formatting guidelines 
 * <strong>Consent analytics dashboard</strong> shows event data for number of visits and provides a “trust score” to help you track how site visitors are setting their consent. Make adjustments to your banner to improve your cookie acceptance rate and monitor progress via the consent activity graph.
 * <strong>Default configurations</strong> for GDPR, CCPA and more help to remove dark patterns and allow for quick and easy deployment of the consent banner without any guesswork. Customize the design of any default configuration to match the look and feel of your site.
 * <strong>Automatic script blocking</strong> blocks all non-essential cookie scripts and iFrames by default and <em>complies with valid consent rules under GDPR and other data protection laws</em>; in order to be compliant, your site must record visitor consent before setting or sending cookies.
+* <strong>Google Consent Mode</strong> ensures that your website can still gather valuable insights and perform effectively while respecting users' privacy preferences by <em>dynamically adjusting the behavior of Google services according to user consent.</em>
+* <strong>Facebook Consent Mode</strong> allows your website to <em>measure the impact of your ads on Facebook</em>, track website activities and conversions and automatically deliver ads to Facebook if the user has agreed to.
 * <strong>Consent record storage</strong> automatically stores a record of each consent and makes these records available for export. <em>Complies with proof-of-consent requirements prescribed under GDPR and other data protection laws.</em>
 * <strong>Multilingual support</strong> automatically translates all banner text strings and allows you to provide custom translations for every text field to ensure visitors get a consistent consent experience.
 * <strong>Multidomain management</strong> allows you to manage additional Free or Professional domains under a single account and enables you to customize banner configuration and design for each domain independently.
@@ -106,10 +108,10 @@ Yes! Cookie Notice is a free software.
 = Is Cookie Compliance free? =
 Yes, but with limits. Cookie Compliance includes both free and paid plans to choose from depending on your needs and your website traffic.
 
-= Does the Cookie Notice make my site fully compliant with GDPR? =
+= Does the Cookie Notice make my site fully compliant with GDPR or US Privacy Laws? =
 No. The plugin-only version DOES NOT include technical compliance features such as automatic script blocking, consent purpose categories, or consent record storage. These features are only available through the Cookie Compliance integration.
 
-= Does the Cookie Compiance integration make my site fully compliant with GDPR? =
+= Does the Cookie Compiance integration make my site fully compliant with GDPR and US Privacy Laws? =
 Yes! The plugin + web appliaction version includes technical compliance features to meet requirements for over 100 countries and legal jurisdictions.
 
 == Screenshots ==
@@ -120,6 +122,91 @@ Yes! The plugin + web appliaction version includes technical compliance features
 4. Cookie Compliance settings
 
 == Changelog ==
+
+= 2.4.18 =
+* Fix: Potential security issue with escaping textarea fields
+* Fix: Saving link target for Privacy Policy page
+* Fix: Force protocol for widget URL
+
+= 2.4.17 =
+* New: SpeedyCache caching plugin compatibility
+* New: Breeze caching plugin compatibility
+* Fix: Improved WP Rocket plugin compatibility
+* Fix: Improved Speed Optimize plugin compatibility
+* Fix: Network settings override switching
+* Tweak: Chart.js updated to 4.4.3
+
+= 2.4.16 =
+* New: Option to enable/disable bot detection
+* Fix: Typo in wp_die() function calls
+* Tweak: Improved escaping text strings
+
+= 2.4.15 =
+* New: Passing Google Consent default parameters (Cookie Compliance only)
+* Fix: Invalid Norwegian language locale code
+
+= 2.4.14 =
+* New: Google Consent V2 support (Cookie Compliance only)
+* New: Added scripts option to Compliance Settings
+
+= 2.4.13 =
+* Fix: Removed unneeded parameter from WP Fastest Cache compatibility fix
+
+= 2.4.12 =
+* New: WP Optimize caching plugin compatibility
+* Fix: WP Fastest Cache plugin compatibility
+
+= 2.4.11 =
+* New: Dedicated Consent Logs page
+* New: Google AMP support for Cookie Compliance
+* New: Settings navigation through tabs and menu items
+* Fix: Saving App ID/Key not working in edge cases
+* Tweak: Chart.js updated to 4.4.0
+
+= 2.4.10 =
+* New: Option to enable/disable caching compatibility
+* New: WP Fastest Cache plugin compatibility
+* Fix: Potential security issue with purging cache
+* Fix: Improved refreshing Compliance analytics data
+* Tweak: Chart.js updated to 4.3.2
+
+= 2.4.9 =
+* New: WP Rocket plugin compatibility
+* New: LiteSpeed Cache plugin compatibility
+* New: Google Consent Mode support (Cookie Compliance only)
+* New: Facebook Pixel Consent Mode support (Cookie Compliance only)
+
+= 2.4.8 =
+* New: Added Pages to Conditional display
+* Fix: Homepage display issue
+* Fix: Background color issue
+* Tweak: Improved WP Rocket support
+* Tweak: Improved SG Optimizer support
+
+= 2.4.7 =
+* New: Conditional display of the banner
+* Tweak: Improved sanitization and validation of data
+* Tweak: PHP 8.1 and 8.2 compatibility
+* Tweak: Added async attribute when autoblocking is disabled
+
+= 2.4.6 =
+* Fix: Cookie Compliance inactive status issue
+
+= 2.4.5 =
+* Tweak: Remove the notice from the Elementor page builder
+* Tweak: Remove the notice from widgets screen
+* Fix: Improved Contact Form 7 reCaptcha compatibility
+
+= 2.4.4 =
+* Fix: Undefined index: status and subscription
+
+= 2.4.3 =
+* Fix: Deprecated preg_replace() notice in PHP 8.1
+
+= 2.4.2 =
+* New: Compatibility with Autoptimize plugin
+* Fix: Improved Contact Form 7 reCaptcha support
+* Fix: Fixed non-static method cookies_set()
 
 = 2.4.1 =
 * New: Contact Form 7 reCaptcha support
@@ -433,7 +520,5 @@ Initial release
 
 == Upgrade Notice ==
 
-= 2.4.1 =
-* New: Contact Form 7 reCaptcha support
-* Tweak: Switched health status from critical to recommended when Cookie Compliance is not integrated
-* Tweak: Add SimeSite=Lax for created cookies
+= 2.4.18 =
+Potential security issue with escaping textarea fields, Saving link target for Privacy Policy page

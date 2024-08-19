@@ -32,8 +32,24 @@ class Query_Factory {
 		$query_config['id']            = $id;
 		$query_config['name']          = $labels['name'];
 		$query_config['type']          = $type;
+		$query_config['query_id']      = ! empty( $args['query_id'] ) ? $args['query_id'] : null;
 		$query_config['query']         = isset( $args[ $type ] ) ? $args[ $type ] : array();
 		$query_config['dynamic_query'] = isset( $args[ '__dynamic_' . $type ] ) ? $args[ '__dynamic_' . $type ] : array();
+		$query_config['cache_query']   = isset( $args['cache_query'] ) ? filter_var( $args['cache_query'], FILTER_VALIDATE_BOOLEAN ) : true;
+
+		$query_config['preview'] = array(
+			'post_id'      => ! empty( $args['preview_page'] ) ? $args['preview_page'] : false,
+			'query_string' => ! empty( $args['preview_query_string'] ) ? $args['preview_query_string'] : '',
+		);
+
+		// Prepare API related data
+		$query_config['api_endpoint'] = ! empty( $args['api_endpoint'] ) ? $args['api_endpoint'] : false;
+		$query_config['api_namespace'] = ! empty( $args['api_namespace'] ) ? $args['api_namespace'] : false;
+		$query_config['api_path'] = ! empty( $args['api_path'] ) ? $args['api_path'] : false;
+		$query_config['api_access'] = ! empty( $args['api_access'] ) ? $args['api_access'] : false;
+		$query_config['api_access_cap'] = ! empty( $args['api_access_cap'] ) ? $args['api_access_cap'] : false;
+		$query_config['api_access_role'] = ! empty( $args['api_access_role'] ) ? $args['api_access_role'] : false;
+		$query_config['api_schema'] = ! empty( $args['api_schema'] ) ? $args['api_schema'] : false;
 
 		$this->type = $type;
 		$this->config = $query_config;
@@ -47,7 +63,10 @@ class Query_Factory {
 		$class = $this->get_query_class( $this->type );
 
 		if ( $class && class_exists( $class ) ) {
-			return new $class( $this->config );
+			$query = new $class( $this->config );
+			$query->maybe_register_rest_api_endpoint();
+			
+			return $query;
 		}
 
 		return false;
@@ -60,6 +79,7 @@ class Query_Factory {
 
 			require_once Manager::instance()->component_path( 'queries/traits/meta-query.php' );
 			require_once Manager::instance()->component_path( 'queries/traits/tax-query.php' );
+			require_once Manager::instance()->component_path( 'queries/traits/date-query.php' );
 
 			require_once Manager::instance()->component_path( 'queries/base.php' );
 			require_once Manager::instance()->component_path( 'queries/sql.php' );
@@ -67,13 +87,19 @@ class Query_Factory {
 			require_once Manager::instance()->component_path( 'queries/terms.php' );
 			require_once Manager::instance()->component_path( 'queries/users.php' );
 			require_once Manager::instance()->component_path( 'queries/comments.php' );
+			require_once Manager::instance()->component_path( 'queries/repeater.php' );
+			require_once Manager::instance()->component_path( 'queries/current-wp-query.php' );
+			require_once Manager::instance()->component_path( 'queries/merged-query.php' );
 
 			$defaults = array(
-				'sql'      => __NAMESPACE__ . '\Queries\SQL_Query',
-				'posts'    => __NAMESPACE__ . '\Queries\Posts_Query',
-				'terms'    => __NAMESPACE__ . '\Queries\Terms_Query',
-				'users'    => __NAMESPACE__ . '\Queries\Users_Query',
-				'comments' => __NAMESPACE__ . '\Queries\Comments_Query',
+				'sql'              => __NAMESPACE__ . '\Queries\SQL_Query',
+				'posts'            => __NAMESPACE__ . '\Queries\Posts_Query',
+				'terms'            => __NAMESPACE__ . '\Queries\Terms_Query',
+				'users'            => __NAMESPACE__ . '\Queries\Users_Query',
+				'comments'         => __NAMESPACE__ . '\Queries\Comments_Query',
+				'repeater'         => __NAMESPACE__ . '\Queries\Repeater_Query',
+				'current-wp-query' => __NAMESPACE__ . '\Queries\Current_WP_Query',
+				'merged-query'     => __NAMESPACE__ . '\Queries\Merged_Query',
 			);
 
 			foreach ( $defaults as $type => $class ) {

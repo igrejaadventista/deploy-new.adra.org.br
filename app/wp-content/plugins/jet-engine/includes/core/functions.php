@@ -467,13 +467,17 @@ function jet_get_pretty_term_link( $value ) {
  */
 function jet_engine_icon_html( $value = null ) {
 
-	$format = apply_filters(
-		'jet-engine/listings/icon-html-format',
-		'<i class="fa %s"></i>'
-	);
+	if ( 0 === strpos( $value, 'fa-' ) ) {
+		$format = apply_filters(
+			'jet-engine/listings/icon-html-format',
+			'<i class="fa %s"></i>',
+			$value
+		);
 
-	return sprintf( $format, $value );
+		return sprintf( $format, $value );
+	}
 
+	return Jet_Engine_Icons_Manager::get_icon_html( $value );
 }
 
 /**
@@ -504,22 +508,7 @@ function jet_related_posts_list( $related_posts = array(), $tag = 'ul', $is_sing
 		return;
 	}
 
-	switch ( $tag ) {
-		case 'ol':
-			$parent_tag = 'ol';
-			$child_tag  = 'li';
-			break;
-
-		case 'div':
-			$parent_tag = 'div';
-			$child_tag  = 'span';
-			break;
-
-		default:
-			$parent_tag = 'ul';
-			$child_tag  = 'li';
-			break;
-	}
+	$tags = jet_engine_get_tags_tree( $tag );
 
 	if ( $is_single ) {
 		$related_posts = array( $related_posts[0] );
@@ -527,7 +516,7 @@ function jet_related_posts_list( $related_posts = array(), $tag = 'ul', $is_sing
 
 	ob_start();
 
-	printf( '<%s>', $parent_tag );
+	printf( '<%s>', $tags['parent_tag'] );
 
 	$count = count( $related_posts );
 	$i     = 1;
@@ -542,7 +531,7 @@ function jet_related_posts_list( $related_posts = array(), $tag = 'ul', $is_sing
 
 			printf(
 				'<%1$s><a href="%3$s">%2$s</a>%4$s</%1$s>',
-				$child_tag,
+				$tags['child_tag'],
 				get_the_title( $post_id ),
 				get_permalink( $post_id ),
 				$delimiter
@@ -552,7 +541,7 @@ function jet_related_posts_list( $related_posts = array(), $tag = 'ul', $is_sing
 
 			printf(
 				'<%1$s>%2$s%3$s</%1$s>',
-				$child_tag,
+				$tags['child_tag'],
 				get_the_title( $post_id ),
 				$delimiter
 			);
@@ -562,7 +551,125 @@ function jet_related_posts_list( $related_posts = array(), $tag = 'ul', $is_sing
 		$i++;
 	}
 
-	printf( '</%s>', $parent_tag );
+	printf( '</%s>', $tags['parent_tag'] );
+
+	return ob_get_clean();
+
+}
+
+/**
+ * Returns tags tree
+ *
+ * @param  array  $related_posts [description]
+ * @return [type]                [description]
+ */
+function jet_engine_get_tags_tree( $tag = 'ul' ) {
+
+	$result = array();
+
+	switch ( $tag ) {
+		case 'ol':
+			$result['parent_tag'] = 'ol';
+			$result['child_tag']  = 'li';
+			break;
+
+		case 'div':
+			$result['parent_tag'] = 'div';
+			$result['child_tag']  = 'span';
+			break;
+
+		default:
+			$result['parent_tag'] = 'ul';
+			$result['child_tag']  = 'li';
+			break;
+	}
+
+	return $result;
+}
+
+/**
+ * Render related posts array as HTML list
+ *
+ * @param  array  $related_posts [description]
+ * @return [type]                [description]
+ */
+function jet_related_items_list( $items = array(), $tag = 'ul', $is_single = false, $is_linked = true, $delimiter = '', $prop = null ) {
+
+	if ( ! is_array( $items ) ) {
+		$items = array_filter( array( absint( $items ) ) );
+	}
+
+	if ( empty( $items ) ) {
+		return;
+	}
+
+	$tags = jet_engine_get_tags_tree( $tag );
+
+	if ( $is_single ) {
+		$items = array( $items[0] );
+	}
+
+	ob_start();
+
+	printf( '<%s>', $tags['parent_tag'] );
+
+	$count  = count( $items );
+	$i      = 1;
+	$rel_id = str_replace( array( 'jet_engine_related_items_parents_', 'jet_engine_related_items_children_' ), '', $prop );
+
+	if ( false !== strpos( $prop, 'children_' ) ) {
+		$get = 'children';
+	} elseif ( false !== strpos( $prop, 'parents_' ) ) {
+		$get = 'parents';
+	}
+
+	$relation = jet_engine()->relations->get_active_relations( $rel_id );
+
+	if ( ! $relation || ! is_object( $relation ) ) {
+		return;
+	}
+
+	switch ( $get ) {
+		case 'parents':
+			$type = $relation->get_args( 'parent_object' );
+			break;
+
+		default:
+			$type = $relation->get_args( 'child_object' );
+			break;
+	}
+
+	foreach ( $items as $item_id ) {
+
+		if ( $i === $count ) {
+			$delimiter = '';
+		}
+
+		if ( $is_linked ) {
+
+			printf(
+				'<%1$s><a href="%3$s">%2$s</a>%4$s</%1$s>',
+				$tags['child_tag'],
+				jet_engine()->relations->types_helper->get_type_item_title( $type, $item_id, $relation ),
+				jet_engine()->relations->types_helper->get_type_item_view_url( $type, $item_id, $relation ),
+				$delimiter
+			);
+
+		} else {
+
+			printf(
+				'<%1$s>%2$s%3$s</%1$s>',
+				$tags['child_tag'],
+				jet_engine()->relations->types_helper->get_type_item_title( $type, $item_id, $relation ),
+				$delimiter
+			);
+
+		}
+
+		$i++;
+	}
+
+	printf( '</%s>', $tags['parent_tag'] );
 
 	return ob_get_clean();
 
@@ -706,7 +813,18 @@ function jet_engine_custom_cb_render_checkbox( $post_id = 0, $field = '', $delim
 	$value = get_post_meta( $post_id, $field, true );
 
 	if ( $value ) {
-		return jet_engine_render_checkbox_values( $value, $delimiter );
+
+		if ( is_object( $value ) ) {
+			$value = get_object_vars( $value );
+		}
+
+		if ( ! $value || ! is_array( $value ) ) {
+			return $value;
+		}
+
+		$value = jet_engine_get_prepared_check_values( $value );
+
+		return jet_engine_get_field_options_labels( $value, get_post_type( $post_id ), $field, $delimiter );
 	} else {
 		return null;
 	}
@@ -812,6 +930,35 @@ function jet_engine_render_simple_gallery( $values = null, $size = 100 ) {
 }
 
 /**
+ * Return post thumbnail by give post ID.
+ *
+ * @param  array $values
+ * @return int|void
+ */
+function jet_engine_post_thumbnail( $post_id = null, $image_size = 'full', $add_permalink = false ) {
+
+	if ( ! empty( $post_id ) && is_array( $post_id ) ) {
+		$post_id = array_values( $post_id );
+		$post_id = $post_id[0];
+	}
+
+	$post_id = absint( $post_id );
+
+	if ( ! $post_id || ! has_post_thumbnail( $post_id ) ) {
+		return;
+	}
+
+	$thumb = get_the_post_thumbnail( $post_id, $image_size );
+
+	if ( $add_permalink ) {
+		return sprintf( '<a href="%1$s">%2$s</a>', get_permalink( $post_id ), $thumb );
+	} else {
+		return $thumb;
+	}
+
+}
+
+/**
  * Render field values count.
  *
  * @param  array $values
@@ -843,40 +990,68 @@ function jet_engine_render_field_values_count( $values = array() ) {
  * @return mixed
  */
 function jet_engine_custom_cb_render_select( $post_id = 0, $field = '', $delimeter = ', ' ) {
+
 	$value = get_post_meta( $post_id, $field, true );
 
 	if ( ! $value ) {
 		return null;
 	}
 
-	$post_type   = get_post_type( $post_id );
+	return jet_engine_get_field_options_labels( $value, get_post_type( $post_id ), $field, $delimeter );
+}
+
+/**
+ * Returns rendered field options labels.
+ *
+ * @param mixed  $value
+ * @param string $obj_type
+ * @param string $field
+ * @param string $delimiter
+ *
+ * @return string
+ */
+function jet_engine_get_field_options_labels( $value = null, $obj_type = 'post', $field = '', $delimiter = ', ' ) {
+
 	$all_fields  = jet_engine()->meta_boxes->get_registered_fields();
 	$found_field = null;
-	$result      = array();
 
-	if ( ! isset( $all_fields[ $post_type ] ) ) {
-		return is_array( $value ) ? wp_kses_post( implode( $delimeter, $value ) ) : wp_kses_post( $value );
+	if ( ! isset( $all_fields[ $obj_type ] ) ) {
+		return is_array( $value ) ? wp_kses_post( implode( $delimiter, $value ) ) : wp_kses_post( $value );
 	}
 
-	foreach ( $all_fields[ $post_type ] as $field_data ) {
+	foreach ( $all_fields[ $obj_type ] as $field_data ) {
 		if ( ! empty( $field_data['name'] ) && $field === $field_data['name'] ) {
 			$found_field = $field_data;
 		}
 	}
 
-	if ( ! $found_field || empty( $found_field['options'] ) ) {
-		return is_array( $value ) ? wp_kses_post( implode( $delimeter, $value ) ) : wp_kses_post( $value );
+	$post_meta        = new \Jet_Engine_CPT_Meta();
+	$prepared_options = $post_meta->filter_options_list( [], $found_field );
+
+	if ( empty( $prepared_options ) ) {
+		return is_array( $value ) ? wp_kses_post( implode( $delimiter, $value ) ) : wp_kses_post( $value );
 	}
 
-	foreach ( $found_field['options'] as $option ) {
-		if ( is_array( $value ) && in_array( $option['key'], $value ) ) {
-			$result[] = $option['value'];
-		} elseif ( $value === $option['key'] )  {
-			$result[] = $option['value'];
+	$value  = is_array( $value ) ? $value : array( $value );
+	$result = [];
+
+	if ( is_array( $prepared_options ) ) {
+		$all_values = array_column( $prepared_options, 'key' );
+		$all_labels = array_column( $prepared_options, 'value' );
+		$prepared_options = array_combine( $all_values, $all_labels );
+	} elseif ( is_callable( $prepared_options ) ) {
+		$prepared_options = call_user_func( $prepared_options );
+	}
+
+	foreach ( $value as $single_value ) {
+		if ( isset( $prepared_options[ $single_value ] ) ) {
+			$result[] = is_array( $prepared_options[ $single_value ] ) 
+						? $prepared_options[ $single_value ]['label']
+						: $prepared_options[ $single_value ];
 		}
 	}
 
-	return wp_kses_post( implode( $delimeter, $result ) );
+	return wp_kses_post( implode( $delimiter, $result ) );
 }
 
 /**
@@ -1029,4 +1204,40 @@ function jet_engine_proportional( $value = null, $divisor = 1, $multiplier = 1, 
 
 	return round( $result, $precision );
 
+}
+
+/**
+ * Return new Jet_Engine_Datetime object
+ * @return Jet_Engine_Datetime
+ */
+function jet_engine_datetime() {
+
+	if ( ! class_exists( '\Jet_Engine_Datetime' ) ) {
+		require_once jet_engine()->plugin_path( 'includes/classes/datetime.php' );
+	}
+
+	return new \Jet_Engine_Datetime();
+
+}
+
+/**
+ * Returns formatted date according timezone settings
+ * 
+ * @param  [type] $format    [description]
+ * @param  [type] $timestamp [description]
+ * @return [type]            [description]
+ */
+function jet_engine_date( $format, $timestamp ) {
+	return jet_engine_datetime()->date( $format, $timestamp );
+}
+
+/**
+ * Retruns given user property by given user ID
+ * 
+ * @param  [type] $user_id [description]
+ * @param  [type] $prop    [description]
+ * @return [type]          [description]
+ */
+function jet_engine_get_user_data_by_id( $user_id = 0, $prop = 'display_name' ) {
+	return jet_engine()->listings->data->get_prop( $prop, get_user_by( 'ID', $user_id ) );
 }

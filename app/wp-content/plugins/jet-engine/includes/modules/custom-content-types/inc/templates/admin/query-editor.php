@@ -175,6 +175,7 @@
 				</cx-vui-repeater>
 			</div>
 		</cx-vui-component-wrapper>
+		<?php do_action( 'jet-engine/custom-content-types/query-builder-controls' ); ?>
 		<cx-vui-component-wrapper
 			:wrapper-css="[ 'equalwidth' ]"
 			v-if="hasFields()"

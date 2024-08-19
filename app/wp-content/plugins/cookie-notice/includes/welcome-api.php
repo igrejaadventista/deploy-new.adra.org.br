@@ -20,33 +20,46 @@ class Cookie_Notice_Welcome_API {
 		// actions
 		add_action( 'init', [ $this, 'check_cron' ] );
 		add_action( 'cookie_notice_get_app_analytics', [ $this, 'get_app_analytics' ] );
+		add_action( 'cookie_notice_get_app_config', [ $this, 'get_app_config' ] );
 		add_action( 'wp_ajax_cn_api_request', [ $this, 'api_request' ] );
 	}
 
 	/**
 	 * Ajax API request.
 	 *
-	 * @return bool|void
+	 * @return void
 	 */
 	public function api_request() {
+		// check capabilities
 		if ( ! current_user_can( apply_filters( 'cn_manage_cookie_notice_cap', 'manage_options' ) ) )
-			wp_die( _( 'You do not have permission to access this page.', 'cookie-notice' ) );
-
-		if ( ! check_ajax_referer( 'cookie-notice-welcome', 'nonce' ) )
-			wp_die( _( 'You do not have permission to access this page.', 'cookie-notice' ) );
-
-		if ( empty( $_POST['request'] ) )
-			wp_die( _( 'You do not have permission to access this page.', 'cookie-notice' ) );
-
-		if ( ( $_POST['request'] === 'payment' && ! empty( $_POST['cn_payment_nonce'] ) && ! wp_verify_nonce( $_POST['cn_payment_nonce'], 'cn_api_payment' ) ) || ( ! empty( $_POST['cn_nonce'] ) && ! wp_verify_nonce( $_POST['cn_nonce'], 'cn_api_' . $_POST['request'] ) ) )
 			wp_die( __( 'You do not have permission to access this page.', 'cookie-notice' ) );
 
-		$request = in_array( $_POST['request'], [ 'register', 'login', 'configure', 'select_plan', 'payment', 'get_bt_init_token', 'use_license' ], true ) ? $_POST['request'] : '';
+		// check main nonce
+		if ( ! check_ajax_referer( 'cookie-notice-welcome', 'nonce' ) )
+			wp_die( __( 'You do not have permission to access this page.', 'cookie-notice' ) );
+
+		// get request
+		$request = isset( $_POST['request'] ) ? sanitize_key( $_POST['request'] ) : '';
+
+		// no valid request?
+		if ( ! in_array( $request, [ 'register', 'login', 'configure', 'select_plan', 'payment', 'get_bt_init_token', 'use_license' ], true ) )
+			wp_die( __( 'You do not have permission to access this page.', 'cookie-notice' ) );
+
+		$special_actions = [ 'register', 'login', 'configure', 'payment' ];
+
+		// payment nonce
+		if ( $request === 'payment' )
+			$nonce = isset( $_POST['cn_payment_nonce'] ) ? sanitize_key( $_POST['cn_payment_nonce'] ) : '';
+		// special nonce
+		elseif ( in_array( $request, $special_actions, true ) )
+			$nonce = isset( $_POST['cn_nonce'] ) ? sanitize_key( $_POST['cn_nonce'] ) : '';
+
+		// check additional nonce
+		if ( in_array( $request, $special_actions, true ) && ! wp_verify_nonce( $nonce, 'cn_api_' . $request ) )
+			wp_die( __( 'You do not have permission to access this page.', 'cookie-notice' ) );
+
 		$errors = [];
 		$response = false;
-
-		if ( ! $request )
-			return false;
 
 		// get main instance
 		$cn = Cookie_Notice();
@@ -71,7 +84,7 @@ class Cookie_Notice_Welcome_API {
 
 		switch ( $request ) {
 			case 'use_license':
-				$subscriptionID = (int) $_POST['subscriptionID'];
+				$subscriptionID = isset( $_POST['subscriptionID'] ) ? (int) $_POST['subscriptionID'] : 0;
 
 				$result = $this->request(
 					'assign_subscription',
@@ -99,7 +112,7 @@ class Cookie_Notice_Welcome_API {
 				break;
 
 			case 'payment':
-				$error = [ 'error' => __( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
+				$error = [ 'error' => esc_html__( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
 
 				// empty data?
 				if ( empty( $_POST['payment_nonce'] ) || empty( $_POST['plan'] ) || empty( $_POST['method'] ) ) {
@@ -119,12 +132,24 @@ class Cookie_Notice_Welcome_API {
 					'compliance_yearly_20'
 				];
 
-				$plan = in_array( $_POST['plan'], $available_plans, true ) ? $_POST['plan'] : false;
-				$method = in_array( $_POST['method'], [ 'credit_card', 'paypal' ], true ) ? $_POST['method'] : false;
+				$available_payment_methods = [
+					'credit_card',
+					'paypal'
+				];
+
+				$plan = sanitize_key( $_POST['plan'] );
+
+				if ( ! in_array( $_POST['plan'], $available_plans, true ) )
+					$plan = false;
+
+				$method = sanitize_key( $_POST['method'] );
+
+				if ( ! in_array( $_POST['method'], $available_payment_methods, true ) )
+					$method = false;
 
 				// valid plan and payment method?
 				if ( empty( $plan ) || empty( $method ) ) {
-					$response = [ 'error' => __( 'Empty plan or payment method data.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Empty plan or payment method data.', 'cookie-notice' ) ];
 					break;
 				}
 
@@ -147,7 +172,7 @@ class Cookie_Notice_Welcome_API {
 							'AppID'					=> $app_id,
 							'AdminID'				=> $admin_email, // remove later - AdminID from API response
 							'PlanId'				=> $plan,
-							'paymentMethodNonce'	=> sanitize_text_field( $_POST['payment_nonce'] )
+							'paymentMethodNonce'	=> sanitize_key( $_POST['payment_nonce'] )
 						]
 					);
 
@@ -159,38 +184,28 @@ class Cookie_Notice_Welcome_API {
 
 				// user created/received?
 				if ( empty( $customer->id ) ) {
-					$response = [ 'error' => __( 'Unable to create customer data.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Unable to create customer data.', 'cookie-notice' ) ];
 					break;
 				}
 
 				// selected payment method
 				$payment_method = false;
 
-				// get payment identifier
+				// get payment identifier (email or 4 digits)
 				$identifier = isset( $_POST['cn_payment_identifier'] ) ? sanitize_text_field( $_POST['cn_payment_identifier'] ) : '';
 
 				// customer available payment methods
 				$payment_methods = ! empty( $customer->paymentMethods ) ? $customer->paymentMethods : [];
 
-				$paypal_methods = [];
-				$cc_methods = [];
-
 				// try to find payment method
 				if ( ! empty( $payment_methods ) && is_array( $payment_methods ) ) {
 					foreach ( $payment_methods as $pm ) {
 						// paypal
-						if ( isset( $pm->email ) ) {
-							$paypal_methods[] = $pm;
-
-							if ( $pm->email === $identifier )
-								$payment_method = $pm;
+						if ( isset( $pm->email ) && $pm->email === $identifier )
+							$payment_method = $pm;
 						// credit card
-						} else {
-							$cc_methods[] = $pm;
-
-							if ( isset( $pm->last4 ) && $pm->last4 === $identifier )
-								$payment_method = $pm;
-						}
+						elseif ( isset( $pm->last4 ) && $pm->last4 === $identifier )
+							$payment_method = $pm;
 					}
 				}
 
@@ -200,7 +215,7 @@ class Cookie_Notice_Welcome_API {
 						'create_payment_method',
 						[
 							'AppID'					=> $app_id,
-							'paymentMethodNonce'	=> sanitize_text_field( $_POST['payment_nonce'] )
+							'paymentMethodNonce'	=> sanitize_key( $_POST['payment_nonce'] )
 						]
 					);
 
@@ -208,17 +223,17 @@ class Cookie_Notice_Welcome_API {
 					if ( ! empty( $result->success ) ) {
 						$payment_method = $result->paymentMethod;
 					} else {
-						$response = [ 'error' => __( 'Unable to create payment mehotd.', 'cookie-notice' ) ];
+						$response = [ 'error' => esc_html__( 'Unable to create payment mehotd.', 'cookie-notice' ) ];
 						break;
 					}
 				}
 
 				if ( ! isset( $payment_method->token ) ) {
-					$response = [ 'error' => __( 'No payment method token.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'No payment method token.', 'cookie-notice' ) ];
 					break;
 				}
 
-				// @todo: check if subscribtion exists
+				// @todo: check if subscription exists
 				$subscription = $this->request(
 					'create_subscription',
 					[
@@ -234,40 +249,81 @@ class Cookie_Notice_Welcome_API {
 					break;
 				}
 
+				$status_data = $cn->defaults['data'];
+
+				// update app status
+				if ( $network ) {
+					$status_data = get_site_option( 'cookie_notice_status', $status_data );
+					$status_data['subscription'] = 'pro';
+
+					// get activation timestamp
+					$timestamp = $cn->get_cc_activation_datetime();
+
+					// update activation timestamp only for new cookie compliance activations
+					$status_data['activation_datetime'] = $timestamp === 0 ? time() : $timestamp;
+
+					update_site_option( 'cookie_notice_status', $status_data );
+				} else {
+					$status_data = get_option( 'cookie_notice_status', $status_data );
+					$status_data['subscription'] = 'pro';
+
+					// get activation timestamp
+					$timestamp = $cn->get_cc_activation_datetime();
+
+					// update activation timestamp only for new cookie compliance activations
+					$status_data['activation_datetime'] = $timestamp === 0 ? time() : $timestamp;
+
+					update_option( 'cookie_notice_status', $status_data );
+				}
+
 				$response = $app_id;
 				break;
 
 			case 'register':
-				$email = is_email( $_POST['email'] );
-				$pass = ! empty( $_POST['pass'] ) ? $_POST['pass'] : '';
-				$pass2 = ! empty( $_POST['pass2'] ) ? $_POST['pass2'] : '';
+				// check terms
 				$terms = isset( $_POST['terms'] );
-				$language = ! empty( $_POST['language'] ) ? sanitize_text_field( $_POST['language'] ) : 'en';
 
+				// no terms?
 				if ( ! $terms ) {
-					$response = [ 'error' => __( 'Please accept the Terms of Service to proceed.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Please accept the Terms of Service to proceed.', 'cookie-notice' ) ];
 					break;
 				}
 
+				// check email
+				$email = isset( $_POST['email'] ) ? is_email( $_POST['email'] ) : false;
+
+				// empty email?
 				if ( ! $email ) {
-					$response = [ 'error' => __( 'Email is not allowed to be empty.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Email is not allowed to be empty.', 'cookie-notice' ) ];
 					break;
 				}
 
+				// check passwords
+				$pass = ! empty( $_POST['pass'] ) ? stripslashes( $_POST['pass'] ) : '';
+				$pass2 = ! empty( $_POST['pass2'] ) ? stripslashes( $_POST['pass2'] ) : '';
+
+				// empty password?
 				if ( ! $pass || ! is_string( $pass ) ) {
-					$response = [ 'error' => __( 'Password is not allowed to be empty.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Password is not allowed to be empty.', 'cookie-notice' ) ];
 					break;
 				}
 
+				// invalid password?
+				if ( preg_match( '/^(?=.*[A-Z])(?=.*\d)[\w !"#$%&\'()*\+,\-.\/:;<=>?@\[\]^\`\{\|\}\~\\\\]{8,}$/', $pass ) !== 1 ) {
+					$response = [ 'error' => esc_html__( 'The password contains illegal characters or does not meet the conditions.', 'cookie-notice' ) ];
+					break;
+				}
+
+				// no match?
 				if ( $pass !== $pass2 ) {
-					$response = [ 'error' => __( 'Passwords do not match.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Passwords do not match.', 'cookie-notice' ) ];
 					break;
 				}
 
 				$params = [
 					'AdminID'	=> $email,
 					'Password'	=> $pass,
-					'Language'	=> $language
+					'Language'	=> ! empty( $_POST['language'] ) ? sanitize_key( $_POST['language'] ) : 'en'
 				];
 
 				$response = $this->request( 'register', $params );
@@ -302,15 +358,15 @@ class Cookie_Notice_Welcome_API {
 
 				// token in response?
 				if ( empty( $response->data->token ) ) {
-					$response = [ 'error' => __( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
 					break;
 				}
 
 				// set token
 				if ( $network )
-					set_site_transient( 'cookie_notice_app_token', $response->data, 24 * HOUR_IN_SECONDS );
+					set_site_transient( 'cookie_notice_app_token', $response->data, DAY_IN_SECONDS );
 				else
-					set_transient( 'cookie_notice_app_token', $response->data, 24 * HOUR_IN_SECONDS );
+					set_transient( 'cookie_notice_app_token', $response->data, DAY_IN_SECONDS );
 
 				// multisite?
 				if ( is_multisite() ) {
@@ -344,7 +400,7 @@ class Cookie_Notice_Welcome_API {
 
 				// data in response?
 				if ( empty( $response->data->AppID ) || empty( $response->data->SecretKey ) ) {
-					$response = [ 'error' => __( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
 					break;
 				} else {
 					$app_id = $response->data->AppID;
@@ -359,19 +415,13 @@ class Cookie_Notice_Welcome_API {
 
 					update_site_option( 'cookie_notice_options', $cn->options['general'] );
 
-					// purge cache
-					delete_site_transient( 'cookie_notice_compliance_cache' );
-
 					// get options
-					$app_config = get_site_transient( 'cookie_notice_app_config' );
+					$app_config = get_site_transient( 'cookie_notice_app_quick_config' );
 				} else {
 					update_option( 'cookie_notice_options', $cn->options['general'] );
 
-					// purge cache
-					delete_transient( 'cookie_notice_compliance_cache' );
-
 					// get options
-					$app_config = get_transient( 'cookie_notice_app_config' );
+					$app_config = get_transient( 'cookie_notice_app_quick_config' );
 				}
 
 				// create quick config
@@ -379,6 +429,8 @@ class Cookie_Notice_Welcome_API {
 
 				// cast to objects
 				if ( $params ) {
+					$new_params = [];
+
 					foreach ( $params as $key => $array ) {
 						$object = new stdClass();
 
@@ -392,14 +444,22 @@ class Cookie_Notice_Welcome_API {
 				}
 
 				$params['AppID'] = $app_id;
+
 				// @todo When mutliple default languages are supported
 				$params['DefaultLanguage'] = 'en';
+
+				if ( ! array_key_exists( 'text', $params ) )
+					$params['text'] = new stdClass();
+
+				// add privacy policy url
+				$params['text']->privacyPolicyUrl = get_privacy_policy_url();
 
 				// add translations if needed
 				if ( $locale_code[0] !== 'en' )
 					$params['Languages'] = [ $locale_code[0] ];
 
 				$response = $this->request( 'quick_config', $params );
+				$status_data = $cn->defaults['data'];
 
 				if ( $response->status === 200 ) {
 					// notify publish app
@@ -411,18 +471,22 @@ class Cookie_Notice_Welcome_API {
 
 					if ( $response->status === 200 ) {
 						$response = true;
+						$status_data['status'] = 'active';
+						$status_data['activation_datetime'] = time();
 
 						// update app status
 						if ( $network )
-							update_site_option( 'cookie_notice_status', 'active' );
+							update_site_option( 'cookie_notice_status', $status_data );
 						else
-							update_option( 'cookie_notice_status', 'active' );
+							update_option( 'cookie_notice_status', $status_data );
 					} else {
+						$status_data['status'] = 'pending';
+
 						// update app status
 						if ( $network )
-							update_site_option( 'cookie_notice_status', 'pending' );
+							update_site_option( 'cookie_notice_status', $status_data );
 						else
-							update_option( 'cookie_notice_status', 'pending' );
+							update_option( 'cookie_notice_status', $status_data );
 
 						// errors?
 						if ( ! empty( $response->error ) )
@@ -435,11 +499,13 @@ class Cookie_Notice_Welcome_API {
 						}
 					}
 				} else {
+					$status_data['status'] = 'pending';
+
 					// update app status
 					if ( $network )
-						update_site_option( 'cookie_notice_status', 'pending' );
+						update_site_option( 'cookie_notice_status', $status_data );
 					else
-						update_option( 'cookie_notice_status', 'pending' );
+						update_option( 'cookie_notice_status', $status_data );
 
 					// errors?
 					if ( ! empty( $response->error ) ) {
@@ -457,16 +523,21 @@ class Cookie_Notice_Welcome_API {
 				break;
 
 			case 'login':
-				$email = is_email( $_POST['email'] );
-				$pass = ! empty( $_POST['pass'] ) ? $_POST['pass'] : '';
+				// check email
+				$email = isset( $_POST['email'] ) ? is_email( $_POST['email'] ) : false;
 
+				// invalid email?
 				if ( ! $email ) {
-					$response = [ 'error' => __( 'Email is not allowed to be empty.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Email is not allowed to be empty.', 'cookie-notice' ) ];
 					break;
 				}
 
+				// check password
+				$pass = ! empty( $_POST['pass'] ) ? preg_replace( '/[^\w !"#$%&\'()*\+,\-.\/:;<=>?@\[\]^\`\{\|\}\~\\\\]/', '', $_POST['pass'] ) : '';
+
+				// empty password?
 				if ( ! $pass ) {
-					$response = [ 'error' => __( 'Password is not allowed to be empty.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Password is not allowed to be empty.', 'cookie-notice' ) ];
 					break;
 				}
 
@@ -489,15 +560,15 @@ class Cookie_Notice_Welcome_API {
 
 				// token in response?
 				if ( empty( $response->data->token ) ) {
-					$response = [ 'error' => __( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
 					break;
 				}
 
 				// set token
 				if ( $network )
-					set_site_transient( 'cookie_notice_app_token', $response->data, 24 * HOUR_IN_SECONDS );
+					set_site_transient( 'cookie_notice_app_token', $response->data, DAY_IN_SECONDS );
 				else
-					set_transient( 'cookie_notice_app_token', $response->data, 24 * HOUR_IN_SECONDS );
+					set_transient( 'cookie_notice_app_token', $response->data, DAY_IN_SECONDS );
 
 				// get apps and check if one for the current domain already exists
 				$response = $this->request( 'list_apps', [] );
@@ -563,7 +634,7 @@ class Cookie_Notice_Welcome_API {
 
 				// check if we have the valid app data
 				if ( empty( $app_exists->AppID ) || empty( $app_exists->SecretKey ) ) {
-					$response = [ 'error' => __( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
+					$response = [ 'error' => esc_html__( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
 					break;
 				}
 
@@ -585,9 +656,9 @@ class Cookie_Notice_Welcome_API {
 
 				// set subscriptions data
 				if ( $network )
-					set_site_transient( 'cookie_notice_app_subscriptions', $subscriptions, 24 * HOUR_IN_SECONDS );
+					set_site_transient( 'cookie_notice_app_subscriptions', $subscriptions, DAY_IN_SECONDS );
 				else
-					set_transient( 'cookie_notice_app_subscriptions', $subscriptions, 24 * HOUR_IN_SECONDS );
+					set_transient( 'cookie_notice_app_subscriptions', $subscriptions, DAY_IN_SECONDS );
 
 				// update options: app ID and secret key
 				$cn->options['general'] = wp_parse_args( [ 'app_id' => $app_exists->AppID, 'app_key' => $app_exists->SecretKey ], $cn->options['general'] );
@@ -596,27 +667,26 @@ class Cookie_Notice_Welcome_API {
 					$cn->options['general']['global_override'] = true;
 
 					update_site_option( 'cookie_notice_options', $cn->options['general'] );
-
-					// purge cache
-					delete_site_transient( 'cookie_notice_compliance_cache' );
 				} else {
 					update_option( 'cookie_notice_options', $cn->options['general'] );
-
-					// purge cache
-					delete_transient( 'cookie_notice_compliance_cache' );
 				}
 
 				// create quick config
 				$params = [
 					'AppID'				=> $app_exists->AppID,
-					'DefaultLanguage'	=> 'en'
+					'DefaultLanguage'	=> 'en',
+					'text'				=> new stdClass()
 				];
+
+				// add privacy policy url
+				$params['text']->privacyPolicyUrl = get_privacy_policy_url();
 
 				// add translations if needed
 				if ( $locale_code[0] !== 'en' )
 					$params['Languages'] = [ $locale_code[0] ];
 
 				$response = $this->request( 'quick_config', $params );
+				$status_data = $cn->defaults['data'];
 
 				if ( $response->status === 200 ) {
 					// @todo notify publish app
@@ -628,18 +698,27 @@ class Cookie_Notice_Welcome_API {
 
 					if ( $response->status === 200 ) {
 						$response = true;
+						$status_data['status'] = 'active';
+
+						// get activation timestamp
+						$timestamp = $cn->get_cc_activation_datetime();
+
+						// update activation timestamp only for new cookie compliance activations
+						$status_data['activation_datetime'] = $timestamp === 0 ? time() : $timestamp;
 
 						// update app status
 						if ( $network )
-							update_site_option( 'cookie_notice_status', 'active' );
+							update_site_option( 'cookie_notice_status', $status_data );
 						else
-							update_option( 'cookie_notice_status', 'active' );
+							update_option( 'cookie_notice_status', $status_data );
 					} else {
+						$status_data['status'] = 'pending';
+
 						// update app status
 						if ( $network )
-							update_site_option( 'cookie_notice_status', 'pending' );
+							update_site_option( 'cookie_notice_status', $status_data );
 						else
-							update_option( 'cookie_notice_status', 'pending' );
+							update_option( 'cookie_notice_status', $status_data );
 
 						// errors?
 						if ( ! empty( $response->error ) )
@@ -652,11 +731,13 @@ class Cookie_Notice_Welcome_API {
 						}
 					}
 				} else {
+					$status_data['status'] = 'pending';
+
 					// update app status
 					if ( $network )
-						update_site_option( 'cookie_notice_status', 'pending' );
+						update_site_option( 'cookie_notice_status', $status_data );
 					else
-						update_option( 'cookie_notice_status', 'pending' );
+						update_option( 'cookie_notice_status', $status_data );
 
 					// errors?
 					if ( ! empty( $response->error ) ) {
@@ -843,16 +924,16 @@ class Cookie_Notice_Welcome_API {
 
 				// set options
 				if ( $network )
-					set_site_transient( 'cookie_notice_app_config', $options, 24 * HOUR_IN_SECONDS );
+					set_site_transient( 'cookie_notice_app_quick_config', $options, DAY_IN_SECONDS );
 				else
-					set_transient( 'cookie_notice_app_config', $options, 24 * HOUR_IN_SECONDS );
+					set_transient( 'cookie_notice_app_quick_config', $options, DAY_IN_SECONDS );
 				break;
 
 			case 'select_plan':
 				break;
 		}
 
-		echo json_encode( $response );
+		echo wp_json_encode( $response );
 		exit;
 	}
 
@@ -867,6 +948,7 @@ class Cookie_Notice_Welcome_API {
 		// get main instance
 		$cn = Cookie_Notice();
 
+		// request arguments
 		$api_args = [
 			'timeout'	=> 60,
 			'sslverify'	=> false,
@@ -874,10 +956,17 @@ class Cookie_Notice_Welcome_API {
 				'x-api-key'	=> $cn->get_api_key()
 			]
 		];
+
+		// request parameters
 		$api_params = [];
+
+		// whether data should be send in json
 		$json = false;
 
-		// check network
+		// whether application id is required
+		$require_app_id = false;
+
+		// is it network admin area
 		$network = $cn->is_network_admin();
 
 		// get app token data
@@ -886,6 +975,7 @@ class Cookie_Notice_Welcome_API {
 		else
 			$data_token = get_transient( 'cookie_notice_app_token' );
 
+		// check api token
 		$api_token = ! empty( $data_token->token ) ? $data_token->token : '';
 
 		switch ( $request ) {
@@ -922,23 +1012,41 @@ class Cookie_Notice_Welcome_API {
 				break;
 
 			case 'get_analytics':
+				$require_app_id = true;
 				$api_url = $cn->get_url( 'transactional_api', '/api/transactional/analytics/analytics-data' );
 				$api_args['method'] = 'GET';
-				$api_args['headers'] = array_merge(
-					$api_args['headers'],
-					[
+
+				$diff_data = $cn->settings->get_analytics_app_data();
+
+				if ( ! empty( $diff_data ) ) {
+					$app_data = [
+						'app-id'			=> $diff_data['id'],
+						'app-secret-key'	=> $diff_data['key']
+					];
+				} else {
+					$app_data = [
 						'app-id'			=> $cn->options['general']['app_id'],
 						'app-secret-key'	=> $cn->options['general']['app_key']
-					]
-				);
+					];
+				}
+
+				$api_args['headers'] = array_merge( $api_args['headers'], $app_data );
+				break;
+
+			case 'get_consent_logs_by_date':
+				$require_app_id = true;
+				$api_url = $cn->get_url( 'transactional_api', '/api/transactional/analytics/consent-logs' );
+				$api_args['method'] = 'POST';
 				break;
 
 			case 'get_config':
+				$require_app_id = true;
 				$api_url = $cn->get_url( 'designer_api', '/api/designer/user-design-live' );
 				$api_args['method'] = 'GET';
 				break;
 
 			case 'quick_config':
+				$require_app_id = true;
 				$json = true;
 				$api_url = $cn->get_url( 'designer_api', '/api/designer/user-design/quick' );
 				$api_args['method'] = 'POST';
@@ -952,6 +1060,7 @@ class Cookie_Notice_Welcome_API {
 				break;
 
 			case 'notify_app':
+				$require_app_id = true;
 				$json = true;
 				$api_url = $cn->get_url( 'account_api', '/api/account/app/notifyAppPublished' );
 				$api_args['method'] = 'POST';
@@ -978,6 +1087,7 @@ class Cookie_Notice_Welcome_API {
 
 			// braintree get customer
 			case 'get_customer':
+				$require_app_id = true;
 				$json = true;
 				$api_url = $cn->get_url( 'account_api', '/api/account/braintree/findcustomer' );
 				$api_args['method'] = 'POST';
@@ -993,6 +1103,7 @@ class Cookie_Notice_Welcome_API {
 
 			// braintree create customer in vault
 			case 'create_customer':
+				$require_app_id = true;
 				$json = true;
 				$api_url = $cn->get_url( 'account_api', '/api/account/braintree/createcustomer' );
 				$api_args['method'] = 'POST';
@@ -1007,6 +1118,7 @@ class Cookie_Notice_Welcome_API {
 
 			// braintree get subscriptions
 			case 'get_subscriptions':
+				$require_app_id = true;
 				$json = true;
 				$api_url = $cn->get_url( 'account_api', '/api/account/braintree/subscriptionlists' );
 				$api_args['method'] = 'POST';
@@ -1021,6 +1133,7 @@ class Cookie_Notice_Welcome_API {
 
 			// braintree create subscription
 			case 'create_subscription':
+				$require_app_id = true;
 				$json = true;
 				$api_url = $cn->get_url( 'account_api', '/api/account/braintree/createsubscription' );
 				$api_args['method'] = 'POST';
@@ -1035,6 +1148,7 @@ class Cookie_Notice_Welcome_API {
 
 			// braintree assign subscription
 			case 'assign_subscription':
+				$require_app_id = true;
 				$json = true;
 				$api_url = $cn->get_url( 'account_api', '/api/account/braintree/assignsubscription' );
 				$api_args['method'] = 'POST';
@@ -1049,6 +1163,7 @@ class Cookie_Notice_Welcome_API {
 
 			// braintree create payment method
 			case 'create_payment_method':
+				$require_app_id = true;
 				$json = true;
 				$api_url = $cn->get_url( 'account_api', '/api/account/braintree/createpaymentmethod' );
 				$api_args['method'] = 'POST';
@@ -1062,18 +1177,38 @@ class Cookie_Notice_Welcome_API {
 				break;
 		}
 
+		// check if app id is required to avoid unneeded requests
+		if ( $require_app_id ) {
+			$empty_app_id = false;
+
+			// check app id
+			if ( array_key_exists( 'AppID', $params ) && is_string( $params['AppID'] ) ) {
+				$app_id = trim( $params['AppID'] );
+
+				// empty app id?
+				if ( $app_id === '' )
+					$empty_app_id = true;
+			} else
+				$empty_app_id = true;
+
+			if ( $empty_app_id )
+				return [ 'error' => esc_html__( '"AppID" is not allowed to be empty.', 'cookie-notice' ) ];
+		}
+
 		if ( ! empty( $params ) && is_array( $params ) ) {
 			foreach ( $params as $key => $param ) {
 				if ( is_object( $param ) )
 					$api_params[$key] = $param;
 				elseif ( is_array( $param ) )
 					$api_params[$key] = array_map( 'sanitize_text_field', $param );
+				elseif ( $key === 'Password' && ( $request === 'register' || $request === 'login' ) )
+					$api_params[$key] = preg_replace( '/[^\w !"#$%&\'()*\+,\-.\/:;<=>?@\[\]^\`\{\|\}\~\\\\]/', '', $param );
 				else
 					$api_params[$key] = sanitize_text_field( $param );
 			}
 
 			if ( $json )
-				$api_args['body'] = json_encode( $api_params );
+				$api_args['body'] = wp_json_encode( $api_params );
 			else
 				$api_args['body'] = $api_params;
 		}
@@ -1087,7 +1222,7 @@ class Cookie_Notice_Welcome_API {
 
 			// html response, means error
 			if ( $content_type == 'text/html' )
-				$result = [ 'error' => __( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
+				$result = [ 'error' => esc_html__( 'Unexpected error occurred. Please try again later.', 'cookie-notice' ) ];
 			else {
 				$result = wp_remote_retrieve_body( $response );
 
@@ -1105,34 +1240,101 @@ class Cookie_Notice_Welcome_API {
 	 * @return void
 	 */
 	public function check_cron() {
-		// compliance acitve only
-		if ( Cookie_Notice()->get_status() === 'active' ) {
-			if ( ! wp_next_scheduled( 'cookie_notice_get_app_analytics' ) ) {
-				// set schedule
-				wp_schedule_event( time(), 'hourly', 'cookie_notice_get_app_analytics' ); // hourly
-			}
-		} elseif ( wp_next_scheduled( 'cookie_notice_get_app_analytics' ) )
-			wp_clear_scheduled_hook( 'cookie_notice_get_app_analytics' );
-	}
-
-	/**
-	 * Get app config.
-	 *
-	 * @return array
-	 */
-	public function get_app_analytics( $force_update = false ) {
 		// get main instance
 		$cn = Cookie_Notice();
 
-		$result = [];
+		if ( is_multisite() && $cn->is_plugin_network_active() && $cn->network_options['global_override'] ) {
+			$app_id = $cn->network_options['app_id'];
+			$app_key = $cn->network_options['app_key'];
+		} else {
+			$app_id = $cn->options['general']['app_id'];
+			$app_key = $cn->options['general']['app_key'];
+		}
+
+		// compliance active only
+		if ( $app_id !== '' && $app_key !== '' ) {
+			if ( $cn->get_status() === 'active' )
+				$recurrence = 'daily';
+			else
+				$recurrence = 'hourly';
+
+			// set schedule if needed
+			if ( ! wp_next_scheduled( 'cookie_notice_get_app_analytics' ) )
+				wp_schedule_event( time(), 'hourly', 'cookie_notice_get_app_analytics' );
+
+			// set schedule if needed
+			if ( ! wp_next_scheduled( 'cookie_notice_get_app_config' ) )
+				wp_schedule_event( time(), $recurrence, 'cookie_notice_get_app_config' );
+		} else {
+			// remove schedule if needed
+			if ( wp_next_scheduled( 'cookie_notice_get_app_analytics' ) )
+				wp_clear_scheduled_hook( 'cookie_notice_get_app_analytics' );
+
+			// remove schedule if needed
+			if ( wp_next_scheduled( 'cookie_notice_get_app_config' ) )
+				wp_clear_scheduled_hook( 'cookie_notice_get_app_config' );
+		}
+	}
+
+	/**
+	 * Get consent logs.
+	 *
+	 * @param string $date
+	 * @return string|array
+	 */
+	public function get_consent_logs_by_date( $date ) {
+		// get main instance
+		$cn = Cookie_Notice();
+
+		// get consent logs for specific date
+		$result = $this->request(
+			'get_consent_logs_by_date',
+			[
+				'AppID'			=> $cn->options['general']['app_id'],
+				'AppSecretKey'	=> $cn->options['general']['app_key'],
+				'Date'			=> $date
+			]
+		);
+
+		// message?
+		if ( ! empty( $result->message ) )
+			$result = $result->message;
+		// error?
+		elseif ( ! empty( $result->error ) )
+			$result = $result->error;
+		// valid data?
+		elseif ( ! empty( $result->data ) )
+			$result = $result->data;
+		else
+			$result = [];
+
+		return $result;
+	}
+
+	/**
+	 * Get app analytics.
+	 *
+	 * @param string $app_id
+	 * @param bool $force_update
+	 * @param bool $force_action
+	 * @return void
+	 */
+	public function get_app_analytics( $app_id = '', $force_update = false, $force_action = true ) {
+		// get main instance
+		$cn = Cookie_Notice();
+
 		$allow_one_cron_per_hour = false;
 
 		if ( is_multisite() && $cn->is_plugin_network_active() && $cn->network_options['global_override'] ) {
-			$app_id = $cn->network_options['app_id'];
+			if ( empty( $app_id ) )
+				$app_id = $cn->network_options['app_id'];
+
 			$network = true;
 			$allow_one_cron_per_hour = true;
 		} else {
-			$app_id = $cn->options['general']['app_id'];
+			if ( empty( $app_id ) )
+				$app_id = $cn->options['general']['app_id'];
+
 			$network = false;
 		}
 
@@ -1159,32 +1361,89 @@ class Cookie_Notice_Welcome_API {
 
 		// get analytics
 		if ( ! empty( $response->data ) ) {
-			$result = ! empty( $response->data ) ? map_deep( (array) $response->data, 'sanitize_text_field' ) : [];
+			$result = map_deep( (array) $response->data, 'sanitize_text_field' );
 
-			// update app status
-			if ( ! empty( $result ) ) {
-				// add time updated
-				$result['lastUpdated'] = date( 'Y-m-d H:i:s', current_time( 'timestamp', true ) );
+			// add time updated
+			$result['lastUpdated'] = date( 'Y-m-d H:i:s', current_time( 'timestamp', true ) );
 
-				if ( $network )
-					update_site_option( 'cookie_notice_app_analytics', $result );
-				else
-					update_option( 'cookie_notice_app_analytics', $result, false );
+			// get default status data
+			$status_data = $cn->defaults['data'];
+
+			// update status
+			$status_data['status'] = $cn->get_status();
+
+			// update subscription
+			$status_data['subscription'] = $cn->get_subscription();
+
+			// update activation timestamp
+			$status_data['activation_datetime'] = $cn->get_cc_activation_datetime();
+
+			if ( $status_data['status'] === 'active' && $status_data['subscription'] === 'basic' ) {
+				$threshold = ! empty( $result['cycleUsage']->threshold ) ? (int) $result['cycleUsage']->threshold : 0;
+				$visits = ! empty( $result['cycleUsage']->visits ) ? (int) $result['cycleUsage']->visits : 0;
+
+				if ( $visits >= $threshold && $threshold > 0 )
+					$status_data['threshold_exceeded'] = true;
 			}
+
+			if ( $network ) {
+				update_site_option( 'cookie_notice_app_analytics', $result );
+				update_site_option( 'cookie_notice_status', $status_data );
+			} else {
+				update_option( 'cookie_notice_app_analytics', $result, false );
+				update_option( 'cookie_notice_status', $status_data, false );
+			}
+
+			// update status data
+			$cn->set_status_data();
+
+			if ( $force_action )
+				do_action( 'cn_configuration_updated', 'analytics' );
 		}
 	}
 
 	/**
-	 * Get app status.
+	 * Get app config.
 	 *
-	 * @return bool|string
+	 * @param string $app_id
+	 * @param bool $force_update
+	 * @param bool $force_action
+	 * @return void|array
 	 */
-	public function get_app_status( $app_id ) {
-		$result = '';
+	public function get_app_config( $app_id = '', $force_update = false, $force_action = true ) {
+		// get main instance
+		$cn = Cookie_Notice();
 
-		if ( ! current_user_can( apply_filters( 'cn_manage_cookie_notice_cap', 'manage_options' ) ) )
-			return false;
+		$allow_one_cron_per_hour = false;
 
+		if ( is_multisite() && $cn->is_plugin_network_active() && $cn->network_options['global_override'] ) {
+			if ( empty( $app_id ) )
+				$app_id = $cn->network_options['app_id'];
+
+			$network = true;
+			$allow_one_cron_per_hour = true;
+		} else {
+			if ( empty( $app_id ) )
+				$app_id = $cn->options['general']['app_id'];
+
+			$network = false;
+		}
+
+		// in global override mode allow only one cron per hour
+		if ( $allow_one_cron_per_hour && ! $force_update ) {
+			$blocking = get_site_option( 'cookie_notice_app_blocking', [] );
+
+			// analytics data?
+			if ( ! empty( $blocking ) ) {
+				$updated = strtotime( $blocking['lastUpdated'] );
+
+				// last updated less than an hour?
+				if ( $updated !== false && current_time( 'timestamp', true ) - $updated < 3600 )
+					return;
+			}
+		}
+
+		// get config
 		$response = $this->request(
 			'get_config',
 			[
@@ -1192,52 +1451,91 @@ class Cookie_Notice_Welcome_API {
 			]
 		);
 
-		if ( ! empty( $response->data ) )
-			$result = 'active';
-		else {
-			if ( ! empty( $response->error ) ) {
-				if ( $response->error == 'App is not published yet' )
-					$result = 'pending';
+		// get status data
+		$status_data = $cn->defaults['data'];
+
+		// get config
+		if ( ! empty( $response->data ) ) {
+			// sanitize data
+			$result_raw = map_deep( (array) $response->data, 'sanitize_text_field' );
+
+			// set status
+			$status_data['status'] = 'active';
+
+			// get activation timestamp
+			$timestamp = $cn->get_cc_activation_datetime();
+
+			// update activation timestamp only for new cookie compliance activations
+			$status_data['activation_datetime'] = $timestamp === 0 ? time() : $timestamp;
+
+			// check subscription
+			if ( ! empty( $result_raw['SubscriptionType'] ) )
+				$status_data['subscription'] = $cn->check_subscription( strtolower( $result_raw['SubscriptionType'] ) );
+
+			if ( $status_data['subscription'] === 'basic' ) {
+				// get analytics data options
+				if ( $network )
+					$analytics = get_site_option( 'cookie_notice_app_analytics', [] );
 				else
-					$result = '';
+					$analytics = get_option( 'cookie_notice_app_analytics', [] );
+
+				if ( ! empty( $analytics ) ) {
+					$threshold = ! empty( $analytics['cycleUsage']->threshold ) ? (int) $analytics['cycleUsage']->threshold : 0;
+					$visits = ! empty( $analytics['cycleUsage']->visits ) ? (int) $analytics['cycleUsage']->visits : 0;
+
+					if ( $visits >= $threshold && $threshold > 0 )
+						$status_data['threshold_exceeded'] = true;
+				}
+			}
+
+			// process blocking data
+			$result = [
+				'categories'				=> ! empty( $result_raw['DefaultCategoryJSON'] ) && is_array( $result_raw['DefaultCategoryJSON'] ) ? $result_raw['DefaultCategoryJSON'] : [],
+				'providers'					=> ! empty( $result_raw['DefaultProviderJSON'] ) && is_array( $result_raw['DefaultProviderJSON'] ) ? $result_raw['DefaultProviderJSON'] : [],
+				'patterns'					=> ! empty( $result_raw['DefaultCookieJSON'] ) && is_array( $result_raw['DefaultCookieJSON'] ) ? $result_raw['DefaultCookieJSON'] : [],
+				'google_consent_default'	=> [],
+				'lastUpdated'				=> date( 'Y-m-d H:i:s', current_time( 'timestamp', true ) )
+			];
+
+			if ( ! empty( $result_raw['BannerConfigJSON'] ) && is_object( $result_raw['BannerConfigJSON'] ) ) {
+				$gcm = isset( $result_raw['BannerConfigJSON']->googleConsentMode ) ? (int) $result_raw['BannerConfigJSON']->googleConsentMode : 0;
+
+				// is google consent mode enabled?
+				if ( $gcm === 1 ) {
+					$result['google_consent_default']['ad_storage'] = isset( $result_raw['BannerConfigJSON']->googleConsentMapAdStorage ) ? (int) $result_raw['BannerConfigJSON']->googleConsentMapAdStorage : 4;
+					$result['google_consent_default']['analytics_storage'] = isset( $result_raw['BannerConfigJSON']->googleConsentMapAnalytics ) ? (int) $result_raw['BannerConfigJSON']->googleConsentMapAnalytics : 3;
+					$result['google_consent_default']['functionality_storage'] = isset( $result_raw['BannerConfigJSON']->googleConsentMapFunctionality ) ? (int) $result_raw['BannerConfigJSON']->googleConsentMapFunctionality : 2;
+					$result['google_consent_default']['personalization_storage'] = isset( $result_raw['BannerConfigJSON']->googleConsentMapPersonalization ) ? (int) $result_raw['BannerConfigJSON']->googleConsentMapPersonalization : 2;
+					$result['google_consent_default']['security_storage'] = isset( $result_raw['BannerConfigJSON']->googleConsentMapSecurity ) ? (int) $result_raw['BannerConfigJSON']->googleConsentMapSecurity : 2;
+					$result['google_consent_default']['ad_personalization'] = isset( $result_raw['BannerConfigJSON']->googleConsentMapAdPersonalization ) ? (int) $result_raw['BannerConfigJSON']->googleConsentMapAdPersonalization : 4;
+					$result['google_consent_default']['ad_user_data'] = isset( $result_raw['BannerConfigJSON']->googleConsentMapAdUserData ) ? (int) $result_raw['BannerConfigJSON']->googleConsentMapAdUserData : 4;
+				}
+			}
+
+			if ( $network )
+				update_site_option( 'cookie_notice_app_blocking', $result );
+			else
+				update_option( 'cookie_notice_app_blocking', $result, false );
+		} else {
+			if ( ! empty( $response->error ) ) {
+				if ( $response->error == 'App is not puplised yet' )
+					$status_data['status'] = 'pending';
+				else
+					$status_data['status'] = '';
 			}
 		}
 
-		return $result;
-	}
+		if ( $network )
+			update_site_option( 'cookie_notice_status', $status_data );
+		else
+			update_option( 'cookie_notice_status', $status_data, false );
 
-	/**
-	 * Defines the function used to initial the cURL library.
-	 *
-	 * @param string $url To URL to which the request is being made
-	 * @param string $args The URL query parameters
-	 * @return string|bool|null
-	 */
-	private function curl( $url, $args ) {
-		$curl = curl_init( $url );
+		// update status data
+		$cn->set_status_data();
 
-		$headers = [];
+		if ( $force_action )
+			do_action( 'cn_configuration_updated', 'config' );
 
-		foreach ( $args['headers'] as $header => $value ) {
-			$headers[] = $header . ': ' . $value;
-		}
-
-		curl_setopt( $curl, CURLOPT_HTTPHEADER, $headers );
-		curl_setopt( $curl, CURLOPT_RETURNTRANSFER, true );
-		curl_setopt( $curl, CURLOPT_HEADER, false );
-		curl_setopt( $curl, CURLOPT_USERAGENT, '' );
-		curl_setopt( $curl, CURLOPT_HTTPGET, true );
-		curl_setopt( $curl, CURLOPT_CUSTOMREQUEST, 'GET' );
-		curl_setopt( $curl, CURLOPT_POSTFIELDS, $args['body'] );
-		curl_setopt( $curl, CURLOPT_TIMEOUT, 10 );
-
-		$response = curl_exec( $curl );
-
-		if ( 0 !== curl_errno( $curl ) || 200 !== curl_getinfo( $curl, CURLINFO_HTTP_CODE ) )
-			$response = null;
-
-		curl_close( $curl );
-
-		return $response;
+		return $status_data;
 	}
 }

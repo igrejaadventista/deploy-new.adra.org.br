@@ -37,7 +37,7 @@ class Jet_Engine_Module_Custom_Visibility_Conditions extends Jet_Engine_External
 	 * @return string
 	 */
 	public function module_name() {
-		return __( 'Custom visibility conditions', 'jet-engine' );
+		return __( 'Custom Visibility Conditions', 'jet-engine' );
 	}
 
 	/**
@@ -69,7 +69,12 @@ class Jet_Engine_Module_Custom_Visibility_Conditions extends Jet_Engine_External
 	 * @return array
 	 */
 	public function get_module_links() {
-		return array();
+		return array(
+			array(
+				'label' => __( 'Custom Visibility Conditions Overview', 'jet-engine' ),
+				'url'   => 'https://crocoblock.com/knowledge-base/articles/jetengine-devtools-custom-visibility-conditions-add-on/',
+			)
+		);
 	}
 
 	/**
@@ -85,7 +90,7 @@ class Jet_Engine_Module_Custom_Visibility_Conditions extends Jet_Engine_External
 	 * @return [type] [description]
 	 */
 	public function support_blocks() {
-		return false;
+		return true;
 	}
 
 }

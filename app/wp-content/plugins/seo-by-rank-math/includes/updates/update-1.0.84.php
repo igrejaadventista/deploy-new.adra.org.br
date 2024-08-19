@@ -21,7 +21,7 @@ function rank_math_1_0_84_init_url_inspections() {
 
 	// Start first fetch in 15 minutes.
 	$start = time() + ( 15 * MINUTE_IN_SECONDS );
-	as_schedule_single_action( $start, 'rank_math/analytics/workflow', [ 'inspections', 0, null, null ], 'workflow' );
+	as_schedule_single_action( $start, 'rank_math/analytics/workflow', [ 'inspections', 0, null, null ], 'rank-math' );
 }
 
 rank_math_1_0_84_init_url_inspections();
@@ -34,11 +34,11 @@ function rank_math_1_0_84_check_analytics_collations() {
 		'rank_math_analytics_ga',
 		'rank_math_analytics_gsc',
 		'rank_math_analytics_keyword_manager',
-		'rank_math_analytics_objects',
 	];
 
+	$objects_coll = \RankMath\Helpers\DB::get_table_collation( 'rank_math_analytics_objects' );
 	foreach ( $tables as $table ) {
-		\RankMath\Helper::check_collation( $table );
+		\RankMath\Helpers\DB::check_collation( $table, 'all', $objects_coll );
 	}
 }
 

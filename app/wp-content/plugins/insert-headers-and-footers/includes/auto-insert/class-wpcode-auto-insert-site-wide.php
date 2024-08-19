@@ -5,10 +5,27 @@
  * @package wpcode
  */
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Class WPCode_Auto_Insert_Single.
  */
 class WPCode_Auto_Insert_Site_Wide extends WPCode_Auto_Insert_Type {
+
+	/**
+	 * The type unique name (slug).
+	 *
+	 * @var string
+	 */
+	public $name = 'site_wide';
+	/**
+	 * The category of this type.
+	 *
+	 * @var string
+	 */
+	public $category = 'global';
 
 	/**
 	 * Load the available options and labels.
@@ -16,11 +33,20 @@ class WPCode_Auto_Insert_Site_Wide extends WPCode_Auto_Insert_Type {
 	 * @return void
 	 */
 	public function init() {
-		$this->label     = __( 'Site wide', 'insert-headers-and-footers' );
+		$this->label     = esc_html__( 'Site wide (frontend)', 'insert-headers-and-footers' );
 		$this->locations = array(
-			'site_wide_header' => __( 'Site Wide Header', 'insert-headers-and-footers' ),
-			'site_wide_body'   => __( 'Site Wide Body', 'insert-headers-and-footers' ),
-			'site_wide_footer' => __( 'Site Wide Footer', 'insert-headers-and-footers' ),
+			'site_wide_header' => array(
+				'label'       => esc_html__( 'Site Wide Header', 'insert-headers-and-footers' ),
+				'description' => esc_html__( 'Insert snippet between the head tags of your website on all pages.', 'insert-headers-and-footers' ),
+			),
+			'site_wide_body'   => array(
+				'label'       => esc_html__( 'Site Wide Body', 'insert-headers-and-footers' ),
+				'description' => esc_html__( 'Insert the snippet just after the opening body tag.', 'insert-headers-and-footers' ),
+			),
+			'site_wide_footer' => array(
+				'label'       => esc_html__( 'Site Wide Footer', 'insert-headers-and-footers' ),
+				'description' => esc_html__( 'Insert the snippet in the footer just before the closing body tag.', 'insert-headers-and-footers' ),
+			),
 		);
 	}
 
@@ -41,10 +67,7 @@ class WPCode_Auto_Insert_Site_Wide extends WPCode_Auto_Insert_Type {
 	 * @return void
 	 */
 	public function insert_header() {
-		$snippets = $this->get_snippets_for_location( 'site_wide_header' );
-		foreach ( $snippets as $snippet ) {
-			echo wpcode()->execute->get_snippet_output( $snippet );
-		}
+		$this->output_location( 'site_wide_header' );
 	}
 
 	/**
@@ -53,10 +76,7 @@ class WPCode_Auto_Insert_Site_Wide extends WPCode_Auto_Insert_Type {
 	 * @return void
 	 */
 	public function insert_footer() {
-		$snippets = $this->get_snippets_for_location( 'site_wide_footer' );
-		foreach ( $snippets as $snippet ) {
-			echo wpcode()->execute->get_snippet_output( $snippet );
-		}
+		$this->output_location( 'site_wide_footer' );
 	}
 
 	/**
@@ -65,9 +85,8 @@ class WPCode_Auto_Insert_Site_Wide extends WPCode_Auto_Insert_Type {
 	 * @return void
 	 */
 	public function insert_body() {
-		$snippets = $this->get_snippets_for_location( 'site_wide_body' );
-		foreach ( $snippets as $snippet ) {
-			echo wpcode()->execute->get_snippet_output( $snippet );
-		}
+		$this->output_location( 'site_wide_body' );
 	}
 }
+
+new WPCode_Auto_Insert_Site_Wide();

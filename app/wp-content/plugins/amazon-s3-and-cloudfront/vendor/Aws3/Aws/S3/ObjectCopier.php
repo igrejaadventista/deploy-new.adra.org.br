@@ -7,6 +7,8 @@ use DeliciousBrains\WP_Offload_Media\Aws3\Aws\Arn\S3\AccessPointArn;
 use DeliciousBrains\WP_Offload_Media\Aws3\Aws\Exception\MultipartUploadException;
 use DeliciousBrains\WP_Offload_Media\Aws3\Aws\Result;
 use DeliciousBrains\WP_Offload_Media\Aws3\Aws\S3\Exception\S3Exception;
+use DeliciousBrains\WP_Offload_Media\Aws3\GuzzleHttp\Promise\Coroutine;
+use DeliciousBrains\WP_Offload_Media\Aws3\GuzzleHttp\Promise\PromiseInterface;
 use DeliciousBrains\WP_Offload_Media\Aws3\GuzzleHttp\Promise\PromisorInterface;
 use InvalidArgumentException;
 /**
@@ -57,10 +59,12 @@ class ObjectCopier implements PromisorInterface
      * Perform the configured copy asynchronously. Returns a promise that is
      * fulfilled with the result of the CompleteMultipartUpload or CopyObject
      * operation or rejected with an exception.
+     *
+     * @return Coroutine
      */
-    public function promise()
+    public function promise() : PromiseInterface
     {
-        return \DeliciousBrains\WP_Offload_Media\Aws3\GuzzleHttp\Promise\Coroutine::of(function () {
+        return Coroutine::of(function () {
             $headObjectCommand = $this->client->getCommand('HeadObject', $this->options['params'] + $this->source);
             if (\is_callable($this->options['before_lookup'])) {
                 $this->options['before_lookup']($headObjectCommand);
@@ -97,14 +101,16 @@ class ObjectCopier implements PromisorInterface
     }
     private function getSourcePath()
     {
+        $path = "/{$this->source['Bucket']}/";
         if (ArnParser::isArn($this->source['Bucket'])) {
             try {
                 new AccessPointArn($this->source['Bucket']);
+                $path = "{$this->source['Bucket']}/object/";
             } catch (\Exception $e) {
                 throw new \InvalidArgumentException('Provided ARN was a not a valid S3 access point ARN (' . $e->getMessage() . ')', 0, $e);
             }
         }
-        $sourcePath = "/{$this->source['Bucket']}/" . \rawurlencode($this->source['Key']);
+        $sourcePath = $path . \rawurlencode($this->source['Key']);
         if (isset($this->source['VersionId'])) {
             $sourcePath .= "?versionId={$this->source['VersionId']}";
         }

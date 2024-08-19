@@ -43,7 +43,10 @@ class License_Manager {
 
 		$this->maybe_theme_core_license_exist();
 
-		$this->maybe_site_not_activated();
+		$this->maybe_modify_license_data();
+
+		 $this->maybe_site_not_activated();
+
 	}
 
 	/**
@@ -64,6 +67,24 @@ class License_Manager {
 					'data'    => [],
 				)
 			);
+		}
+
+		if ( ! isset( $data['nonce'] ) || ! wp_verify_nonce( $data['nonce'], 'jet-dashboard' ) ) {
+			wp_send_json( [
+				'status'  => 'error',
+				'code'    => 'server_error',
+				'message' => __( 'Page has expired. Please reload this page.', 'jet-dashboard' ),
+				'data'    => [],
+			] );
+		}
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json( [
+				'status'  => 'error',
+				'code'    => 'server_error',
+				'message' => __( 'Sorry, you are not allowed to manage license data on this site.', 'jet-dashboard' ),
+				'data'    => [],
+			] );
 		}
 
 		$license_action = $data['action'];
@@ -104,6 +125,7 @@ class License_Manager {
 			);
 		}
 
+		$responce_data = $this->maybe_modify_responce_data( $responce_data );
 		$responce_data = $this->maybe_modify_tm_responce_data( $responce_data );
 
 		switch ( $license_action ) {
@@ -130,6 +152,23 @@ class License_Manager {
 				'data'    => $responce_data,
 			)
 		);
+	}
+
+	/**
+	 * @param $responce
+	 * @return array|mixed
+	 */
+	public function maybe_modify_responce_data( $responce = array() ) {
+
+		if ( empty( $responce ) ) {
+			return $responce;
+		}
+
+		if ( isset( $responce['sites'] ) && ! empty( $responce['sites'] ) ) {
+			$responce['sites'] = [];
+		}
+
+		return $responce;
 	}
 
 	/**
@@ -181,9 +220,9 @@ class License_Manager {
 
 		$license_list = Utils::get_license_data( 'license-list', [] );
 
-		$license_list[ $license_key ] = array(
+		$license_list[ $responce['license'] ] = array(
 			'licenseStatus'  => 'active',
-			'licenseKey'     => $license_key,
+			'licenseKey'     => $responce['license'],
 			'licenseDetails' => $responce,
 		);
 
@@ -264,6 +303,19 @@ class License_Manager {
 	}
 
 	/**
+	 * @return bool
+	 */
+	public function is_sublicense() {
+		$primary_license_data = $this->get_primary_license_data();
+
+		if ( isset( $primary_license_data['is_sublicense'] ) && $primary_license_data['is_sublicense'] ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/**
 	 * [get_primary_license_data description]
 	 * @return [type] [description]
 	 */
@@ -316,6 +368,7 @@ class License_Manager {
 				'product' => '',
 				'type'    => '',
 				'expire'  => '',
+				'is_sublicense' => false,
 			);
 		}
 
@@ -327,15 +380,48 @@ class License_Manager {
 				'product' => '',
 				'type'    => '',
 				'expire'  => '',
+				'is_sublicense' => false,
 			);
 		}
 
 		return array(
 			'key'     => $filtered_license['licenseDetails']['license'],
-			'product' => $filtered_license['licenseDetails']['product_category'],
+			'product' => isset( $filtered_license['licenseDetails']['product_category'] ) ? $filtered_license['licenseDetails']['product_category'] : '',
 			'type'    => $filtered_license['licenseDetails']['type'],
 			'expire'  => $filtered_license['licenseDetails']['expire'],
+			'is_sublicense'  => isset( $filtered_license['licenseDetails']['is_sublicense'] ) ? $filtered_license['licenseDetails']['is_sublicense'] : false,
 		);
+	}
+
+	/**
+	 * @return void
+	 */
+	public function maybe_modify_license_data() {
+		$license_list = Utils::get_license_data( 'license-list', array() );
+
+		if ( empty( $license_list ) ) {
+			return;
+		}
+
+		foreach ( $license_list as $license_key => $license_data ) {
+
+			if ( ! isset( $license_data['licenseDetails'] ) ) {
+				continue;
+			}
+
+			$license_details = $license_data['licenseDetails'];
+
+			if ( isset( $license_details['sites'] ) ) {
+				$license_list[ $license_key ]['licenseDetails']['sites'] = [];
+			}
+
+			if ( ! isset( $license_details['site_url'] ) ) {
+				$license_list[ $license_key ]['licenseDetails']['site_url'] = strtolower( Utils::get_site_url() );
+			}
+		}
+
+		Utils::set_license_data( 'license-list', $license_list );
+
 	}
 
 	/**
@@ -389,34 +475,57 @@ class License_Manager {
 	 * @return [type] [description]
 	 */
 	public function maybe_site_not_activated() {
+		$license_sites = Utils::get_license_site_url();
 
-		$license_list = Utils::get_license_data( 'license-list', array() );
+		if ( empty( $license_sites ) ) {
+			Dashboard::get_instance()->notice_manager->register_notice( array(
+				'id'      => 'license-not-activated',
+				'page'    => [ 'license-page', 'welcome-page' ],
+				'preset'  => 'alert',
+				'type'    => 'danger',
+				'title'   => esc_html__( 'The site is not activated', 'jet-dashboard' ),
+				'message' => esc_html__( 'Your license key is not activated for this site. Go to the license manager and activate your key', 'jet-dashboard' ),
+				'buttons' => array(
+					array(
+						'label' => esc_html__( 'Activate', 'jet-dashboard' ),
+						'url'   => add_query_arg(
+							array(
+								'page'    => 'jet-dashboard-license-page',
+								'subpage' => 'license-manager'
+							),
+							admin_url( 'admin.php' )
+						),
+						'style' => 'accent',
+					)
+				),
+			) );
 
-		if ( empty( $license_list ) ) {
 			return;
 		}
 
-		$sites = array();
+		if ( ! Utils::is_site_activated() ) {
 
-		foreach ( $license_list as $license_key => $license_data ) {
-
-			if ( ! isset( $license_data['licenseDetails'] ) ) {
-				continue;
-			}
-
-			$license_details = $license_data['licenseDetails'];
-
-			if ( ! isset( $license_details['sites'] ) ) {
-				continue;
-			}
-
-			$sites = array_merge( $sites, $license_details['sites'] );
-		}
-
-		$current_site = strtolower( Utils::get_site_url() );
-
-		if ( ! in_array( $current_site, $sites ) ) {
-			Utils::set_license_data( 'license-list', [] );
+			Dashboard::get_instance()->notice_manager->register_notice( array(
+				'id'      => 'site-not-activated',
+				'page'    => [ 'license-page', 'welcome-page' ],
+				'preset'  => 'alert',
+				'type'    => 'danger',
+				'title'   => esc_html__( 'This site is not activated', 'jet-dashboard' ),
+				'message' => esc_html__( 'This site is not activated for this license. Go to the license manager deactivate your license and activate your key again', 'jet-dashboard' ),
+				'buttons' => array(
+					array(
+						'label' => esc_html__( 'Activate', 'jet-dashboard' ),
+						'url'   => add_query_arg(
+							array(
+								'page'    => 'jet-dashboard-license-page',
+								'subpage' => 'license-manager'
+							),
+							admin_url( 'admin.php' )
+						),
+						'style' => 'accent',
+					)
+				),
+			) );
 		}
 	}
 

@@ -193,7 +193,12 @@ class Api {
 			$host = 'localhost';
 		}
 
-		return $host;
+		/**
+		 * Filter the host parameter value to send to the API.
+		 *
+		 * @param string $host Host.
+		 */
+		return $this->do_filter( 'instant_indexing/indexnow_host', $host );
 	}
 
 	/**
@@ -206,7 +211,15 @@ class Api {
 			return $this->api_key;
 		}
 
-		$this->api_key = Helper::get_settings( 'instant_indexing.indexnow_api_key' );
+		$api_key = Helper::get_settings( 'instant_indexing.indexnow_api_key' );
+
+		/**
+		 * Filter the API key.
+		 *
+		 * @param string $api_key API key.
+		 */
+		$this->api_key = $this->do_filter( 'instant_indexing/indexnow_key', $api_key );
+
 		return $this->api_key;
 	}
 
@@ -220,9 +233,15 @@ class Api {
 	/**
 	 * Get the API key location.
 	 *
+	 * @param string $context Key context.
 	 * @return string
 	 */
 	public function get_key_location( $context = '' ) {
+		/**
+		 * Filter the API key location.
+		 *
+		 * @param string $location Location.
+		 */
 		return $this->do_filter( 'instant_indexing/indexnow_key_location', trailingslashit( home_url() ) . $this->get_key() . '.txt', $context );
 	}
 
@@ -354,9 +373,9 @@ class Api {
 	 * Generate and save a new API key.
 	 */
 	public function reset_key() {
-		$settings = Helper::get_settings( 'instant_indexing', [] );
+		$settings                     = Helper::get_settings( 'instant_indexing', [] );
 		$settings['indexnow_api_key'] = $this->generate_api_key();
-		$this->api_key = $settings['indexnow_api_key'];
+		$this->api_key                = $settings['indexnow_api_key'];
 		update_option( 'rank-math-options-instant-indexing', $settings );
 	}
 

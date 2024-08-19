@@ -4,12 +4,28 @@ const {
 	SelectControl,
 	ToggleControl,
 	TextControl,
-	TextareaControl
+	TextareaControl,
+	ColorPalette,
+	BaseControl,
+	Button,
+	Flex,
+	FlexBlock,
+	FlexItem
 } = wp.components;
 
-class CustomControl extends wp.element.Component {
+const {
+	MediaUpload,
+	MediaUploadCheck
+} = wp.blockEditor;
 
-	isEnbaled() {
+const {
+	Component,
+	Fragment
+} = wp.element;
+
+class CustomControl extends Component {
+
+	isEnabled() {
 
 		if ( ! this.props.condition ) {
 			return true;
@@ -54,91 +70,234 @@ class CustomControl extends wp.element.Component {
 		return true;
 	}
 
+	htmlDesc( htmlDescription ) {
+		return ( htmlDescription && <p
+			className="components-base-control__help"
+			style={ {
+				fontSize: '12px',
+				fontStyle: 'normal',
+				color: 'rgb(117, 117, 117)',
+				margin: '-7px 0 20px',
+			} }
+			dangerouslySetInnerHTML={{ __html: htmlDescription }}
+		></p> );
+	}
+
 	render() {
 
 		const {
 			control,
 			value,
-			onChange
+			onChange,
+			children
 		} = this.props;
 
-		if ( ! this.isEnbaled() ) {
+		if ( ! this.isEnabled() ) {
 			return null;
 		}
+
+		let htmlDescription = ( control.has_html && control.description ) ? control.description : '';
+		let description     = ( ! htmlDescription && control.description  ) ? control.description : '';
+
+		const uid = Math.floor( Math.random() * 89999 ) + 10000;
 
 		switch ( control.type ) {
 
 			case 'select':
 			case 'select2':
 
+				let options = [];
+
+				if ( control.options && control.options.length ) {
+					
+					options = [ ...control.options ];
+
+					if ( control.placeholder ) {
+						options.unshift( {
+							value: '',
+							label: control.placeholder,
+						} );
+					}
+
+				}
+
 				if ( control.groups ) {
-					return <GroupedSelectControl
-						label={ control.label }
-						help={ control.description ? control.description : '' }
-						options={ control.groups }
-						value={ value }
-						onChange={ newValue => {
-							onChange( newValue );
-						} }
-					/>;
+					return <Fragment>
+						{ children }
+						<GroupedSelectControl
+							label={ control.label }
+							help={ description }
+							options={ control.groups }
+							value={ value }
+							onChange={ newValue => {
+								onChange( newValue );
+							} }
+						/>
+						{ this.htmlDesc( htmlDescription ) }
+					</Fragment>;
 				} else {
-					return <SelectControl
-						label={ control.label }
-						help={ control.description ? control.description : '' }
-						options={ control.options }
-						value={ value }
-						onChange={ newValue => {
-							onChange( newValue );
-						} }
-					/>;
+					return <Fragment>
+						{ children }
+						<SelectControl
+							label={ control.label }
+							help={ description }
+							options={ options }
+							value={ value }
+							onChange={ newValue => {
+								onChange( newValue );
+							} }
+						/>
+						{ this.htmlDesc( htmlDescription ) }
+					</Fragment>;
 				}
 
 			case 'textarea':
-				return <TextareaControl
-					label={ control.label }
-					help={ control.description ? control.description : '' }
-					value={ value }
-					onChange={ newValue => {
-						onChange( newValue );
-					} }
-				/>;
+				return <Fragment>
+					{ children }
+					<TextareaControl
+						label={ control.label }
+						help={ description }
+						value={ value }
+						onChange={ newValue => {
+							onChange( newValue );
+						} }
+					/>
+					{ this.htmlDesc( htmlDescription ) }
+				</Fragment>;
 
 			case 'switcher':
-				return <ToggleControl
-					label={ control.label }
-					help={ control.description ? control.description : '' }
-					checked={ value }
-					onChange={ () => {
-						onChange( !value );
-					} }
-				/>;
+				return <Fragment>
+					{ children }
+					<ToggleControl
+						label={ control.label }
+						help={ description }
+						checked={ value }
+						onChange={ () => {
+							onChange( !value );
+						} }
+					/>
+					{ this.htmlDesc( htmlDescription ) }
+				</Fragment>;
 
 			case 'number':
-				return <TextControl
-					type="number"
+				return <Fragment>
+					{ children }
+					<TextControl
+						type="number"
+						label={ control.label }
+						help={ description }
+						min={ control.min ? control.min : 1 }
+						max={ control.max ? control.max : 100 }
+						step={ control.step ? control.step : 1 }
+						value={ value }
+						onChange={ newValue => {
+							onChange( Number( newValue ) );
+						} }
+					/>
+					{ this.htmlDesc( htmlDescription ) }
+				</Fragment>;
+
+			case 'raw_html':
+				return <Fragment>
+					{ children }
+					<p
+						dangerouslySetInnerHTML={{ __html: control.raw }}
+					></p>
+				</Fragment>;
+
+			case 'color':
+
+				const colorPalette = wp.data.select( 'core/block-editor' ).getSettings().colors;
+
+				return <BaseControl
+						label={ control.label }
+						id={ 'color_label_' + uid }
+					>
+					<ColorPalette
+						colors={ colorPalette }
+						value={ value }
+						ariaLabel={ control.label }
+						id={ 'color_label_' + uid }
+						onChange={ newValue => {
+							onChange( newValue );
+						} }
+					/>
+				</BaseControl>;
+
+			case 'media':
+
+				const mediaId = value.id || false;
+
+				return <BaseControl
 					label={ control.label }
-					help={ control.description ? control.description : '' }
-					min={ control.min ? control.min : 1 }
-					max={ control.max ? control.max : 100 }
-					step={ control.step ? control.step : 1 }
-					value={ value }
-					onChange={ newValue => {
-						onChange( Number( newValue ) );
-					} }
-				/>;
+					id={ 'media_label_' + uid }
+				>
+					<Flex
+						align="flex-start"
+					>
+						<FlexItem>
+							<MediaUploadCheck>
+								<MediaUpload
+									onSelect={ ( media ) => {
+										onChange( {
+											id: media.id,
+											url: media.url,
+											thumb: media.sizes.thumbnail.url
+										} );
+									} }
+									type="image"
+									value={ value.id || false }
+									render={ ( { open } ) => (
+										<Button
+											isSecondary
+											icon="edit"
+											onClick={ open }
+										>Select Image</Button>
+									)}
+								/>
+							</MediaUploadCheck>
+							{ undefined !== value.id &&
+								<div>
+									<Button
+										style={ { marginTop: '5px' } }
+										onClick={ () => {
+											onChange( { id: false } );
+										} }
+										isLink
+										isDestructive
+									>
+										Clear
+									</Button>
+								</div>
+							}
+						</FlexItem>
+						<FlexItem>
+						{ undefined !== value.thumb &&
+							<img src={ value.thumb } width="80px" height="auto" />
+						}
+						</FlexItem>
+					</Flex>
+				</BaseControl>;
 
 			default:
-				return <TextControl
-					type="text"
-					label={ control.label }
-					help={ control.description ? control.description : '' }
-					value={ value }
-					onChange={ newValue => {
-						onChange( newValue );
-					} }
-				/>;
+				return <Fragment>
+					{ children }
+					<TextControl
+						type="text"
+						label={ control.label }
+						help={ description }
+						value={ value }
+						onChange={ newValue => {
+							onChange( newValue );
+						} }
+					/>
+					{ this.htmlDesc( htmlDescription ) }
+				</Fragment>;
 		}
 	}
 }
+
+window.JetEngineBlocksComponents = window.JetEngineBlocksComponents || {};
+window.JetEngineBlocksComponents.CustomControl = CustomControl;
 
 export default CustomControl;

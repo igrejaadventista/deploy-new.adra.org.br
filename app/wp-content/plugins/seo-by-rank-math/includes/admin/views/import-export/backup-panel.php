@@ -8,7 +8,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-$backups = get_option( 'rank_math_backups', [] );
+$backups = $this->get_backups();
 ?>
 <button type="button" class="button button-primary alignright rank-math-action" data-action="createBackup"><?php esc_html_e( 'Create Backup', 'rank-math' ); ?></button>
 
@@ -25,7 +25,7 @@ $backups = get_option( 'rank_math_backups', [] );
 						<th>
 							<?php
 							/* translators: Snapshot formatted date */
-							printf( esc_html__( 'Backup: %s', 'rank-math' ), date_i18n( 'M jS Y, H:i a', $key ) );
+							printf( esc_html__( 'Backup: %s', 'rank-math' ), esc_html( date_i18n( 'M jS Y, H:i a', $key ) ) );
 							?>
 						</th>
 						<td style="width:195px;padding-left:0;">

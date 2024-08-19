@@ -15,7 +15,7 @@ use RankMath\Helper;
 use RankMath\Traits\Ajax;
 use RankMath\Traits\Hooker;
 use RankMath\Helpers\Sitepress;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -62,6 +62,10 @@ class Notices implements Runner {
 
 		if ( 'convert_wpml_settings' === $notification_id ) {
 			update_option( 'rank_math_wpml_notice_dismissed', true );
+		}
+
+		if ( 'rank-math-site-url-mismatch' === $notification_id ) {
+			update_option( 'rank_math_siteurl_mismatch_notice_dismissed', true );
 		}
 	}
 

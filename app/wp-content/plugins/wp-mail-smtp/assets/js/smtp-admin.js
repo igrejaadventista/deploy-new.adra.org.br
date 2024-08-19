@@ -50,6 +50,8 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 
 			app.pageHolder = $( '.wp-mail-smtp-tab-settings' );
 
+			app.settingsForm = $( '.wp-mail-smtp-connection-settings-form' );
+
 			// If there are screen options we have to move them.
 			$( '#screen-meta-links, #screen-meta' ).prependTo( '#wp-mail-smtp-header-temp' ).show();
 
@@ -69,11 +71,11 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 		bindActions: function() {
 
 			// Mailer selection.
-			$( '.wp-mail-smtp-mailer-image', app.pageHolder ).on( 'click', function() {
+			$( '.wp-mail-smtp-mailer-image', app.settingsForm ).on( 'click', function() {
 				$( this ).parents( '.wp-mail-smtp-mailer' ).find( 'input' ).trigger( 'click' );
 			} );
 
-			$( '.wp-mail-smtp-mailer input', app.pageHolder ).on( 'click', function() {
+			$( '.wp-mail-smtp-mailer input', app.settingsForm ).on( 'click', function() {
 				var $input = $( this );
 
 				if ( $input.prop( 'disabled' ) ) {
@@ -87,14 +89,14 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 				}
 
 				// Deselect the current mailer.
-				$( '.wp-mail-smtp-mailer', app.pageHolder ).removeClass( 'active' );
+				$( '.wp-mail-smtp-mailer', app.settingsForm ).removeClass( 'active' );
 
 				// Select the correct one.
 				$( this ).parents( '.wp-mail-smtp-mailer' ).addClass( 'active' );
 
 				// Hide all mailers options and display for a currently clicked one.
-				$( '.wp-mail-smtp-mailer-option', app.pageHolder ).addClass( 'hidden' ).removeClass( 'active' );
-				$( '.wp-mail-smtp-mailer-option-' + $( this ).val(), app.pageHolder ).addClass( 'active' ).removeClass( 'hidden' );
+				$( '.wp-mail-smtp-mailer-option', app.settingsForm ).addClass( 'hidden' ).removeClass( 'active' );
+				$( '.wp-mail-smtp-mailer-option-' + $( this ).val(), app.settingsForm ).addClass( 'active' ).removeClass( 'hidden' );
 			} );
 
 			app.mailers.smtp.bindActions();
@@ -117,7 +119,7 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 			} );
 
 			// Dissmis educational notices for certain mailers.
-			$( '.js-wp-mail-smtp-mailer-notice-dismiss', app.pageHolder ).on( 'click', function( e ) {
+			$( '.js-wp-mail-smtp-mailer-notice-dismiss', app.settingsForm ).on( 'click', function( e ) {
 				e.preventDefault();
 
 				var $btn = $( this ),
@@ -188,12 +190,12 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 			} );
 
 			// Remove mailer connection.
-			$( '.js-wp-mail-smtp-provider-remove', app.pageHolder ).on( 'click', function() {
+			$( '.js-wp-mail-smtp-provider-remove', app.settingsForm ).on( 'click', function() {
 				return confirm( wp_mail_smtp.text_provider_remove );
 			} );
 
 			// Copy input text to clipboard.
-			$( '.wp-mail-smtp-setting-copy', app.pageHolder ).on( 'click', function( e ) {
+			$( '.wp-mail-smtp-setting-copy', app.settingsForm ).on( 'click', function( e ) {
 				e.preventDefault();
 
 				var target = $( '#' + $( this ).data( 'source_id' ) ).get( 0 );
@@ -242,7 +244,7 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 			app.beforeSaveChecks();
 
 			// Register change event to show/hide plugin supported settings for currently selected mailer.
-			$( '.js-wp-mail-smtp-setting-mailer-radio-input', app.pageHolder ).on( 'change', this.processMailerSettingsOnChange );
+			$( '.js-wp-mail-smtp-setting-mailer-radio-input', app.settingsForm ).on( 'change', this.processMailerSettingsOnChange );
 
 			// Disable multiple click on the Email Test tab submit button and display a loader icon.
 			$( '.wp-mail-smtp-tab-tools-test #email-test-form' ).on( 'submit', function() {
@@ -252,10 +254,82 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 				$button.find( 'span' ).hide();
 				$button.find( '.wp-mail-smtp-loading' ).show();
 			} );
+
+			$( '.email_test_tab_removal_notice' ).on( 'click', '.notice-dismiss', function() {
+				var $button = $( this );
+
+				$.ajax( {
+					url: ajaxurl,
+					dataType: 'json',
+					type: 'POST',
+					data: {
+						action: 'wp_mail_smtp_ajax',
+						nonce: wp_mail_smtp.nonce,
+						task: 'email_test_tab_removal_notice_dismiss',
+					},
+					beforeSend: function() {
+						$button.prop( 'disabled', true );
+					},
+				} );
+			} );
+
+			$( '#wp-mail-smtp-setting-gmail-one_click_setup_enabled-lite' ).on( 'click', function( e ) {
+				e.preventDefault();
+
+				app.education.gmailOneClickSetupUpgrade();
+			} );
+
+			$( '#wp-mail-smtp-setting-misc-rate_limit-lite' ).on( 'click', function( e ) {
+				e.preventDefault();
+
+				app.education.rateLimitUpgrade();
+			} );
+
+			// Obfuscated fields
+			$( '.wp-mail-smtp-btn[data-clear-field]' ).on( 'click', function( e ) {
+				var $button = $( this );
+				var fieldId = $button.attr( 'data-clear-field' );
+				var $field = $( `#${fieldId}` );
+
+				$field.prop( 'disabled', false );
+				$field.attr( 'name', $field.attr( 'data-name' ) );
+				$field.removeAttr( 'value' );
+				$field.focus();
+				$button.remove();
+			} );
 		},
 
 		education: {
 			upgradeMailer: function( $input ) {
+
+				var mailerName = $input.data( 'title' ).trim();
+
+				app.education.upgradeModal(
+					wp_mail_smtp.education.upgrade_title.replace( /%name%/g, mailerName ),
+					wp_mail_smtp.education.upgrade_content.replace( /%name%/g, mailerName ),
+					$input.val()
+				);
+			},
+
+			gmailOneClickSetupUpgrade: function() {
+
+				app.education.upgradeModal(
+					wp_mail_smtp.education.gmail.one_click_setup_upgrade_title,
+					wp_mail_smtp.education.gmail.one_click_setup_upgrade_content,
+					'gmail-one-click-setup'
+				);
+			},
+
+			rateLimitUpgrade: function() {
+
+				app.education.upgradeModal(
+					wp_mail_smtp.education.rate_limit.upgrade_title,
+					wp_mail_smtp.education.rate_limit.upgrade_content,
+					'rate-limit-setting'
+				);
+			},
+
+			upgradeModal: function( title, content, upgradeUrlUtmContent ) {
 
 				$.alert( {
 					backgroundDismiss: true,
@@ -263,9 +337,9 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 					animationBounce: 1,
 					type: 'blue',
 					closeIcon: true,
-					title: wp_mail_smtp.education.upgrade_title.replace( /%name%/g, $input.siblings( 'label' ).text().trim() ),
+					title: title,
 					icon: '"></i>' + wp_mail_smtp.education.upgrade_icon_lock + '<i class="',
-					content: $( '.wp-mail-smtp-mailer-options .wp-mail-smtp-mailer-option-' + $input.val() + ' .wp-mail-smtp-setting-field' ).html(),
+					content: content,
 					boxWidth: '550px',
 					onOpenBefore: function() {
 						this.$btnc.after( '<div class="discount-note">' + wp_mail_smtp.education.upgrade_bonus + wp_mail_smtp.education.upgrade_doc + '</div>' );
@@ -278,7 +352,7 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 							keys: [ 'enter' ],
 							action: function() {
 								var appendChar = /(\?)/.test( wp_mail_smtp.education.upgrade_url ) ? '&' : '?',
-									upgradeURL = wp_mail_smtp.education.upgrade_url + appendChar + 'utm_content=' + encodeURIComponent( $input.val() );
+									upgradeURL = wp_mail_smtp.education.upgrade_url + appendChar + 'utm_content=' + encodeURIComponent( upgradeUrlUtmContent );
 
 								window.open( upgradeURL, '_blank' );
 							}
@@ -306,7 +380,7 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 					$( '#wp-mail-smtp-setting-row-smtp-encryption input' ).on( 'change', function() {
 
 						var $input = $( this ),
-							$smtpPort = $( '#wp-mail-smtp-setting-smtp-port', app.pageHolder );
+							$smtpPort = $( '#wp-mail-smtp-setting-smtp-port', app.settingsForm );
 
 						if ( 'tls' === $input.val() ) {
 							$smtpPort.val( '587' );
@@ -340,7 +414,7 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 			} );
 
 			// Set settings changed attribute, if any input was changed.
-			$( ':input:not( #wp-mail-smtp-setting-license-key, .wp-mail-smtp-not-form-input )', $settingPages ).on( 'change', function() {
+			$( ':input:not( #wp-mail-smtp-setting-license-key, .wp-mail-smtp-not-form-input, #wp-mail-smtp-setting-gmail-one_click_setup_enabled )', $settingPages ).on( 'change', function() {
 				app.pluginSettingsChanged = true;
 			} );
 
@@ -360,8 +434,8 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 		 */
 		beforeSaveChecks: function() {
 
-			$( 'form', app.pageHolder ).on( 'submit', function() {
-				if ( $( '.wp-mail-smtp-mailer input:checked', app.pageHolder ).val() === 'mail' ) {
+			app.settingsForm.on( 'submit', function() {
+				if ( $( '.wp-mail-smtp-mailer input:checked', app.settingsForm ).val() === 'mail' ) {
 					var $thisForm = $( this );
 
 					$.alert( {
@@ -406,28 +480,22 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 			for ( var setting in mailerSupportedSettings ) {
 				// eslint-disable-next-line no-prototype-builtins
 				if ( mailerSupportedSettings.hasOwnProperty( setting ) ) {
-					$( '.js-wp-mail-smtp-setting-' + setting, app.pageHolder ).toggle( mailerSupportedSettings[ setting ] );
+					$( '.js-wp-mail-smtp-setting-' + setting, app.settingsForm ).toggle( mailerSupportedSettings[ setting ] );
 				}
 			}
 
 			// Special case: "from email" (group settings).
 			var $mainSettingInGroup = $( '.js-wp-mail-smtp-setting-from_email' );
 
-			$mainSettingInGroup.closest( '.wp-mail-smtp-setting-row' ).toggle(
+			$mainSettingInGroup.toggle(
 				mailerSupportedSettings['from_email'] || mailerSupportedSettings['from_email_force']
-			);
-			$mainSettingInGroup.siblings( '.wp-mail-smtp-setting-mid-row-sep' ).toggle(
-				mailerSupportedSettings['from_email'] && mailerSupportedSettings['from_email_force']
 			);
 
 			// Special case: "from name" (group settings).
 			$mainSettingInGroup = $( '.js-wp-mail-smtp-setting-from_name' );
 
-			$mainSettingInGroup.closest( '.wp-mail-smtp-setting-row' ).toggle(
+			$mainSettingInGroup.toggle(
 				mailerSupportedSettings['from_name'] || mailerSupportedSettings['from_name_force']
-			);
-			$mainSettingInGroup.siblings( '.wp-mail-smtp-setting-mid-row-sep' ).toggle(
-				mailerSupportedSettings['from_name'] && mailerSupportedSettings['from_name_force']
 			);
 		},
 
@@ -477,15 +545,21 @@ WPMailSMTP.Admin.Settings = WPMailSMTP.Admin.Settings || ( function( document, w
 				return;
 			}
 
-			var $overlap = $( '.wp-mail-smtp-page-logs-archive, .wp-mail-smtp-tab-tools-action-scheduler, .wp-mail-smtp-page-reports, .wp-mail-smtp-tab-tools-debug-events' ),
-				wpfooterTop = $wpfooter.offset().top,
-				wpfooterBottom = wpfooterTop + $wpfooter.height(),
-				overlapBottom = $overlap.length > 0 ? $overlap.offset().top + $overlap.height() + 85 : 0;
+			var $overlap = $(
+				'.wp-mail-smtp-page-logs-archive, ' +
+				'.wp-mail-smtp-tab-tools-action-scheduler, ' +
+				'.wp-mail-smtp-page-reports, ' +
+				'.wp-mail-smtp-tab-tools-debug-events, ' +
+				'.wp-mail-smtp-tab-connections'
+			);
 
 			// Hide menu if scrolled down to the bottom of the page or overlap some critical controls.
 			$( window ).on( 'resize scroll', _.debounce( function() {
 
-				var viewTop = $( window ).scrollTop(),
+				var wpfooterTop = $wpfooter.offset().top,
+					wpfooterBottom = wpfooterTop + $wpfooter.height(),
+					overlapBottom = $overlap.length > 0 ? $overlap.offset().top + $overlap.height() + 85 : 0,
+					viewTop = $( window ).scrollTop(),
 					viewBottom = viewTop + $( window ).height();
 
 				if ( wpfooterBottom <= viewBottom && wpfooterTop >= viewTop && overlapBottom > viewBottom ) {

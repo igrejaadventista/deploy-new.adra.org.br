@@ -86,13 +86,14 @@ class Sources {
 				break;
 
 			case 'wp_object':
-
-				$object_id = jet_engine()->listings->data->get_current_object_id( get_queried_object() );
+				$object_id = jet_engine()->listings->data->get_current_object_id(
+					jet_engine()->listings->objects_stack->get_root_object()
+				);
 				break;
 
 			default:
 			
-				$object_id = apply_filters( 'jet-engine/relations/object-id-by-source/' . $source, false );
+				$object_id = apply_filters( 'jet-engine/relations/object-id-by-source/' . $source, false, $var );
 				break;
 		}
 

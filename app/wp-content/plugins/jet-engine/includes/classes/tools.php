@@ -7,20 +7,24 @@ class Jet_Engine_Tools {
 
 	/**
 	 * Process
+	 *
 	 * @param  [type] $filename [description]
-	 * @param  string $file     [description]
+	 * @param string $file [description]
+	 *
 	 * @return [type]           [description]
 	 */
 	public static function file_download( $filename = null, $file = '', $type = 'application/json' ) {
 
-		set_time_limit( 0 );
+		if ( false === strpos( ini_get( 'disable_functions' ), 'set_time_limit' ) ) {
+			set_time_limit( 0 );
+		}
 
 		@session_write_close();
 
-		if( function_exists( 'apache_setenv' ) ) {
+		if ( function_exists( 'apache_setenv' ) ) {
 			$variable = 'no-gzip';
-			$value = 1;
-			@apache_setenv($variable, $value);
+			$value    = 1;
+			@apache_setenv( $variable, $value );
 		}
 
 		@ini_set( 'zlib.output_compression', 'Off' );
@@ -47,7 +51,7 @@ class Jet_Engine_Tools {
 	 * Add query arguments string by query arguments array
 	 *
 	 * @param [type] $url      [description]
-	 * @param array  $settings [description]
+	 * @param array $settings [description]
 	 */
 	public static function add_query_args_by_settings( $url = null, $settings = array() ) {
 
@@ -65,7 +69,7 @@ class Jet_Engine_Tools {
 		$final_query_args = array();
 
 		foreach ( $query_args as $arg ) {
-			$arg = explode( '=', $arg );
+			$arg = explode( '=', $arg, 2 );
 
 			if ( 1 < count( $arg ) ) {
 				$final_query_args[ $arg[0] ] = jet_engine()->listings->macros->do_macros( $arg[1], $url );
@@ -74,10 +78,66 @@ class Jet_Engine_Tools {
 		}
 
 		if ( ! empty( $final_query_args ) ) {
+
+			// To prevent errors on PHP 8.1+
+			if ( is_null( $url ) ) {
+				$url = '';
+			}
+
 			$url = add_query_arg( $final_query_args, $url );
+
 		}
 
 		return $url;
+
+	}
+
+	/**
+	 * Get options prepared to use by JetEngine fields from the callback
+	 * 
+	 * @param  [type] $callback [description]
+	 * @return [type]           [description]
+	 */
+	public static function get_options_from_callback( $callback = null, $is_blocks = false ) {
+		
+		if ( ! is_callable( $callback ) ) {
+			return [];
+		}
+
+		$options = call_user_func( $callback );
+
+		foreach ( $options as $value => $option ) {
+
+			if ( $is_blocks ) {
+				if ( ! is_array( $option ) ) {
+					$options[ $value ] = [
+						'value' => $value,
+						'label' => $option,
+					];
+				} else {
+
+					$value = isset( $option['value'] ) ? $option['value'] : $value;
+					$label = isset( $option['label'] ) ? $option['label'] : array_values( $option )[0];
+					
+					$options[ $value ] = [
+						'value' => $value,
+						'label' => $label,
+					];
+				}
+			} else {
+				if ( ! is_array( $option ) ) {
+					$options[ $value ] = $option;
+				} else {
+					$options[ $value ] = isset( $option['label'] ) ? $option['label'] : array_values( $option )[0];
+				}
+			}
+		}
+
+		if ( $is_blocks ) {
+			return array_values( $options );
+		} else {
+			return $options;
+		}
 
 	}
 
@@ -86,8 +146,74 @@ class Jet_Engine_Tools {
 	}
 
 	public static function sanitize_html_tag( $input ) {
-		$available_tags = array( 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'a', 'section', 'header', 'footer', 'main', 'b', 'em', 'i', 'nav', 'article', 'aside', 'tr', 'ul', 'ol', 'li' );
+		$available_tags = array(
+			'div',
+			'h1',
+			'h2',
+			'h3',
+			'h4',
+			'h5',
+			'h6',
+			'p',
+			'span',
+			'a',
+			'section',
+			'header',
+			'footer',
+			'main',
+			'b',
+			'em',
+			'i',
+			'nav',
+			'article',
+			'aside',
+			'tr',
+			'ul',
+			'ol',
+			'li'
+		);
+
 		return in_array( strtolower( $input ), $available_tags ) ? $input : 'div';
+	}
+
+	public static function prepare_controls_for_js( $controls = array() ) {
+
+		$result = array();
+
+		foreach ( $controls as $key => $data ) {
+
+			$data['name'] = $key;
+
+			if ( ! empty( $data['options'] ) ) {
+
+				if ( ! empty( $data['add_placeholder'] ) ) {
+					$data['options'] = array_merge( array( '' => $data['add_placeholder'] ), $data['options'] );
+				}
+
+				$data['options'] = self::prepare_list_for_js( $data['options'], ARRAY_A );
+
+			}
+
+			if ( ! empty( $data['groups'] ) ) {
+
+				$groups = array();
+
+				foreach ( $data['groups'] as $group ) {
+					$groups[] = array(
+						'label'  => $group['label'],
+						'values' => self::prepare_list_for_js( $group['options'], ARRAY_A ),
+					);
+				}
+
+				$data['groups'] = $groups;
+
+			}
+
+			$result[] = $data;
+		}
+
+		return $result;
+
 	}
 
 	/**
@@ -112,9 +238,19 @@ class Jet_Engine_Tools {
 	 *
 	 * @return [type] [description]
 	 */
-	public static function get_taxonomies_for_js( $key = false ) {
-		$taxonomies = get_taxonomies( array(), 'objects' );
-		return self::prepare_list_for_js( $taxonomies, 'name', 'label', $key );
+	public static function get_taxonomies_for_js( $key = false, $with_slug = false ) {
+		
+		$taxonomies          = get_taxonomies( array(), 'objects' );
+		$prepared_taxonomies = self::prepare_list_for_js( $taxonomies, 'name', 'label', $key );
+
+		if ( $with_slug ) {
+			return array_map( function( $item ) {
+				$item['label'] = $item['label'] . ' (' . $item['value'] . ')';
+				return $item;
+			}, $prepared_taxonomies );
+		}
+
+		return $prepared_taxonomies;
 	}
 
 	/**
@@ -122,7 +258,7 @@ class Jet_Engine_Tools {
 	 */
 	public static function get_user_roles_for_js() {
 
-		$roles = self::get_user_roles();
+		$roles  = self::get_user_roles();
 		$result = array();
 
 		foreach ( $roles as $role => $label ) {
@@ -252,22 +388,50 @@ class Jet_Engine_Tools {
 
 			echo '<div class="' . $icon_class . ' is-svg-icon"' . $custom_atts_string . '>';
 
-				$mime = get_post_mime_type( $icon );
+			$mime = get_post_mime_type( $icon );
 
-				if ( 'image/svg+xml' === $mime ) {
-					$file = get_attached_file( $icon );
+			if ( 'image/svg+xml' === $mime ) {
+				$file = get_attached_file( $icon );
 
-					if ( file_exists( $file ) ) {
-						include $file;
-					}
-
-				} else {
-					echo wp_get_attachment_image( $icon, 'full' );
+				if ( file_exists( $file ) ) {
+					include $file;
 				}
+
+			} else {
+				echo wp_get_attachment_image( $icon, 'full' );
+			}
 
 			echo '</div>';
 
 			return ob_get_clean();
+
+		}
+		// Render Bricks svg icon
+		elseif ( ! is_array( $icon ) && false !== str_contains( $icon, '<svg' ) ) {
+
+			ob_start();
+
+			echo '<div class="' . $icon_class . ' is-svg-icon"' . $custom_atts_string . '>';
+			echo $icon;
+			echo '</div>';
+
+			return ob_get_clean();
+
+		}
+		// Render Bricks font icon
+		elseif ( ! is_array( $icon ) && false !== str_contains( $icon, '<i' ) ) {
+
+			ob_start();
+
+			echo '<div class="' . $icon_class . '">';
+			echo $icon;
+			echo '</div>';
+
+			return ob_get_clean();
+		}
+		// Bricks font icon with array value
+		elseif ( is_array( $icon ) && isset( $icon['library'] ) && isset( $icon['icon'] ) ) {
+			return sprintf( '<div class="%1$s"><i class="%2$s"></i></div>', $icon_class, $icon['icon'] );
 		}
 
 		if ( empty( $icon['value'] ) ) {
@@ -279,7 +443,7 @@ class Jet_Engine_Tools {
 		if ( $is_new ) {
 			ob_start();
 
-			$custom_atts['class'] = $icon_class;
+			$custom_atts['class']       = $icon_class;
 			$custom_atts['aria-hidden'] = 'true';
 
 			Elementor\Icons_Manager::render_icon( $icon, $custom_atts );
@@ -287,7 +451,7 @@ class Jet_Engine_Tools {
 			$html = ob_get_clean();
 
 			$is_svg_library = 'svg' === $icon['library'];
-			$is_svg_inline = false !== strpos( $html, 'e-font-icon-svg' );
+			$is_svg_inline  = false !== strpos( $html, 'e-font-icon-svg' );
 
 			if ( $is_svg_library || $is_svg_inline ) {
 
@@ -309,7 +473,8 @@ class Jet_Engine_Tools {
 	/**
 	 * Get html attributes string.
 	 *
-	 * @param  array $attrs
+	 * @param array $attrs
+	 *
 	 * @return string
 	 */
 	public static function get_attr_string( $attrs ) {
@@ -329,7 +494,8 @@ class Jet_Engine_Tools {
 	/**
 	 * Check if is valid timestamp
 	 *
-	 * @param  mixed $timestamp
+	 * @param mixed $timestamp
+	 *
 	 * @return boolean
 	 */
 	public static function is_valid_timestamp( $timestamp ) {
@@ -339,15 +505,16 @@ class Jet_Engine_Tools {
 		}
 
 		return ( ( string ) ( int ) $timestamp === $timestamp || ( int ) $timestamp === $timestamp )
-			&& ( $timestamp <= PHP_INT_MAX )
-			&& ( $timestamp >= ~PHP_INT_MAX );
+		       && ( $timestamp <= PHP_INT_MAX )
+		       && ( $timestamp >= ~PHP_INT_MAX );
 	}
 
 	/**
 	 * Checks a value for being empty.
 	 *
-	 * @param  mixed $source
-	 * @param  bool|string $key
+	 * @param mixed $source
+	 * @param bool|string $key
+	 *
 	 * @return bool
 	 */
 	public static function is_empty( $source = null, $key = false ) {
@@ -376,8 +543,9 @@ class Jet_Engine_Tools {
 	/**
 	 * Returns allowed operatos list in the given format
 	 *
-	 * @param  array  $exclude excluded operators list
+	 * @param array $exclude excluded operators list
 	 * @param  [type] $format  ARRAY_N or ARRAY_A
+	 *
 	 * @return [type]          [description]
 	 */
 	public static function operators_list( $exclude = array(), $format = ARRAY_N ) {
@@ -397,6 +565,8 @@ class Jet_Engine_Tools {
 			'NOT BETWEEN' => __( 'Not between', 'jet-engine' ),
 			'EXISTS'      => __( 'Exists', 'jet-engine' ),
 			'NOT EXISTS'  => __( 'Not exists', 'jet-engine' ),
+			'REGEXP'      => __( 'Regexp', 'jet-engine' ),
+			'NOT REGEXP'  => __( 'Not regexp', 'jet-engine' ),
 		);
 
 		$allowed = array_diff( array_keys( $operators ), $exclude );
@@ -422,9 +592,10 @@ class Jet_Engine_Tools {
 	}
 
 	/**
-	 * Returns allowed data tpes list in the given format
+	 * Returns allowed data types list in the given format
 	 *
 	 * @param  [type] $format  ARRAY_N or ARRAY_A
+	 *
 	 * @return [type]          [description]
 	 */
 	public static function data_types_list( $format = ARRAY_N ) {
@@ -463,36 +634,28 @@ class Jet_Engine_Tools {
 
 	public static function get_post_statuses_for_js() {
 
-		return array(
+		$statuses = array(
 			array(
 				'value' => 'any',
 				'label' => __( 'Any', 'jet-engine' ),
 			),
-			array(
-				'value' => 'publish',
-				'label' => __( 'Publish', 'jet-engine' ),
-			),
-			array(
-				'value' => 'pending',
-				'label' => __( 'Pending', 'jet-engine' ),
-			),
-			array(
-				'value' => 'draft',
-				'label' => __( 'Draft', 'jet-engine' ),
-			),
-			array(
-				'value' => 'future',
-				'label' => __( 'Future', 'jet-engine' ),
-			),
-			array(
-				'value' => 'private',
-				'label' => __( 'Private', 'jet-engine' ),
-			),
-			array(
-				'value' => 'trash',
-				'label' => __( 'Trash', 'jet-engine' ),
-			)
 		);
+
+		$labels_map = array(
+			'future' => __( 'Future', 'jet-engine' ),
+		);
+
+		$post_statuses = get_post_stati( array( 'show_in_admin_status_list' => true ), 'objects' );
+		$post_statuses = apply_filters( 'jet-engine/tools/post-statuses', $post_statuses );
+
+		foreach ( $post_statuses as $post_status => $post_status_obj ) {
+			$statuses[] = array(
+				'value' => $post_status,
+				'label' => sprintf( '%s (%s)', $labels_map[ $post_status ] ?? $post_status_obj->label, $post_status ),
+			);
+		}
+
+		return $statuses;
 
 	}
 
@@ -501,10 +664,68 @@ class Jet_Engine_Tools {
 	}
 
 	/**
+	 * Return registered image sizes array for options
+	 * 
+	 * @param  string $context [description]
+	 * @return [type]          [description]
+	 */
+	public static function get_image_sizes( $context = 'elementor' ) {
+
+		global $_wp_additional_image_sizes;
+
+		$sizes         = get_intermediate_image_sizes();
+		$result        = array();
+		$blocks_result = array();
+
+		foreach ( $sizes as $size ) {
+			if ( in_array( $size, array( 'thumbnail', 'medium', 'medium_large', 'large' ) ) ) {
+				$label           = ucwords( trim( str_replace( array( '-', '_' ), array( ' ', ' ' ), $size ) ) );
+				$result[ $size ] = $label;
+				$blocks_result[] = array(
+					'value' => $size,
+					'label' => $label,
+				);
+
+			} else {
+
+				$label = sprintf(
+					'%1$s (%2$sx%3$s)',
+					ucwords( trim( str_replace( array( '-', '_' ), array( ' ', ' ' ), $size ) ) ),
+					$_wp_additional_image_sizes[ $size ]['width'],
+					$_wp_additional_image_sizes[ $size ]['height']
+				);
+
+				$result[ $size ] = $label;
+				$blocks_result[] = array(
+					'value' => $size,
+					'label' => $label,
+				);
+			}
+		}
+
+		$result        = array_merge( array( 'full' => __( 'Full', 'jet-engine' ), ), $result );
+		$blocks_result = array_merge(
+			array(
+				array(
+					'value' => 'full',
+					'label' => __( 'Full', 'jet-engine' ),
+				)
+			),
+			$blocks_result
+		);
+
+		if ( 'blocks' === $context ) {
+			return $blocks_result;
+		} else {
+			return $result;
+		}
+	}
+
+	/**
 	 * Get attachment image data array from raw data.
 	 *
-	 * @param mixed  $img_data Image data(id, url, array('id'=>'','url'=>'')).
-	 * @param string $include  Includes keys(id, url, all).
+	 * @param mixed $img_data Image data(id, url, array('id'=>'','url'=>'')).
+	 * @param string $include Includes keys(id, url, all).
 	 *
 	 * @return array|bool
 	 */
@@ -516,78 +737,96 @@ class Jet_Engine_Tools {
 			return $result;
 		}
 
-		if ( is_numeric( $img_data ) ) {
+		switch ( $include ) {
+			case 'id':
 
-			switch ( $include ) {
-				case 'id':
-					$result = array(
-						'id' => $img_data,
-					);
-					break;
+				$id = null;
 
-				case 'url':
-					$result = array(
-						'url' => wp_get_attachment_url( $img_data ),
-					);
-					break;
+				if ( is_numeric( $img_data ) ) {
+					$id = $img_data;
+				} elseif ( is_array( $img_data ) && isset( $img_data['id'] ) && isset( $img_data['url'] ) ) {
+					$id = $img_data['id'];
+				} else {
+					$id = attachment_url_to_postid( $img_data );
+				}
 
-				default:
-					$result = array(
-						'id'  => $img_data,
-						'url' => wp_get_attachment_url( $img_data ),
-					);
-			}
+				$result = array(
+					'id' => $id,
+				);
+				break;
 
-		} elseif ( filter_var( $img_data, FILTER_VALIDATE_URL ) ) {
+			case 'url':
 
-			switch ( $include ) {
-				case 'id':
-					$result = array(
-						'id' => attachment_url_to_postid( $img_data ),
-					);
-					break;
+				$url = null;
 
-				case 'url':
-					$result = array(
-						'url' => $img_data,
-					);
-					break;
+				if ( is_numeric( $img_data ) ) {
+					$url = wp_get_attachment_url( $img_data );
+				} elseif ( is_array( $img_data ) && isset( $img_data['id'] ) && isset( $img_data['url'] ) ) {
+					$url = $img_data['url'];
+				} else {
+					$url = $img_data;
+				}
 
-				default:
-					$result = array(
-						'id'  => attachment_url_to_postid( $img_data ),
-						'url' => $img_data,
-					);
-			}
+				$result = array(
+					'url' => $url,
+				);
+				break;
 
-		} elseif ( is_array( $img_data ) && isset( $img_data['id'] ) && isset( $img_data['url'] ) ) {
+			default:
 
-			switch ( $include ) {
-				case 'id':
-					$result = array(
-						'id' => $img_data['id'],
-					);
-					break;
+				$id  = null;
+				$url = null;
 
-				case 'url':
-					$result = array(
-						'url' => $img_data['url'],
-					);
-					break;
+				if ( is_numeric( $img_data ) ) {
+					$id  = $img_data;
+					$url = wp_get_attachment_url( $img_data );
+				} elseif ( is_array( $img_data ) && isset( $img_data['id'] ) && isset( $img_data['url'] ) ) {
+					$id  = $img_data['id'];
+					$url = $img_data['url'];
+				} else {
+					$id  = attachment_url_to_postid( $img_data );
+					$url = $img_data;
+				}
 
-				default:
-					$result = $img_data;
-			}
-
+				$result = array(
+					'id'  => $id,
+					'url' => $url,
+				);
 		}
 
 		return $result;
 	}
 
 	/**
+	 * Allows to insert new part pf array ($insert) into source array ($source) after gieven key ($after)
+	 * @param  array  $source [description]
+	 * @param  [type] $after  [description]
+	 * @param  array  $insert [description]
+	 * @return [type]         [description]
+	 */
+	public static function insert_after( $source = array(), $after = null, $insert = array() ) {
+
+		$keys   = array_keys( $source );
+		$index  = array_search( $after, $keys );
+
+		if ( ! $source ) {
+			$source = array();
+		}
+
+		if ( false === $index ) {
+			return $source + $insert;
+		}
+
+		$offset = $index + 1;
+
+		return array_slice( $source, 0, $offset, true ) + $insert + array_slice( $source, $offset, null, true );
+	}
+
+	/**
 	 * Convert PHP date format to JS datepicker format. Ex.: Y-m-d => yy-mm-dd
 	 *
-	 * @param  string $format PHP date format.
+	 * @param string $format PHP date format.
+	 *
 	 * @return string
 	 */
 	public static function convert_date_format_php_to_js( $format = '' ) {
@@ -631,6 +870,239 @@ class Jet_Engine_Tools {
 		}, $result );
 
 		return $result;
+	}
+
+	/**
+	 * Returns allowed `rel` attribute options in the given format
+	 *
+	 * @param  string $format ARRAY_N or ARRAY_A
+	 * @return array
+	 */
+	public static function get_rel_attr_options( $format = ARRAY_A ) {
+
+		$options = array(
+			''           => esc_html__( 'No', 'jet-engine' ),
+			'alternate'  => esc_html__( 'Alternate', 'jet-engine' ),
+			'author'     => esc_html__( 'Author', 'jet-engine' ),
+			'bookmark'   => esc_html__( 'Bookmark', 'jet-engine' ),
+			'external'   => esc_html__( 'External', 'jet-engine' ),
+			'help'       => esc_html__( 'Help', 'jet-engine' ),
+			'license'    => esc_html__( 'License', 'jet-engine' ),
+			'next'       => esc_html__( 'Next', 'jet-engine' ),
+			'nofollow'   => esc_html__( 'Nofollow', 'jet-engine' ),
+			'noreferrer' => esc_html__( 'Noreferrer', 'jet-engine' ),
+			'noopener'   => esc_html__( 'Noopener', 'jet-engine' ),
+			'prev'       => esc_html__( 'Prev', 'jet-engine' ),
+			'search'     => esc_html__( 'Search', 'jet-engine' ),
+			'tag'        => esc_html__( 'Tag', 'jet-engine' ),
+		);
+
+		if ( ARRAY_N === $format ) {
+
+			$result = array();
+
+			foreach ( $options as $value => $label ) {
+				$result[] = array(
+					'value' => $value,
+					'label' => $label,
+				);
+			}
+
+			return $result;
+		}
+
+		return $options;
+	}
+
+	/**
+	 * Duplicate of `Jet_Engine_Tools::insert_after`.
+	 */
+	public static function array_insert_after( $source = array(), $after = null, $insert = array() ) {
+		return self::insert_after( $source, $after, $insert );
+	}
+
+	/**
+	 * Returns list of menu positions with index and appropriate labels
+	 * @return [type] [description]
+	 */
+	public static function get_available_menu_positions() {
+		return apply_filters( 'jet-engine/tools/available-menu-positions', array(
+			array(
+				'value' => 3,
+				'label' => __( 'Dashboard', 'jet-engine' ),
+			),
+			array(
+				'value' => 4,
+				'label' => __( 'First Separator', 'jet-engine' ),
+			),
+			array(
+				'value' => 6,
+				'label' => __( 'Posts', 'jet-engine' ),
+			),
+			array(
+				'value' => 11,
+				'label' => __( 'Media', 'jet-engine' ),
+			),
+			array(
+				'value' => 16,
+				'label' => __( 'Links', 'jet-engine' ),
+			),
+			array(
+				'value' => 21,
+				'label' => __( 'Pages', 'jet-engine' ),
+			),
+			array(
+				'value' => 26,
+				'label' => __( 'Comments', 'jet-engine' ),
+			),
+			array(
+				'value' => 59,
+				'label' => __( 'Second Separator', 'jet-engine' ),
+			),
+			array(
+				'value' => 61,
+				'label' => __( 'Appearance', 'jet-engine' ),
+			),
+			array(
+				'value' => 66,
+				'label' => __( 'Plugins', 'jet-engine' ),
+			),
+			array(
+				'value' => 71,
+				'label' => __( 'Users', 'jet-engine' ),
+			),
+			array(
+				'value' => 76,
+				'label' => __( 'Tools', 'jet-engine' ),
+			),
+			array(
+				'value' => 81,
+				'label' => __( 'Settings', 'jet-engine' ),
+			),
+			array(
+				'value' => 100,
+				'label' => __( 'Third Separator', 'jet-engine' ),
+			),
+		) );
+	}
+
+	/**
+	 * Returns default menu poistion for JetEngine user-created instance.
+	 * Main purpose - compatibility with JetDashboard module
+	 * 
+	 * @return [type] [description]
+	 */
+	public static function get_default_menu_position() {
+		return apply_filters( 'jet-engine/tools/default-menu-position', '' );
+	}
+
+	/**
+	 * Ensures a string is a valid SQL 'order by' clause.
+	 *
+	 * Accepts one or more columns, with or without a sort order (ASC / DESC).
+	 * e.g. 'column_1', 'column_1, column_2', 'column_1 ASC, column_2 DESC' etc.
+	 *
+	 * Also accepts 'posts.column_1', 'posts.column_1, column_2', 'posts.column_1 ASC, column_2 DESC' etc.
+	 *
+	 * Also accepts 'RAND()'.
+	 *
+	 * @param string $orderby Order by clause to be validated.
+	 * @return string|false Returns $orderby if valid, false otherwise.
+	 */
+	public static function sanitize_sql_orderby( $orderby ) {
+		if ( preg_match( '/^\s*(([a-z0-9_\.]+|`[a-z0-9_\.]+`)(\s+(ASC|DESC))?\s*(,\s*(?=[a-z0-9_`\.])|$))+$/i', $orderby ) || preg_match( '/^\s*RAND\(\s*\)\s*$/i', $orderby ) ) {
+			return $orderby;
+		}
+		return false;
+	}
+
+	public static function delete_metadata_by_object_where( $meta_type = null, $meta_key = null, $object_where = array() ) {
+
+		if ( empty( $meta_type )  || empty( $meta_key ) || empty( $object_where ) ) {
+			return false;
+		}
+
+		if ( ! in_array( $meta_type, array( 'post', 'term', 'user' ) ) ) {
+			return false;
+		}
+
+		global $wpdb;
+
+		$raw_meta_table   = $meta_type . 'meta';
+		$raw_object_table = ( 'term' === $meta_type ) ? 'term_taxonomy' : $meta_type . 's';
+
+		if ( empty( $wpdb->$raw_meta_table ) || empty( $wpdb->$raw_object_table ) ) {
+			return false;
+		}
+
+		$meta_table    = $wpdb->$raw_meta_table;
+		$object_table  = $wpdb->$raw_object_table;
+		$meta_column   = sanitize_key( $meta_type . '_id' );
+		$object_column = ( 'term' === $meta_type ) ? 'term_id' : 'ID';
+		$id_column     = ( 'user' === $meta_type ) ? 'umeta_id' : 'meta_id';
+
+		$query = "SELECT $raw_meta_table.$id_column FROM $meta_table AS $raw_meta_table ";
+		$query .= "INNER JOIN $object_table AS $raw_object_table ON $raw_object_table.$object_column = $raw_meta_table.$meta_column ";
+
+		$query .= "WHERE ";
+
+		$where = array(
+			"$raw_meta_table.meta_key" => $meta_key
+		);
+
+		foreach ( $object_where as $column => $value ) {
+			$where["$raw_object_table.$column"] = $value;
+		}
+
+		$glue = '';
+
+		foreach ( $where as $column => $value ) {
+
+			if ( empty( $value ) ) {
+				continue;
+			}
+
+			if ( is_array( $value ) ) {
+				$operator = 'IN';
+				$value = array_map( 'trim', $value );
+				$value = array_map( function ( $item ) {
+					return sprintf( "'%s'", esc_sql( $item ) );
+				}, $value );
+				$value = sprintf( '( %s )', implode( ', ', $value ) );
+			} else {
+				$operator = '=';
+				$value    = sprintf( "'%s'", esc_sql( $value ) );
+			}
+
+			$column = esc_sql( $column );
+			$query .= $glue;
+			$query .= "$column $operator $value";
+			$glue = ' AND ';
+		}
+
+		$meta_ids = $wpdb->get_col( $query );
+
+		if ( ! count( $meta_ids ) ) {
+			return false;
+		}
+
+		$object_ids_query = str_replace( "SELECT $raw_meta_table.$id_column", "SELECT $raw_meta_table.$meta_column", $query );
+
+		$object_ids = $wpdb->get_col( $object_ids_query );
+		$object_ids = array_unique( $object_ids );
+		$object_ids = array_values( $object_ids );
+
+		$delete_query = "DELETE FROM $meta_table WHERE $id_column IN( " . implode( ',', $meta_ids ) . " )";
+
+		$count = $wpdb->query( $delete_query );
+
+		if ( ! $count ) {
+			return false;
+		}
+
+		wp_cache_delete_multiple( (array) $object_ids, $meta_type . '_meta' );
+
+		return true;
 	}
 
 }

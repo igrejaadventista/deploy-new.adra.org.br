@@ -35,6 +35,11 @@ class Type_Pages {
 
 			if ( $item_id ) {
 				$item = $this->factory->db->get_item( $item_id );
+
+				if ( empty( $item ) ) {
+					wp_die( 'You attempted to edit an item that does not exist. Perhaps it was deleted?' );
+				}
+
 			} else {
 				$item = array();
 			}
@@ -50,6 +55,15 @@ class Type_Pages {
 
 			add_action( 'admin_enqueue_scripts', array( $this, 'edit_page_assets' ) );
 
+		} else if ( $this->is_type_page() ) {
+
+			// Add screen options.
+			add_action( 'current_screen', array( $this, 'add_screen_options' ) );
+
+			add_filter(
+				'set_screen_option_' . $this->get_per_page_option_name(),
+				array( $this, 'set_items_per_page_option' ), 10, 3
+			);
 		}
 
 	}
@@ -67,12 +81,13 @@ class Type_Pages {
 		}
 
 		return new Pages\Edit_Item_Page( array(
-			'slug'       => $this->get_page_slug(),
-			'action'     => esc_attr( $action ),
-			'fields'     => $this->factory->fields,
-			'nonce'      => $this->nonce(),
-			'capability' => $this->factory->get_arg( 'capability', 'manage_options' ),
-			'item'       => $item,
+			'slug'             => $this->get_page_slug(),
+			'action'           => esc_attr( $action ),
+			'fields'           => $this->factory->fields,
+			'nonce'            => $this->nonce(),
+			'capability'       => $this->factory->get_arg( 'capability', 'manage_options' ),
+			'item'             => $item,
+			'hide_field_names' => ! empty( $this->factory->args['hide_field_names'] ) ? $this->factory->args['hide_field_names'] : false,
 		), $this );
 
 	}
@@ -171,7 +186,8 @@ class Type_Pages {
 	 * @return boolean [description]
 	 */
 	public function is_type_page() {
-		return ( ! empty( $_GET['page'] ) && $this->get_page_slug() === $_GET['page'] ) || ( wp_doing_ajax() && $_REQUEST['action'] === $this->get_page_slug() );
+		return ( ! empty( $_GET['page'] ) && $this->get_page_slug() === $_GET['page'] )
+				|| ( wp_doing_ajax() && ! empty( $_REQUEST['action'] ) && $_REQUEST['action'] === $this->get_page_slug() );
 	}
 
 	/**
@@ -266,6 +282,7 @@ class Type_Pages {
 				}
 				.jet-cct-actions {
 					display: flex;
+					flex-wrap: wrap;
 				}
 			</style>
 			<div class="cct-heading" style="">
@@ -303,6 +320,24 @@ class Type_Pages {
 		</div>
 		<?php
 
+	}
+
+	public function add_screen_options() {
+		add_screen_option(
+			'per_page',
+			array(
+				'default' => 30,
+				'option'  => $this->get_per_page_option_name(),
+			)
+		);
+	}
+
+	public function get_per_page_option_name() {
+		return str_replace( '-', '_', $this->get_page_slug() ) . '_per_page';
+	}
+
+	public function set_items_per_page_option( $status, $option, $value ) {
+		return $value;
 	}
 
 }

@@ -17,7 +17,7 @@
 	&__animated-text-item {
 		display: flex;
 		flex-flow: row wrap;
-		justify-content: flex-start;
+		justify-content: center;
 		position: absolute;
 		top: 0;
 		left: 0;
@@ -108,9 +108,9 @@
 
 		.jet-animated-text__animated-text-item {
 
-			overflow: hidden;
-
 			span {
+
+				overflow: hidden;
 				transform-origin: 0 50%;
 			}
 

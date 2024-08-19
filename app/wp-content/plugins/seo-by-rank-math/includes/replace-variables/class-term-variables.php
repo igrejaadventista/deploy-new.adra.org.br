@@ -10,8 +10,8 @@
 
 namespace RankMath\Replace_Variables;
 
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -25,8 +25,9 @@ class Term_Variables extends Basic_Variables {
 	 */
 	public function setup_term_variables() {
 		if ( $this->is_term_edit ) {
-			$tag_id = Param::request( 'tag_ID', 0, FILTER_VALIDATE_INT );
-			$term   = get_term( $tag_id, $GLOBALS['taxnow'], OBJECT );
+			$tag_id     = Param::request( 'tag_ID', 0, FILTER_VALIDATE_INT );
+			$term       = get_term( $tag_id, $GLOBALS['taxnow'], OBJECT );
+			$this->args = $term;
 		}
 
 		$this->register_replacement(
@@ -36,6 +37,7 @@ class Term_Variables extends Basic_Variables {
 				'description' => esc_html__( 'Current term name', 'rank-math' ),
 				'variable'    => 'term',
 				'example'     => $this->is_term_edit ? $term->name : esc_html__( 'Example Term', 'rank-math' ),
+				'nocache'     => true,
 			],
 			[ $this, 'get_term' ]
 		);
@@ -117,9 +119,7 @@ class Term_Variables extends Basic_Variables {
 	 * @return string|null
 	 */
 	public function get_custom_term( $taxonomy ) {
-		global $post;
-
-		return Str::is_non_empty( $taxonomy ) ? $this->get_terms( $post->ID, $taxonomy, true, [], 'name' ) : null;
+		return Str::is_non_empty( $taxonomy ) ? $this->get_terms( $this->args->ID, $taxonomy, true, [], 'name' ) : null;
 	}
 
 	/**
@@ -130,8 +130,6 @@ class Term_Variables extends Basic_Variables {
 	 * @return string|null
 	 */
 	public function get_custom_term_desc( $taxonomy ) {
-		global $post;
-
-		return Str::is_non_empty( $taxonomy ) ? $this->get_terms( $post->ID, $taxonomy, true, [], 'description' ) : null;
+		return Str::is_non_empty( $taxonomy ) ? $this->get_terms( $this->args->ID, $taxonomy, true, [], 'description' ) : null;
 	}
 }

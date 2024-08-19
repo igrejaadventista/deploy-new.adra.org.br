@@ -10,10 +10,10 @@
 
 namespace RankMath;
 
+use RankMath\KB;
 use RankMath\Helper;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Arr;
-use MyThemeShop\Helpers\WordPress;
+use RankMath\Helpers\Arr;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -66,7 +66,7 @@ class Robots_Txt {
 					'icon'      => 'rm-icon rm-icon-robots',
 					'title'     => esc_html__( 'Edit robots.txt', 'rank-math' ),
 					/* translators: Link to kb article */
-					'desc'      => sprintf( esc_html__( 'Edit your robots.txt file to control what bots see. %s.', 'rank-math' ), '<a href="' . KB::get( 'edit-robotstxt' ) . '" target="_blank">' . esc_html__( 'Learn more', 'rank-math' ) . '</a>' ),
+					'desc'      => sprintf( esc_html__( 'Edit your robots.txt file to control what bots see. %s.', 'rank-math' ), '<a href="' . KB::get( 'edit-robotstxt', 'Options Panel Robots Tab' ) . '" target="_blank">' . esc_html__( 'Learn more', 'rank-math' ) . '</a>' ),
 					'file'      => dirname( __FILE__ ) . '/options.php',
 					'classes'   => 'rank-math-advanced-option',
 					'after_row' => '<div class="rank-math-desc">' . __( 'Leave the field empty to let WordPress handle the contents dynamically. If an actual robots.txt file is present in the root folder of your site, this option won\'t take effect and you have to edit the file directly, or delete it and then edit from here.', 'rank-math' ) . '</div>',
@@ -85,11 +85,11 @@ class Robots_Txt {
 	 * @return array
 	 */
 	public static function get_robots_data() {
-		$wp_filesystem = WordPress::get_filesystem();
+		$wp_filesystem = Helper::get_filesystem();
 		$public        = absint( get_option( 'blog_public' ) );
 
 		$default  = '# This file is automatically added by Rank Math SEO plugin to help a website index better';
-		$default .= "\n# More info: https://s.rankmath.com/home\n";
+		$default .= "\n# More info: " . KB::get( 'seo-suite', 'Robots' ) . "\n";
 		$default .= "User-Agent: *\n";
 		if ( 0 === $public ) {
 			$default .= "Disallow: /\n";

@@ -51,6 +51,8 @@ if ( ! class_exists( 'GFResults' ) ) {
 				require_once( GFCommon::get_base_path() . '/tooltips.php' );
 				add_filter( 'gform_tooltips', array( $this, 'add_tooltips' ) );
 
+				add_filter( 'admin_title', array( $this, 'set_unique_page_title' ), 100, 2 );
+
 			}
 
 		}
@@ -258,13 +260,13 @@ if ( ! class_exists( 'GFResults' ) ) {
 											'start_date' => array(
 												'label'   => esc_attr__( 'Start date', 'gravityforms' ),
 												'markup'  => '<div class="gform-settings-field gform-settings-field__date_time">
-																	<span class="gform-settings-input__container"><input type="text" id="gresults-results-filter-date-start" name="start" value="' . esc_attr( $start_date ) . '"/><button type="button" class="ui-datepicker-trigger"><span class="screen-reader-text">'.esc_html__( 'Open Date Picker', 'gravityforms' ).'</span><svg width="18" height="18" fill="#9092B2" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M13.0909 1.6364V1.231C13.0909.5513 13.6357 0 14.3182 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h.8254c.8997 0 1.6291.7349 1.6291 1.6288v13.106C18 17.2707 17.2721 18 16.3709 18H1.6291C.7294 18 0 17.2651 0 16.3712V3.2652c0-.8996.728-1.6288 1.6291-1.6288h.8254V1.231C2.4545.5513 2.9993 0 3.6818 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h2.4545V1.231C7.3636.5513 7.9084 0 8.591 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h3.2727zM1.6364 7.3636v9h14.7272v-9H1.6364z"></path></svg></button></span>
+																	<span class="gform-settings-input__container"><input type="text" id="gresults-results-filter-date-start" name="start" value="' . esc_attr( $start_date ) . '"/><button type="button" class="ui-datepicker-trigger"><span class="screen-reader-text">'.esc_html__( 'Open Date Picker', 'gravityforms' ).'</span><svg width="18" height="18" role="presentation" focusable="false" fill="#9092B2" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M13.0909 1.6364V1.231C13.0909.5513 13.6357 0 14.3182 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h.8254c.8997 0 1.6291.7349 1.6291 1.6288v13.106C18 17.2707 17.2721 18 16.3709 18H1.6291C.7294 18 0 17.2651 0 16.3712V3.2652c0-.8996.728-1.6288 1.6291-1.6288h.8254V1.231C2.4545.5513 2.9993 0 3.6818 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h2.4545V1.231C7.3636.5513 7.9084 0 8.591 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h3.2727zM1.6364 7.3636v9h14.7272v-9H1.6364z"></path></svg></button></span>
 																</div>',
 											),
 											'end_date'   => array(
 												'label'   => esc_attr__( 'End date', 'gravityforms' ),
 												'markup'  => '<div class="gform-settings-field gform-settings-field__date_time" >
-																	<span class="gform-settings-input__container"><input type="text" id="gresults-results-filter-date-end" name="end" value="' . esc_attr( $end_date ) . '"/><button type="button" class="ui-datepicker-trigger"><span class="screen-reader-text">'.esc_html__( 'Open Date Picker', 'gravityforms' ).'</span><svg width="18" height="18" fill="#9092B2" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M13.0909 1.6364V1.231C13.0909.5513 13.6357 0 14.3182 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h.8254c.8997 0 1.6291.7349 1.6291 1.6288v13.106C18 17.2707 17.2721 18 16.3709 18H1.6291C.7294 18 0 17.2651 0 16.3712V3.2652c0-.8996.728-1.6288 1.6291-1.6288h.8254V1.231C2.4545.5513 2.9993 0 3.6818 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h2.4545V1.231C7.3636.5513 7.9084 0 8.591 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h3.2727zM1.6364 7.3636v9h14.7272v-9H1.6364z"></path></svg></button></span>
+																	<span class="gform-settings-input__container"><input type="text" id="gresults-results-filter-date-end" name="end" value="' . esc_attr( $end_date ) . '"/><button type="button" class="ui-datepicker-trigger"><span class="screen-reader-text">'.esc_html__( 'Open Date Picker', 'gravityforms' ).'</span><svg width="18" height="18" role="presentation" focusable="false"  fill="#9092B2" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M13.0909 1.6364V1.231C13.0909.5513 13.6357 0 14.3182 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h.8254c.8997 0 1.6291.7349 1.6291 1.6288v13.106C18 17.2707 17.2721 18 16.3709 18H1.6291C.7294 18 0 17.2651 0 16.3712V3.2652c0-.8996.728-1.6288 1.6291-1.6288h.8254V1.231C2.4545.5513 2.9993 0 3.6818 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h2.4545V1.231C7.3636.5513 7.9084 0 8.591 0c.6778 0 1.2273.5468 1.2273 1.2311v.4053h3.2727zM1.6364 7.3636v9h14.7272v-9H1.6364z"></path></svg></button></span>
 																</div>',
 											),
 										);
@@ -886,6 +888,32 @@ if ( ! class_exists( 'GFResults' ) ) {
 			) ) ? GFSurvey::get_field_score( $field, $entry ) : 0;
 		}
 
+		/**
+		 * Sets a unique page title to the results page based on the title
+		 * and the form the user is viewing.
+		 * 
+		 * @since 2.8.16
+		 * 
+		 * @filter admin_title
+		 * 
+		 * @param string $admin_title The page title with extra context added.
+		 * @param string $title       The original page title. 
+		 * 
+		 * @return string
+		 */
+		public function set_unique_page_title( $admin_title, $title ) {
+			$form_id = rgget( 'id' );
+			if ( ! $form_id ) {
+				$forms   = RGFormsModel::get_forms( null, 'title' );
+				$form_id = ( ! empty( $forms ) ) ? $forms[0]->id : '';
+			}
+
+			$form        = GFAPI::get_form( $form_id );
+			$form_title  = rgar( $form, 'title', esc_html__( 'Form Not Found', 'gravityforms' ) );
+			$admin_title = sprintf( '%1$s &lsaquo; %2$s &lsaquo; %3$s', esc_html( $this->_title ), esc_html( $form_title ), esc_html( $admin_title ) );
+			
+			return $admin_title; 
+		}
 
 		public static function get_default_field_results( $form_id, $field, $search_criteria, &$offset, $page_size, &$more_remaining = false ) {
 			$field_results = '';

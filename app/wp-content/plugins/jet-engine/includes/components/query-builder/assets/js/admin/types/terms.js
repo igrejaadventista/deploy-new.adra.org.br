@@ -16,6 +16,7 @@
 				taxonomies: window.JetEngineQueryConfig.taxonomies,
 				operators: window.JetEngineQueryConfig.operators_list,
 				dataTypes: window.JetEngineQueryConfig.data_types,
+				orderbyOptions: window.JetEngineQueryConfig.orderby_options.terms,
 				query: {},
 				dynamicQuery: {},
 			};
@@ -44,9 +45,9 @@
 
 			this.presetMeta();
 
-			if ( undefined === this.query.hide_empty ) {
-				this.$set( this.query, 'hide_empty', true );
-			}
+			// if ( undefined === this.query.hide_empty ) {
+			// 	this.$set( this.query, 'hide_empty', true );
+			// }
 
 		},
 	} );

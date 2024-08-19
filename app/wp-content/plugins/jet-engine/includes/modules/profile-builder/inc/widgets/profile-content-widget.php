@@ -31,7 +31,7 @@ class Profile_Content_Widget extends \Elementor\Widget_Base {
 		return 'https://crocoblock.com/knowledge-base/article-category/jet-engine/?utm_source=jetengine&utm_medium=profile-menu&utm_campaign=need-help';
 	}
 
-	protected function _register_controls() {
+	protected function register_controls() {
 	}
 
 	protected function render() {

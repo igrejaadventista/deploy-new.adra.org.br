@@ -32,7 +32,7 @@ use InvalidArgumentException;
  * $point = new GeoPoint(37.423147, -122.085015);
  * ```
  */
-class GeoPoint
+class GeoPoint implements \JsonSerializable
 {
     /**
      * @var float
@@ -58,7 +58,7 @@ class GeoPoint
      *        in the constructor only. This switch exists to handle a rare case
      *        wherein a geopoint may be empty and is not intended for use from
      *        outside the client. **Defaults to** `false`.
-     * @throws InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function __construct($latitude, $longitude, $allowNull = \false)
     {
@@ -92,7 +92,7 @@ class GeoPoint
      *
      * @param int|float $latitude The new latitude
      * @return GeoPoint
-     * @throws InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function setLatitude($latitude)
     {
@@ -126,7 +126,7 @@ class GeoPoint
      *
      * @param float|int $longitude The new longitude value
      * @return GeoPoint
-     * @throws InvalidArgumentException
+     * @throws \InvalidArgumentException
      */
     public function setLongitude($longitude)
     {
@@ -152,7 +152,7 @@ class GeoPoint
      *
      * @param string $method the method name
      * @param array $args The method arguments
-     * @throws InvalidArgumentException
+     * @throws \InvalidArgumentException
      * @return void
      */
     private function checkContext($method, array $args)
@@ -179,5 +179,23 @@ class GeoPoint
             throw new InvalidArgumentException(\sprintf('Given %s must be a numeric value.', $type));
         }
         return $allowNull && $value === null ? $value : (float) $value;
+    }
+    /**
+     * Implement JsonSerializable by representing GeoPoint as a JSON-object:
+     *
+     * ```
+     * {
+     *   latitude: 31.778333
+     *   longitude: 35.229722
+     * }
+     * ```
+     *
+     * @return object
+     * @access private
+     */
+    #[\ReturnTypeWillChange]
+    public function jsonSerialize()
+    {
+        return (object) $this->point();
     }
 }

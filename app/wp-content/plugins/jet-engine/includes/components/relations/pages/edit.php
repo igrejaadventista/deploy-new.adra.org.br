@@ -83,6 +83,8 @@ if ( ! class_exists( 'Jet_Engine_Relations_Page_Edit' ) ) {
 						'quick_editable',
 						'width',
 						'default_val',
+						'revision_support',
+						'repeater_save_separate',
 					)
 				) );
 			}
@@ -149,6 +151,7 @@ if ( ! class_exists( 'Jet_Engine_Relations_Page_Edit' ) ) {
 					'legacy_relations'   => $this->get_existing_relations( $id, true ),
 					'post_types'         => \Jet_Engine_Tools::get_post_types_for_js(),
 					'object_types'       => jet_engine()->relations->types_helper->get_types_for_js(),
+					'rest_base'         => rest_url( '/jet-rel/' ),
 					'help_links'         => array(
 						array(
 							'url'   => 'https://crocoblock.com/knowledge-base/articles/how-to-choose-the-needed-post-relations-and-set-them-with-jetengine-plugin/?utm_source=jetengine&utm_medium=relations-page&utm_campaign=need-help',

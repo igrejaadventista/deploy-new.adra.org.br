@@ -46,6 +46,13 @@ class Media_Library extends Integration {
 	 * Init Media Library integration.
 	 */
 	public function init() {
+		Media_Library_Item::init_cache();
+	}
+
+	/**
+	 * @inheritDoc
+	 */
+	public function setup() {
 		// Filter from WordPress media library handling, plugin needs to be set up
 		add_filter( 'wp_unique_filename', array( $this, 'wp_unique_filename' ), 10, 3 );
 		add_filter( 'wp_update_attachment_metadata', array( $this, 'wp_update_attachment_metadata' ), 110, 2 );
@@ -91,7 +98,10 @@ class Media_Library extends Integration {
 		add_filter( 'as3cf_upload_object_key_as_private', array( $this, 'filter_upload_object_key_as_private' ), 10, 3 );
 		add_action( 'as3cf_pre_upload_object', array( $this, 'action_pre_upload_object' ), 10, 2 );
 
-		Media_Library_Item::init_cache();
+		if ( self::wp_check_filetype_broken() ) {
+			add_filter( 'shortcode_atts_audio', array( $this, 'filter_shortcode_atts' ), 10, 4 );
+			add_filter( 'shortcode_atts_video', array( $this, 'filter_shortcode_atts' ), 10, 4 );
+		}
 	}
 
 	/**
@@ -125,30 +135,70 @@ class Media_Library extends Integration {
 		}
 
 		// Protect against updates of partially formed metadata since WordPress 5.3.
-		// Checks whether new upload currently has no subsizes recorded but is expected to have subsizes during upload,
+		// Checks whether new upload currently is expected to have subsizes during upload,
 		// and if so, are any of its currently missing sizes part of the set.
-		if ( ! empty( $data ) && function_exists( 'wp_get_registered_image_subsizes' ) && function_exists( 'wp_get_missing_image_subsizes' ) ) {
+		if (
+			! empty( $data ) &&
+			function_exists( 'wp_get_registered_image_subsizes' ) &&
+			function_exists( 'wp_get_missing_image_subsizes' ) &&
+			wp_attachment_is_image( $post_id )
+		) {
 
 			/**
 			 * Plugin compat may require that we wait for wp_generate_attachment_metadata
 			 * to be run before proceeding with uploading. I.e. Regenerate Thumbnails requires this.
 			 *
-			 * @param bool True if we should wait AND generate_attachment_metadata hasn't run yet
+			 * @param bool $wait True if we should wait AND generate_attachment_metadata hasn't run yet
 			 */
 			if ( apply_filters( 'as3cf_wait_for_generate_attachment_metadata', false ) ) {
 				return $data;
 			}
 
-			if ( empty( $data['sizes'] ) && wp_attachment_is_image( $post_id ) ) {
+			// There is no unified way of checking whether subsizes are expected, so we have to duplicate WordPress code here.
+			$new_sizes = wp_get_registered_image_subsizes();
+			$new_sizes = apply_filters( 'intermediate_image_sizes_advanced', $new_sizes, $data, $post_id );
 
-				// There is no unified way of checking whether subsizes are expected, so we have to duplicate WordPress code here.
-				$new_sizes     = wp_get_registered_image_subsizes();
-				$new_sizes     = apply_filters( 'intermediate_image_sizes_advanced', $new_sizes, $data, $post_id );
-				$missing_sizes = wp_get_missing_image_subsizes( $post_id );
-
-				if ( ! empty( $new_sizes ) && ! empty( $missing_sizes ) && array_intersect_key( $missing_sizes, $new_sizes ) ) {
-					return $data;
+			// If an image has been rotated, remove original image from metadata so that
+			// `wp_get_missing_image_subsizes()` doesn't use non-rotated image for
+			// generating missing thumbnail sizes.
+			// Also, some images, particularly SVGs, don't create thumbnails but do have
+			// metadata for them. At the time `wp_get_missing_image_subsizes()` checks
+			// the saved metadata, it isn't there, but we already have it.
+			$func = function ( $value, $object_id, $meta_key, $single, $meta_type ) use ( $post_id, $data ) {
+				if ( ! empty( $value['image_meta']['orientation'] ) ) {
+					unset( $value['original_image'] );
 				}
+				if ( ! empty( $data['image_meta']['orientation'] ) ) {
+					unset( $data['original_image'] );
+				}
+
+				if (
+					is_null( $value ) &&
+					$object_id === $post_id &&
+					'_wp_attachment_metadata' === $meta_key &&
+					$single &&
+					'post' === $meta_type
+				) {
+					// For some reason the filter is expected return an array of values
+					// as if not doing a single record.
+					return array( $data );
+				}
+
+				return $value;
+			};
+
+			add_filter( 'get_post_metadata', $func, 10, 5 );
+			$missing_sizes = wp_get_missing_image_subsizes( $post_id );
+			remove_filter( 'get_post_metadata', $func );
+
+			// If any registered thumbnails smaller than the original are missing,
+			// and current filters still expect those sizes, wait until they're all ready.
+			if (
+				! empty( $new_sizes ) &&
+				! empty( $missing_sizes ) &&
+				! empty( array_intersect_key( $missing_sizes, $new_sizes ) )
+			) {
+				return $data;
 			}
 		}
 
@@ -1014,7 +1064,7 @@ class Media_Library extends Integration {
 	 */
 	public function image_file_matches_image_meta( $match, $image_location, $image_meta, $source_id ) {
 		// If already matched or the URL is local, there's nothing for us to do.
-		if ( $match || ! $this->as3cf->filter_local->url_needs_replacing( $image_location ) ) {
+		if ( $match || $this->as3cf->filter_local->url_needs_replacing( $image_location ) ) {
 			return $match;
 		}
 
@@ -1023,7 +1073,7 @@ class Media_Library extends Integration {
 			'source_type' => Media_Library_Item::source_type(),
 		);
 
-		return $this->as3cf->filter_local->item_matches_src( $item, $image_location );
+		return $this->as3cf->filter_provider->item_matches_src( $item, $image_location );
 	}
 
 	/**
@@ -1549,5 +1599,117 @@ class Media_Library extends Integration {
 	 */
 	public function delete_post() {
 		$this->deleting_attachment = false;
+	}
+
+	/**
+	 * Has WP Core fixed wp_check_filetype when URL has params yet?
+	 *
+	 * @see https://core.trac.wordpress.org/ticket/30377
+	 * @see https://github.com/aaemnnosttv/fix-wp-media-shortcodes-with-params/blob/master/fix-wp-media-shortcodes-with-params.php
+	 *
+	 * @return bool
+	 */
+	public static function wp_check_filetype_broken() {
+		$normal_file = wp_check_filetype( 'file.mp4', array( 'mp4' => 'video/mp4' ) );
+		$querys_file = wp_check_filetype( 'file.mp4?param=1', array( 'mp4' => 'video/mp4' ) );
+
+		return $normal_file !== $querys_file;
+	}
+
+	/**
+	 * Filters shortcode attributes to temporarily add file extension to end of URL params.
+	 *
+	 * The temporary extension is removed once wp_check_filetype has been used.
+	 *
+	 * The function compensates for when query args or fragments are included in the URL,
+	 * which makes wp_check_filetype fail to see the extension of the file.
+	 *
+	 * @see https://core.trac.wordpress.org/ticket/30377
+	 * @see https://github.com/aaemnnosttv/fix-wp-media-shortcodes-with-params/blob/master/fix-wp-media-shortcodes-with-params.php
+	 *
+	 * @param array  $out       The output array of shortcode attributes.
+	 * @param array  $pairs     The supported attributes and their defaults.
+	 * @param array  $atts      The user defined shortcode attributes.
+	 * @param string $shortcode The shortcode name.
+	 *
+	 * @return array
+	 */
+	public function filter_shortcode_atts( $out, $pairs, $atts, $shortcode ) {
+		$get_media_extensions = "wp_get_{$shortcode}_extensions";
+
+		if ( ! function_exists( $get_media_extensions ) ) {
+			return $out;
+		}
+
+		$default_types = $get_media_extensions();
+
+		if ( empty( $default_types ) || ! is_array( $default_types ) ) {
+			return $out;
+		}
+
+		// URLs can be in src or type specific fallback attributes.
+		array_unshift( $default_types, 'src' );
+
+		$fixes = array();
+
+		foreach ( $default_types as $type ) {
+			if ( empty( $out[ $type ] ) ) {
+				continue;
+			}
+
+			if ( false !== strpos( $out[ $type ], '&as3cf-fix-wp-check-file-type-ext=.' ) ) {
+				continue;
+			}
+
+			if ( AS3CF_Utils::is_url( $out[ $type ] ) ) {
+				$url   = $out[ $type ];
+				$parts = wp_parse_url( $url );
+
+				if (
+					empty( $parts['path'] ) ||
+					( empty( $parts['query'] ) && empty( $parts['fragment'] ) )
+				) {
+					continue;
+				}
+
+				$ext = pathinfo( $parts['path'], PATHINFO_EXTENSION );
+
+				if ( empty( $ext ) ) {
+					continue;
+				}
+
+				$scheme = empty( $parts['scheme'] ) ? '' : $parts['scheme'] . '://';
+				$user   = empty( $parts['user'] ) ? '' : $parts['user'];
+				$pass   = ! empty( $user ) && ! empty( $parts['pass'] ) ? ':' . $parts['pass'] : '';
+				$auth   = ! empty( $user ) ? $user . $pass . '@' : '';
+				$host   = empty( $parts['host'] ) ? '' : $parts['host'];
+				$port   = ! empty( $host ) && ! empty( $parts['port'] ) ? ':' . $parts['port'] : '';
+				$path   = $parts['path'];
+				$query  = empty( $parts['query'] ) ? '?as3cf-fix-wp-check-file-type=true' : '?' . $parts['query'];
+
+				if ( ! empty( $parts['fragment'] ) ) {
+					$query .= '&as3cf-fix-wp-check-file-type-fragment=' . $parts['fragment'];
+				}
+
+				$query .= '&as3cf-fix-wp-check-file-type-ext=.' . $ext;
+
+				$out[ $type ] = $scheme . $auth . $host . $port . $path . $query;
+				$fixes[]      = $ext;
+			}
+		}
+
+		if ( $fixes ) {
+			add_filter( "wp_{$shortcode}_shortcode", function ( $html ) use ( $fixes ) {
+				$html = str_replace( '?as3cf-fix-wp-check-file-type=true', '', $html );
+
+				foreach ( $fixes as $ext ) {
+					$html = str_replace( '&#038;as3cf-fix-wp-check-file-type-ext=.' . $ext, '', $html );
+				}
+
+				return str_replace( '&#038;as3cf-fix-wp-check-file-type-fragment=', '#', $html );
+			} );
+		}
+
+		return $out;
 	}
 }

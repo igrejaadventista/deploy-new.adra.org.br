@@ -2,6 +2,7 @@
 
 namespace DeliciousBrains\WP_Offload_Media\Aws3\Aws\S3;
 
+use DeliciousBrains\WP_Offload_Media\Aws3\GuzzleHttp\Promise\PromiseInterface;
 use DeliciousBrains\WP_Offload_Media\Aws3\GuzzleHttp\Promise\PromisorInterface;
 use DeliciousBrains\WP_Offload_Media\Aws3\GuzzleHttp\Psr7;
 use DeliciousBrains\WP_Offload_Media\Aws3\Psr\Http\Message\StreamInterface;
@@ -19,6 +20,7 @@ class ObjectUploader implements PromisorInterface
     private $acl;
     private $options;
     private static $defaults = ['before_upload' => null, 'concurrency' => 3, 'mup_threshold' => self::DEFAULT_MULTIPART_THRESHOLD, 'params' => [], 'part_size' => null];
+    private $addContentMD5;
     /**
      * @param S3ClientInterface $client         The S3 Client used to execute
      *                                          the upload command(s).
@@ -44,8 +46,13 @@ class ObjectUploader implements PromisorInterface
         $this->body = Psr7\Utils::streamFor($body);
         $this->acl = $acl;
         $this->options = $options + self::$defaults;
+        // Handle "add_content_md5" option.
+        $this->addContentMD5 = isset($options['add_content_md5']) && $options['add_content_md5'] === \true;
     }
-    public function promise()
+    /**
+     * @return PromiseInterface
+     */
+    public function promise() : PromiseInterface
     {
         /** @var int $mup_threshold */
         $mup_threshold = $this->options['mup_threshold'];
@@ -54,7 +61,7 @@ class ObjectUploader implements PromisorInterface
             return (new MultipartUploader($this->client, $this->body, ['bucket' => $this->bucket, 'key' => $this->key, 'acl' => $this->acl] + $this->options))->promise();
         }
         // Perform a regular PutObject operation.
-        $command = $this->client->getCommand('PutObject', ['Bucket' => $this->bucket, 'Key' => $this->key, 'Body' => $this->body, 'ACL' => $this->acl] + $this->options['params']);
+        $command = $this->client->getCommand('PutObject', ['Bucket' => $this->bucket, 'Key' => $this->key, 'Body' => $this->body, 'ACL' => $this->acl, 'AddContentMD5' => $this->addContentMD5] + $this->options['params']);
         if (\is_callable($this->options['before_upload'])) {
             $this->options['before_upload']($command);
         }

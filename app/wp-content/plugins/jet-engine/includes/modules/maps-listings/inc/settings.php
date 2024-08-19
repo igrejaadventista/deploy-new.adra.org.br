@@ -66,9 +66,11 @@ class Settings {
 	 */
 	public function register_settings_js() {
 
+		do_action( 'jet-engine/maps-listing/settings/before-assets' );
+
 		wp_enqueue_script(
 			'jet-engine-maps-settings',
-			jet_engine()->plugin_url( 'assets/js/admin/dashboard/maps-settings.js' ),
+			jet_engine()->plugin_url( 'includes/modules/maps-listings/assets/js/admin/settings-global.js' ),
 			array( 'cx-vue-ui' ),
 			jet_engine()->get_version(),
 			true
@@ -84,22 +86,55 @@ class Settings {
 			);
 		}, $sources_list );
 
+		$fields_providers = [
+			[
+				'value' => 'jet-engine',
+				'label' => __( 'JetEngine', 'jet-engine' ),
+			],
+			[
+				'value' => 'custom',
+				'label' => __( 'Any other custom fields providers', 'jet-engine' ),
+			]
+		];
+
+		$custom_sources = [
+			[
+				'value' => 'posts',
+				'label' => __( 'Posts', 'jet-engine' ),
+			],
+			[
+				'value' => 'terms',
+				'label' => __( 'Terms', 'jet-engine' ),
+			],
+			[
+				'value' => 'users',
+				'label' => __( 'Users', 'jet-engine' ),
+			]
+		];
+
 		wp_localize_script(
 			'jet-engine-maps-settings',
 			'JetEngineMapsSettings',
 			array(
-				'settings' => $this->get_all(),
-				'_nonce'   => wp_create_nonce( $this->settings_key ),
-				'sources'  => $sources,
-				'fields'   => $fields,
+				'_nonce'          => wp_create_nonce( $this->settings_key ),
+				'settings'        => $this->get_all(),
+				'sources'         => $sources,
+				'fieldsProviders' => $fields_providers,
+				'fields'          => $fields,
+				'customSources'   => $custom_sources,
+				'renderProviders' => Module::instance()->providers->get_providers_for_js( 'map' ),
+				'geoProviders'    => Module::instance()->providers->get_providers_for_js( 'geocode' ),
 			)
 		);
+
+		do_action( 'jet-engine/maps-listing/settings/after-assets' );
 
 		add_action( 'admin_footer', array( $this, 'print_templates' ) );
 
 	}
 
 	public function get_prepared_fields_list() {
+
 		$fields = array();
 
 		if ( jet_engine()->meta_boxes ) {
@@ -148,89 +183,26 @@ class Settings {
 		?>
 		<script type="text/x-template" id="jet_engine_maps_settings">
 			<div>
-				<cx-vui-input
-					label="<?php _e( 'API Key', 'jet-engine' ); ?>"
-					description="<?php _e( 'Google maps API key. Video tutorial about creating Google Maps API key <a href=\'https://www.youtube.com/watch?v=t2O2a2YiLJA\' target=\'_blank\'>here</a>. <br>Please make sure <b>Geocoding API</b> is enabled for your API key (or use sparate key for Geocoding API).', 'jet-engine' ); ?>"
+				<cx-vui-select
+					label="<?php _e( 'Map Provider', 'jet-engine' ); ?>"
+					description="<?php _e( 'Select map source code provider. This provider will be used to render map for all map listings.', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					size="fullwidth"
-					@on-input-change="updateSetting( $event.target.value, 'api_key' )"
-					:value="settings.api_key"
-				></cx-vui-input>
-				<cx-vui-switcher
-					label="<?php _e( 'Separate Geocoding API key', 'jet-engine' ); ?>"
-						description="<?php _e( 'Use separate key for Geocoding API. This allows you to set more accurate restrictions for your API key.', 'jet-engine' ); ?>"
-					:wrapper-css="[ 'equalwidth' ]"
-					@input="updateSetting( $event, 'use_geocoding_key' )"
-					:value="settings.use_geocoding_key"
-				></cx-vui-switcher>
-				<cx-vui-input
-					label="<?php _e( 'Geocoding API Key', 'jet-engine' ); ?>"
-					description="<?php _e( 'Google maps API key with Geocoding API enabled. For this key <b>Application restrictions</b> should be set to <b>None</b> or <b>IP addresses</b> and in the <b>API restrictions</b> you need to select <b>Don\'t restrict key</b> or enable <b>Geocoding API</b>', 'jet-engine' ); ?>"
+					:options-list="renderProviders"
+					@on-change="updateSetting( $event.target.value, 'map_provider' )"
+					:value="settings.map_provider"
+				></cx-vui-select>
+				<?php do_action( 'jet-engine/maps-listing/settings/map-provider-controls' ); ?>
+				<cx-vui-select
+					label="<?php _e( 'Geocoding Provider', 'jet-engine' ); ?>"
+					description="<?php _e( 'Select geocoding source code provider. This provider will be used to get coordinates by address string for all map listings.', 'jet-engine' ); ?>"
 					:wrapper-css="[ 'equalwidth' ]"
 					size="fullwidth"
-					@on-input-change="updateSetting( $event.target.value, 'geocoding_key' )"
-					:value="settings.geocoding_key"
-					v-if="settings.use_geocoding_key"
-				></cx-vui-input>
-				<cx-vui-component-wrapper
-					label="<?php _e( 'Validate API key', 'jet-engine' ); ?>"
-					description="<?php _e( 'Make test request to check if Geocoding API key is configured correctly', 'jet-engine' ); ?>"
-					v-if="settings.use_geocoding_key"
-					:wrapper-css="[ 'equalwidth' ]"
-				>
-					<div
-						v-if="validated"
-						:class="{
-							'validatation-result': true,
-							'validatation-result--success': validateResult.success,
-							'validatation-result--error': ! validateResult.success,
-						}"
-						v-html="validateResult.message"
-					></div>
-					<cx-vui-button
-						button-style="accent"
-						:loading="validating"
-						@click="validateKey"
-					>
-						<span
-							slot="label"
-							v-html="'<?php _e( 'Validate Geocoding API key', 'jet-engine' ); ?>'"
-						></span>
-					</cx-vui-button>
-				</cx-vui-component-wrapper>
-				<cx-vui-component-wrapper
-					label="<?php _e( 'Validate API key', 'jet-engine' ); ?>"
-					description="<?php _e( 'Make test request to check if Geocoding API is configured correctly for your API key', 'jet-engine' ); ?>"
-					v-if="! settings.use_geocoding_key"
-					:wrapper-css="[ 'equalwidth' ]"
-				>
-					<div
-						v-if="validated"
-						:class="{
-							'validatation-result': true,
-							'validatation-result--success': validateResult.success,
-							'validatation-result--error': ! validateResult.success,
-						}"
-						v-html="validateResult.message"
-					></div>
-					<cx-vui-button
-						button-style="accent"
-						:loading="validating"
-						@click="validateKey"
-					>
-						<span
-							slot="label"
-							v-html="'<?php _e( 'Validate Google maps API key', 'jet-engine' ); ?>'"
-						></span>
-					</cx-vui-button>
-				</cx-vui-component-wrapper>
-				<cx-vui-switcher
-					label="<?php _e( 'Disable Google Maps API JS file', 'jet-engine' ); ?>"
-						description="<?php _e( 'Disable Google Maps API JS file, if it already included by another plugin or theme', 'jet-engine' ); ?>"
-					:wrapper-css="[ 'equalwidth' ]"
-					@input="updateSetting( $event, 'disable_api_file' )"
-					:value="settings.disable_api_file"
-				></cx-vui-switcher>
+					:options-list="geoProviders"
+					@on-change="updateSetting( $event.target.value, 'geocode_provider' )"
+					:value="settings.geocode_provider"
+				></cx-vui-select>
+				<?php do_action( 'jet-engine/maps-listing/settings/geocode-provider-controls' ); ?>
 				<cx-vui-switcher
 					label="<?php _e( 'Preload coordinates by address', 'jet-engine' ); ?>"
 						description="<?php _e( 'We recommend to enable this option and set meta field to preload coordinates for. This is required to avoid optimize Google Maps API requests. Note: only JetEngine meta fields could be preloaded', 'jet-engine' ); ?>"
@@ -275,10 +247,23 @@ class Settings {
 					?></div>
 					<div slot="content">
 						<cx-vui-select
+							label="<?php _e( 'Fields Provider', 'jet-engine' ); ?>"
+							description="<?php _e( 'From where you have added meta fields', 'jet-engine' ); ?>"
+							:wrapper-css="[ 'equalwidth', 'collpase-sides' ]"
+							:options-list="fieldsProviders"
+							size="fullwidth"
+							name="current_popup_provider"
+							v-model="currentPopupProvider"
+							@input="resetPopupFields"
+						></cx-vui-select>
+						<cx-vui-select
 							label="<?php _e( 'Source', 'jet-engine' ); ?>"
-							:wrapper-css="[ 'equalwidth' ]"
+							description="<?php _e( 'JetEngine Meta Box to get fields from', 'jet-engine' ); ?>"
+							:wrapper-css="[ 'equalwidth', 'collpase-sides' ]"
 							:options-list="sources"
 							size="fullwidth"
+							placeholder="Select..."
+							v-if="'jet-engine' === currentPopupProvider"
 							name="current_popup_source"
 							v-model="currentPopupSource"
 							@input="resetPopupFields"
@@ -286,16 +271,40 @@ class Settings {
 						<cx-vui-f-select
 							label="<?php _e( 'Fields', 'jet-engine' ); ?>"
 							description="<?php _e( 'Select multiple meta fields to add these fields names separated by the \'+\' sign', 'jet-engine' ); ?>"
-							:wrapper-css="[ 'equalwidth' ]"
+							:wrapper-css="[ 'equalwidth', 'collpase-sides' ]"
 							:options-list="allFields[ currentPopupSource ]"
 							:multiple="true"
 							size="fullwidth"
+							v-if="'jet-engine' === currentPopupProvider"
 							name="current_popup_fields"
 							v-model="currentPopupFields"
 							ref="current_popup_fields"
 						></cx-vui-f-select>
+						<cx-vui-select
+							label="<?php _e( 'Source', 'jet-engine' ); ?>"
+							description="<?php _e( 'This meta field is for...', 'jet-engine' ); ?>"
+							:wrapper-css="[ 'equalwidth', 'collpase-sides' ]"
+							:options-list="customSources"
+							size="fullwidth"
+							v-if="'custom' === currentPopupProvider"
+							name="current_popup_custom_source"
+							v-model="currentPopupCustomSource"
+							@input="resetPopupFields"
+						></cx-vui-select>
+						<cx-vui-input
+							label="<?php _e( 'Fields', 'jet-engine' ); ?>"
+							description="<?php _e( 'Paste name of meta field to get addrese from. To get address from multiple fields - use the \'+\' sign to combine them. For examle - state+city+address', 'jet-engine' ); ?>"
+							:wrapper-css="[ 'equalwidth', 'collpase-sides' ]"
+							size="fullwidth"
+							v-if="'custom' === currentPopupProvider"
+							name="current_popup_custom_fields"
+							v-model="currentPopupCustomFields"
+							ref="current_popup_custom_fields"
+						></cx-vui-input>
 					</div>
 				</cx-vui-popup>
+
+				<?php do_action( 'jet-engine/maps-listing/settings/after-controls' ); ?>
 			</div>
 		</script>
 		<?php
@@ -310,6 +319,14 @@ class Settings {
 
 		if ( false === $this->settings ) {
 			$this->settings = get_option( $this->settings_key, $this->defaults );
+		}
+
+		if ( empty( $this->settings['map_provider'] ) ) {
+			$this->settings['map_provider'] = 'google';
+		}
+
+		if ( empty( $this->settings['geocode_provider'] ) ) {
+			$this->settings['geocode_provider'] = 'google';
 		}
 
 		return $this->settings;

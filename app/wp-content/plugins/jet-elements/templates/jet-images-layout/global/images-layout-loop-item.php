@@ -29,7 +29,11 @@ if ( 'lightbox' === $link_type ) {
 	$lightbox_title = isset( $settings['lightbox_show_title'] ) ? $settings['lightbox_show_title'] : 'false';
 	$lightbox_desc  = isset( $settings['lightbox_show_desc'] ) ? $settings['lightbox_show_desc'] : 'false';
 
-	$this->add_render_attribute( $link_instance, 'href', $this->_loop_item( array( 'item_image', 'url' ), '%s' ) );
+	$this->add_render_attribute( 
+		$link_instance,
+		'href',
+		esc_url( $this->__loop_item( array( 'item_image', 'url' ), '%s' ) )
+	);
 	$this->add_render_attribute( $link_instance, 'data-elementor-open-lightbox', 'yes' );
 	$this->add_render_attribute( $link_instance, 'data-elementor-lightbox-slideshow', $this->get_id()  );
 
@@ -48,7 +52,11 @@ if ( 'lightbox' === $link_type ) {
 	$rel    = $this->_loop_item( array( 'item_rel' ), '%s' );
 	$rel    = ! empty( $rel ) ? $rel : '';
 
-	$this->add_render_attribute( $link_instance, 'href', $this->_loop_item( array( 'item_url' ), '%s' ) );
+	$this->add_render_attribute(
+		$link_instance,
+		'href',
+		esc_url( $this->__loop_item( array( 'item_url' ), '%s' ) )
+	);
 	$this->add_render_attribute( $link_instance, 'target', $target );
 	$this->add_render_attribute( $link_instance, 'rel', $rel );
 }

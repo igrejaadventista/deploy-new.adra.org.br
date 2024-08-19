@@ -5,13 +5,121 @@
 		// initialize color picker
 		$( '.cn_color' ).wpColorPicker();
 
+		// consent logs
+		$( '.cn-consent-log-item input[type="checkbox"]' ).on( 'change', function() {
+			var el = $( this );
+			var trEl = el.closest( 'tr' );
+			var trDetailsId = trEl.attr( 'id' ) + '_details';
+			var trDetailsIdHash = '#' + trDetailsId;
+			var trDetailsRow = trEl.attr( 'id' ) + '_row';
+
+			if ( el.is( ':checked' ) ) {
+				// remove fake row
+				$( '#' + trDetailsRow ).remove();
+
+				// valid data already downloaded?
+				if ( $( trDetailsIdHash ).length && $( trDetailsIdHash ).data( 'status' ) === 1 ) {
+					$( trDetailsIdHash ).show();
+				} else {
+					var trDetailsDataEl = null;
+
+					if ( $( trDetailsIdHash ).length ) {
+						$( trDetailsIdHash ).show();
+
+						trDetailsDataEl = $( trDetailsIdHash + ' .cn-consent-logs-data' );
+
+						trDetailsDataEl.addClass( 'loading' );
+						trDetailsDataEl.html( '<span class="spinner is-active"></span>' );
+					} else {
+						trEl.after( cnArgs.consentLogsTemplate );
+						trEl.next().attr( 'id', trDetailsId );
+
+						trDetailsDataEl = $( trDetailsIdHash + ' .cn-consent-logs-data' );
+					}
+
+					$.ajax( {
+						url: cnArgs.ajaxURL,
+						type: 'POST',
+						dataType: 'json',
+						data: {
+							action: 'cn_get_consent_logs_by_date',
+							nonce: cnArgs.nonceConsentLogs,
+							date: el.closest( 'tr' ).data( 'date' )
+						}
+					} ).done( function( result ) {
+						if ( result.success ) {
+							$( trDetailsIdHash ).data( 'status', 1 );
+
+							displayConsentLogsResults( trDetailsDataEl, result.data, false );
+						} else {
+							$( trDetailsIdHash ).data( 'status', 0 );
+
+							displayConsentLogsResults( trDetailsDataEl, cnArgs.consentLogsError, true );
+						}
+					} ).fail( function( result ) {
+						$( trDetailsIdHash ).data( 'status', 0 );
+
+						displayConsentLogsResults( trDetailsDataEl, cnArgs.consentLogsError, true );
+					} );
+				}
+			} else {
+				$( trDetailsIdHash ).hide();
+				$( trDetailsIdHash ).after( '<tr id="' + trDetailsRow + '" class="cn-consent-logs-row"><td colspan="6"></td></tr>' );
+			}
+		} );
+
+		// display consent logs data
+		function displayConsentLogsResults( el, data, error ) {
+			// hide spinner
+			el.removeClass( 'loading' );
+
+			// add table rows or display error
+			el.find( '.spinner' ).replaceWith( data );
+
+			// valid data?
+			if ( ! error ) {
+				// get table body
+				var tableBody = el.find( 'table tbody' );
+
+				// prepare array with table rows
+				var dataRows = el.find( 'table' ).find( 'tbody tr' ).toArray();
+
+				// set flag
+				var firstTime = true;
+
+				// add pagination
+				el.pagination( {
+					dataSource: dataRows,
+					pageSize: 10,
+					showPrevious: true,
+					showNext: true,
+					callback: function( data, pagination ) {
+						// skip showing/hiding table rows on init
+						if ( firstTime ) {
+							firstTime = false;
+
+							return;
+						}
+
+						// hide all table rows
+						tableBody.find( 'tr' ).hide();
+
+						// display table rows
+						for ( const el of data ) {
+							$( el ).show();
+						}
+					}
+				} );
+			}
+		}
+
 		// purge cache
 		$( '#cn_app_purge_cache a' ).on( 'click', function( e ) {
 			e.preventDefault();
 
 			var el = this;
 
-			$( el ).parent().addClass( 'loading' ).append( '<span class="spinner is-active" style="float: none;"></span>' );
+			$( el ).parent().addClass( 'loading' ).append( '<span class="spinner is-active" style="float: none"></span>' );
 
 			var ajaxArgs = {
 				action: 'cn_purge_cache',
@@ -19,7 +127,7 @@
 			};
 
 			// network area?
-			if ( cnArgs.network === '1' )
+			if ( cnArgs.network )
 				ajaxArgs.cn_network = 1;
 
 			$.ajax( {
@@ -27,8 +135,6 @@
 				type: 'POST',
 				dataType: 'json',
 				data: ajaxArgs
-			} ).done( function( result ) {
-				console.log( result );
 			} ).always( function( result ) {
 				$( el ).parent().find( '.spinner' ).remove();
 			} );
@@ -71,6 +177,14 @@
 				$( '#cn_on_scroll_offset' ).slideUp( 'fast' );
 		} );
 
+		// conditional display option
+		$( '#cn_conditional_display_opt' ).on( 'change', function() {
+			if ( $( this ).is( ':checked' ) )
+				$( '#cn_conditional_display_opt_container' ).slideDown( 'fast' );
+			else
+				$( '#cn_conditional_display_opt_container' ).slideUp( 'fast' );
+		} );
+
 		// privacy policy link
 		$( '#cn_see_more_link-custom, #cn_see_more_link-page' ).on( 'change', function() {
 			if ( $( '#cn_see_more_link-custom:checked' ).val() === 'custom' ) {
@@ -95,6 +209,72 @@
 
 			$( '#' + id ).addClass( 'active' );
 			$( this ).addClass( 'nav-tab-active' );
+		} );
+
+		// add new group of rules
+		$( document ).on( 'click', '.add-rule-group', function( e ) {
+			e.preventDefault();
+
+			var html = $( '#rules-group-template' ).html();
+			var group = $( '#rules-groups' );
+			var groups = group.find( '.rules-group' );
+			var groupID = ( groups.length > 0 ? parseInt( groups.last().attr( 'id' ).split( '-' )[2] ) + 1 : 1 );
+
+			html = html.replace( /__GROUP_ID__/g, groupID );
+			html = html.replace( /__RULE_ID__/g, 1 );
+
+			group.append( '<div class="rules-group" id="rules-group-' + groupID + '">' + html + '</div>' );
+			group.find( '.rules-group' ).last().fadeIn( 'fast' );
+		} );
+
+		// remove single rule or group
+		$( document ).on( 'click', '.remove-rule', function( e ) {
+			e.preventDefault();
+
+			var number = $( this ).closest( 'tbody' ).find( 'tr' ).length;
+
+			if ( number === 1 ) {
+				$( this ).closest( '.rules-group' ).fadeOut( 'fast', function() {
+					$( this ).remove();
+				} );
+			} else {
+				$( this ).closest( 'tr' ).fadeOut( 'fast', function() {
+					$( this ).remove();
+				} );
+			}
+		} );
+
+		// handle changing values for specified type of rules
+		$( document ).on( 'change', '.rule-type', function() {
+			var el = $( this );
+			var td = el.closest( 'tr' ).find( 'td.value' );
+			var select = td.find( 'select' );
+			var spinner = td.find( '.spinner' );
+
+			select.hide();
+			spinner.fadeIn( 'fast' ).css( 'visibility', 'visible' );
+
+			$.post( ajaxurl, {
+				action: 'cn-get-group-rules-values',
+				cn_param: el.val(),
+				cn_nonce: cnArgs.nonceConditional
+			} ).done( function( data ) {
+				spinner.hide().css( 'visibility', 'hidden' );
+
+				try {
+					var response = $.parseJSON( data );
+
+					// remove potential optgroups
+					select.find( 'optgroup' ).remove();
+
+					// replace old select options with new ones
+					select.fadeIn( 'fast' ).find( 'option' ).remove().end().append( response.select );
+				} catch( e ) {
+					//
+				}
+			} ).fail(function() {
+				//
+			} );
 		} );
     } );
 

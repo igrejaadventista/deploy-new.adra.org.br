@@ -15,7 +15,7 @@ class WPCode_Settings {
 	 *
 	 * @var string
 	 */
-	private $settings_key = 'wpcode_settings';
+	protected $settings_key = 'wpcode_settings';
 
 	/**
 	 * Options as they are loaded from the db.
@@ -23,24 +23,27 @@ class WPCode_Settings {
 	 * @var array
 	 * @see WPCode_Settings::get_options
 	 */
-	private $options;
+	protected $options;
 
 	/**
 	 * Get an option by name with an optional default value.
 	 *
-	 * @param string $option The option name.
+	 * @param string $option_name The option name.
 	 * @param mixed  $default The default value (optional).
 	 *
 	 * @return mixed
 	 * @see get_option
 	 */
-	public function get_option( $option, $default = false ) {
+	public function get_option( $option_name, $default = false ) {
 		$options = $this->get_options();
-		if ( isset( $options[ $option ] ) ) {
-			return $options[ $option ];
+		$value   = $default;
+		if ( isset( $options[ $option_name ] ) ) {
+			$value = $options[ $option_name ];
 		}
 
-		return $default;
+		$value = apply_filters( 'wpcode_get_option', $value, $option_name );
+
+		return apply_filters( "wpcode_get_option_{$option_name}", $value, $option_name );
 	}
 
 	/**
@@ -50,10 +53,50 @@ class WPCode_Settings {
 	 */
 	public function get_options() {
 		if ( ! isset( $this->options ) ) {
-			$this->options = get_option( $this->settings_key, array() );
+			$this->options = $this->load_options();
 		}
 
 		return $this->options;
+	}
+
+	/**
+	 * Load the options from the db.
+	 *
+	 * @return array
+	 */
+	protected function load_options() {
+		return get_option(
+			$this->settings_key,
+			array(
+				'facebook_pixel_events'  => array(
+					'page_view'      => 1,
+					'add_to_cart'    => 1,
+					'view_content'   => 1,
+					'begin_checkout' => 1,
+					'purchase'       => 1,
+				),
+				'google_pixel_events'    => array(
+					'page_view'      => 1,
+					'add_to_cart'    => 1,
+					'view_item'      => 1,
+					'begin_checkout' => 1,
+					'purchase'       => 1,
+					'conversion'     => 1,
+				),
+				'pinterest_pixel_events' => array(
+					'pagevisit_product' => 1,
+					'begin_checkout'    => 1,
+					'add_to_cart'       => 1,
+					'purchase'          => 1,
+				),
+				'tiktok_pixel_events'    => array(
+					'view_content'   => 1,
+					'add_to_cart'    => 1,
+					'begin_checkout' => 1,
+					'purchase'       => 1,
+				),
+			)
+		);
 	}
 
 	/**
@@ -98,7 +141,7 @@ class WPCode_Settings {
 	 *
 	 * @return void
 	 */
-	private function save_options() {
+	protected function save_options() {
 		update_option( $this->settings_key, (array) $this->options );
 	}
 

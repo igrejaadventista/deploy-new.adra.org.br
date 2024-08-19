@@ -37,7 +37,7 @@ function initLayoutEditor( $ ) {
 
 		var field;
 
-		this.css( 'grid-column', 'span {0}'.format( span ) );
+		this.css( 'grid-column', 'span {0}'.gformFormat( span ) );
 
 		this.each( function () {
 			// Spacer fields are pseudo-fields; they are generated when the last field in the group is resized and are
@@ -84,12 +84,14 @@ function initLayoutEditor( $ ) {
 	 *
 	 * @returns {string}
 	 */
-	String.prototype.format = function () {
-		var args = arguments;
-		return this.replace( /{(\d+)}/g, function ( match, number ) {
-			return typeof args[ number ] != 'undefined' ? args[ number ] : match;
-		} );
-	};
+	if ( ! String.prototype.gformFormat ) {
+		String.prototype.gformFormat = function() {
+			var args = arguments;
+			return this.replace( /{(\d+)}/g, function( match, number ) {
+				return typeof args[ number ] != 'undefined' ? args[ number ] : match;
+			} );
+		};
+	}
 
 	var $editorContainer = $( '#form_editor_fields_container' ),
 		$editor = $( '.gform_editor' ),
@@ -199,10 +201,7 @@ function initLayoutEditor( $ ) {
 
 		// editor is receiving first field, cleanup placeholders and no fields class, maybe init simplebar
 		if ( $editorContainer.hasClass( 'form_editor_fields_no_fields' ) ) {
-			// we dont run simplebar in noconflict mode
-			if ( ! $editorContainer.hasClass( 'form_editor_no_conflict' ) ) {
-				gform.simplebar.initializeInstance( $editorContainer[ 0 ] );
-			}
+			gform.simplebar.initializeInstance( $editorContainer[ 0 ] );
 			setTimeout( function() {
 				$noFieldsDropzone.hide();
 				$editorContainer.removeClass( 'form_editor_fields_no_fields' );
@@ -223,6 +222,9 @@ function initLayoutEditor( $ ) {
 			StartAddField( 'submit', Math.max( 0, $container.children().index( $elem ) + 1 ) );
 		}
 
+		var nativeEvent = new Event('gform/layout_editor/field_modified');
+		document.dispatchEvent(nativeEvent);
+
 	} );
 
 	// Save the group ID of the deleted field.
@@ -232,6 +234,9 @@ function initLayoutEditor( $ ) {
 			jQuery('input[name="submit_location"][value="inline"]').prop( 'disabled', false );
 			jQuery( '.submit_location_setting' ).prev( '.gform-alert--notice' ).remove();
 		}
+
+		var nativeEvent = new Event('gform/layout_editor/gform_field_deleted');
+		document.dispatchEvent(nativeEvent);
 	} );
 
 	// Handle resizing the group after the deleted field has been fully removed from the DOM.
@@ -843,6 +848,15 @@ function initLayoutEditor( $ ) {
 					target: $target
 				} );
 
+				// drop indicator is a different distance from field in compact view.
+				if ( $target.parents( '.gform-compact-view' ).length > 0 ) {
+					var topDistance = 10;
+					var bottomDistance = 6;
+				} else {
+					var topDistance = 30;
+					var bottomDistance = 26;
+				}
+
 				// Where on the child field has the helper been dragged?
 				switch ( where ) {
 					case 'left':
@@ -869,7 +883,7 @@ function initLayoutEditor( $ ) {
 						return false;
 					case 'bottom':
 						$indicator().css( {
-							top: sibPos.top + $target.outerHeight() + 26,
+							top: sibPos.top + $target.outerHeight() + bottomDistance,
 							left: 0,
 							height: '4px',
 							width: '100%',
@@ -879,7 +893,7 @@ function initLayoutEditor( $ ) {
 					case 'top':
 
 						$indicator().css( {
-							top: sibPos.top - 30,
+							top: sibPos.top - topDistance,
 							left: 0,
 							height: '4px',
 							width: '100%'
@@ -1168,11 +1182,11 @@ function initLayoutEditor( $ ) {
 	function getGroup( groupId, spacers ) {
 		if ( spacers || 'undefined' === typeof( spacers ) ) {
 			return $elements()
-				.filter( '[data-groupId="{0}"]'.format( groupId ) )
+				.filter( '[data-groupId="{0}"]'.gformFormat( groupId ) )
 				.not( '.ui-draggable-dragging' );
 		} else {
 			return $elements()
-				.filter( '[data-groupId="{0}"]'.format( groupId ) )
+				.filter( '[data-groupId="{0}"]'.gformFormat( groupId ) )
 				.not( '.ui-draggable-dragging' )
 				.not( '.spacer' );
 		}

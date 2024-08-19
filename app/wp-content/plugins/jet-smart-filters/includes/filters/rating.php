@@ -9,45 +9,44 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Rating_Filter' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Rating_Filter class
 	 */
 	class Jet_Smart_Filters_Rating_Filter extends Jet_Smart_Filters_Filter_Base {
-
 		/**
 		 * Get provider name
-		 *
-		 * @return string
 		 */
 		public function get_name() {
+
 			return __( 'Rating', 'jet-smart-filters' );
 		}
 
 		/**
 		 * Get provider ID
-		 *
-		 * @return string
 		 */
 		public function get_id() {
+
 			return 'rating';
 		}
 
 		/**
+		 * Get icon URL
+		 */
+		public function get_icon_url() {
+
+			return jet_smart_filters()->plugin_url( 'admin/assets/img/filter-types/rating.png' );
+		}
+
+		/**
 		 * Get provider wrapper selector
-		 *
-		 * @return string
 		 */
 		public function get_scripts() {
+
 			return false;
 		}
 
 		/**
 		 * Prepare filter template argumnets
-		 *
-		 * @param  [type] $args [description]
-		 *
-		 * @return [type]       [description]
 		 */
 		public function prepare_args( $args ) {
 
@@ -63,12 +62,13 @@ if ( ! class_exists( 'Jet_Smart_Filters_Rating_Filter' ) ) {
 				return false;
 			}
 
-			$options      = get_post_meta( $filter_id, '_rating_options', true );
-			$options      = ! empty( $options ) ? range( 1, intval( $options ) ) : array();
-			$query_type   = 'meta_query';
-			$query_var    = get_post_meta( $filter_id, '_query_var', true );
+			$options          = get_post_meta( $filter_id, '_rating_options', true );
+			$options          = ! empty( $options ) ? range( 1, intval( $options ) ) : array();
+			$query_type       = 'meta_query';
+			$query_var        = get_post_meta( $filter_id, '_query_var', true );
+			$predefined_value = $this->get_predefined_value( $filter_id );
 
-			return array(
+			$result = array(
 				'options'              => $options,
 				'query_type'           => $query_type,
 				'query_var'            => $query_var,
@@ -80,10 +80,14 @@ if ( ! class_exists( 'Jet_Smart_Filters_Rating_Filter' ) ) {
 				'button_text'          => $button_text,
 				'rating_icon'          => $rating_icon,
 				'__widget_id'          => $widget_id,
+				'accessibility_label'  => $this->get_accessibility_label( $filter_id )
 			);
 
+			if ( $predefined_value !== false ) {
+				$result['predefined_value'] = $predefined_value;
+			}
+
+			return $result;
 		}
-
 	}
-
 }

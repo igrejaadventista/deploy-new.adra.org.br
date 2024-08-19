@@ -17,6 +17,9 @@
 	height: calc(100% - 112px) !important;
 	padding: 0;
 }
+.cn-deactivation-modal #TB_closeAjaxWindow button {
+	right: 8px;
+}
 .cn-deactivation-options p:first-child {
 	margin-top: 0;
 }

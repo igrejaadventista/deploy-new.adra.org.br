@@ -16,7 +16,7 @@ use RankMath\Traits\Hooker;
 use RankMath\Google\Console;
 use RankMath\Admin\Admin_Helper;
 
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -61,6 +61,20 @@ class Email_Reports {
 	 * @var string
 	 */
 	private $charts_key = '10042B42-9193-428A-ABA7-5753F3370F84';
+
+	/**
+	 * Graph data.
+	 *
+	 * @var array
+	 */
+	private $graph_data = [];
+
+	/**
+	 * Debug mode.
+	 *
+	 * @var boolean
+	 */
+	private $debug = false;
 
 	/**
 	 * The constructor.
@@ -127,7 +141,7 @@ class Email_Reports {
 			'report_url'                  => Helper::get_admin_url( 'analytics' ),
 			'assets_url'                  => $this->assets_url,
 			'address'                     => '<br/> [rank_math_contact_info show="address"]',
-			'logo_link'                   => KB::get( 'email-reports-logo' ),
+			'logo_link'                   => KB::get( 'email-reports-logo', 'Email Report Logo' ),
 
 			'period_days'                 => $date['period'],
 			'start_date'                  => $date['start'],

@@ -39,6 +39,8 @@
 
 	&__item {
 		overflow: hidden;
+		-webkit-backface-visibility: hidden; 
+		-webkit-transform: translate3d(0, 0, 0);
 	}
 
 	&__content {
@@ -154,9 +156,14 @@
 		display: flex;
 		justify-content: center;
 		align-items: center;
+		-webkit-backface-visibility: hidden;
+        -webkit-transform: translate3d(0, 0, 0);
 
 		&.sp-next-arrow {
-			transform: scale(-1, 1);
+			i,
+			svg {
+				transform: scale(-1, 1);
+			}
 		}
 
 		svg {

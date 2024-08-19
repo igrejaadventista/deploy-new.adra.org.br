@@ -8,7 +8,6 @@ $this->start_controls_section(
 	)
 );
 
-
 /**
  * Search controls
  */
@@ -28,15 +27,14 @@ $this->add_control(
 $this->add_control(
 	'search_placeholder',
 	array(
-		'label'     => esc_html__( 'Search Placeholder', 'jet-smart-filters' ),
-		'type'      => Controls_Manager::TEXT,
-		'default'   => __( 'Search...', 'jet-smart-filters' ),
-		'condition' => array(
+		'label'       => esc_html__( 'Search Placeholder', 'jet-smart-filters' ),
+		'type'        => Controls_Manager::TEXT,
+		'placeholder' => __( 'Search...', 'jet-smart-filters' ),
+		'condition'   => array(
 			'search_enabled' => 'yes'
 		)
 	)
 );
-
 
 /**
  * More Less controls
@@ -73,10 +71,10 @@ $this->add_control(
 $this->add_control(
 	'more_text',
 	array(
-		'label'     => esc_html__( 'More Text', 'jet-smart-filters' ),
-		'type'      => Controls_Manager::TEXT,
-		'default'   => __( 'More', 'jet-smart-filters' ),
-		'condition' => array(
+		'label'       => esc_html__( 'More Text', 'jet-smart-filters' ),
+		'type'        => Controls_Manager::TEXT,
+		'placeholder' => __( 'More', 'jet-smart-filters' ),
+		'condition'   => array(
 			'moreless_enabled' => 'yes'
 		)
 	)
@@ -85,15 +83,14 @@ $this->add_control(
 $this->add_control(
 	'less_text',
 	array(
-		'label'     => esc_html__( 'Less Text', 'jet-smart-filters' ),
-		'type'      => Controls_Manager::TEXT,
-		'default'   => __( 'Less', 'jet-smart-filters' ),
-		'condition' => array(
+		'label'       => esc_html__( 'Less Text', 'jet-smart-filters' ),
+		'type'        => Controls_Manager::TEXT,
+		'placeholder' => __( 'Less', 'jet-smart-filters' ),
+		'condition'   => array(
 			'moreless_enabled' => 'yes'
 		)
 	)
 );
-
 
 /**
  * Dropdown controls
@@ -115,15 +112,94 @@ $this->add_control(
 $this->add_control(
 	'dropdown_placeholder',
 	array(
-		'label'     => esc_html__( 'Placeholder', 'jet-smart-filters' ),
-		'type'      => Controls_Manager::TEXT,
-		'default'   => __( 'Select some options', 'jet-smart-filters' ),
-		'condition' => array(
+		'label'       => esc_html__( 'Placeholder', 'jet-smart-filters' ),
+		'type'        => Controls_Manager::TEXT,
+		'placeholder' => __( 'Select some options', 'jet-smart-filters' ),
+		'condition'   => array(
 			'dropdown_enabled' => 'yes'
 		)
 	)
 );
 
+// dropdown N selected
+if ( $this->get_name() !== 'jet-smart-filters-radio' ) {
+
+	$this->add_control(
+		'dropdown_n_selected_enabled',
+		array(
+			'label'        => esc_html__( 'N Selected', 'jet-smart-filters' ),
+			'type'         => Controls_Manager::SWITCHER,
+			'description'  => '',
+			'label_on'     => esc_html__( 'Yes', 'jet-smart-filters' ),
+			'label_off'    => esc_html__( 'No', 'jet-smart-filters' ),
+			'return_value' => 'yes',
+			'default'      => '',
+			'condition'   => array(
+				'dropdown_enabled' => 'yes'
+			)
+		)
+	);
+
+	$this->add_control(
+		'dropdown_n_selected_number',
+		array(
+			'label'       => esc_html__( 'Number of Named Items', 'jet-smart-filters' ),
+			'type'        => Controls_Manager::NUMBER,
+			'default'     => 3,
+			'placeholder' => '3',
+			'min'         => 0,
+			'step'        => 1,
+			'condition'   => array(
+				'dropdown_enabled'            => 'yes',
+				'dropdown_n_selected_enabled' => 'yes'
+			)
+		)
+	);
+
+	$this->add_control(
+		'dropdown_n_selected_text',
+		array(
+			'label'       => esc_html__( 'Generic text', 'jet-smart-filters' ),
+			'label_block' => true,
+			'type'        => Controls_Manager::TEXT,
+			'description' => esc_html__( 'Use a {number} macro to display the number of other items', 'jet-smart-filters' ),
+			'placeholder' => esc_html__( 'and {number} others', 'jet-smart-filters' ),
+			'condition'   => array(
+				'dropdown_enabled'            => 'yes',
+				'dropdown_n_selected_enabled' => 'yes'
+			)
+		)
+	);
+}
+
+$this->add_control(
+	'dropdown_apply_button',
+	array(
+		'label'        => esc_html__( 'Add apply button', 'jet-smart-filters' ),
+		'type'         => Controls_Manager::SWITCHER,
+		'description'  => '',
+		'label_on'     => esc_html__( 'Yes', 'jet-smart-filters' ),
+		'label_off'    => esc_html__( 'No', 'jet-smart-filters' ),
+		'return_value' => 'yes',
+		'default'      => '',
+		'condition'    => array(
+			'dropdown_enabled' => 'yes'
+		)
+	)
+);
+
+$this->add_control(
+	'dropdown_apply_button_text',
+	array(
+		'label'       => esc_html__( 'Apply button text', 'jet-smart-filters' ),
+		'type'        => Controls_Manager::TEXT,
+		'placeholder' => esc_html__( 'Apply', 'jet-smart-filters' ),
+		'condition'   => array(
+			'dropdown_enabled'      => 'yes',
+			'dropdown_apply_button' => 'yes'
+		),
+	)
+);
 
 /**
  * Scroll controls
@@ -156,6 +232,5 @@ $this->add_control(
 		)
 	)
 );
-
 
 $this->end_controls_section();

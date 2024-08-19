@@ -158,6 +158,10 @@
 		&.next-arrow {
 			@include end(0);
 		}
+		svg {
+			width: 1em;
+			height: 1em;
+		}
 	}
 
 	.jet-slick-dots {

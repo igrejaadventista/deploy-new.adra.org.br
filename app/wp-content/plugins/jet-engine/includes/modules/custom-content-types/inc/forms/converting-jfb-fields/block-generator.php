@@ -33,7 +33,7 @@ class Block_Generator {
 
 	private function add_block_attrs( $block ) {
 		if ( ! empty( $block['attrs'] ) ) {
-			$this->response .= json_encode( $block['attrs'] ) . ' ';
+			$this->response .= wp_json_encode( $block['attrs'], JSON_UNESCAPED_UNICODE ) . ' ';
 		}
 	}
 

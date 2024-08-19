@@ -1320,7 +1320,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'label'     => esc_html__( 'Color', 'jet-elements' ),
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => array(
-					'{{WRAPPER}} .wpcf7 div.wpcf7-mail-sent-ok' => 'color: {{VALUE}}',
+					'{{WRAPPER}} .wpcf7 form.wpcf7-form.sent .wpcf7-response-output' => 'color: {{VALUE}}',
 				),
 			),
 			25
@@ -1332,7 +1332,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'label'     => esc_html__( 'Background Color', 'jet-elements' ),
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => array(
-					'{{WRAPPER}} .wpcf7 div.wpcf7-mail-sent-ok' => 'background-color: {{VALUE}}',
+					'{{WRAPPER}} .wpcf7 form.wpcf7-form.sent .wpcf7-response-output' => 'background-color: {{VALUE}}',
 				),
 			),
 			25
@@ -1344,7 +1344,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'name'           => 'sent_border',
 				'label'          => esc_html__( 'Border', 'jet-elements' ),
 				'placeholder'    => '1px',
-				'selector'       => '{{WRAPPER}} .wpcf7 div.wpcf7-mail-sent-ok',
+				'selector'       => '{{WRAPPER}} .wpcf7 form.wpcf7-form.sent .wpcf7-response-output',
 			),
 			75
 		);
@@ -1353,7 +1353,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 			Group_Control_Box_Shadow::get_type(),
 			array(
 				'name'     => 'sent_box_shadow',
-				'selector' => '{{WRAPPER}} .wpcf7 div.wpcf7-mail-sent-ok',
+				'selector' => '{{WRAPPER}} .wpcf7 form.wpcf7-form.sent .wpcf7-response-output',
 			),
 			100
 		);
@@ -1374,7 +1374,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'label'     => esc_html__( 'Color', 'jet-elements' ),
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => array(
-					'{{WRAPPER}} .wpcf7 div.wpcf7-mail-sent-ng' => 'color: {{VALUE}}',
+					'{{WRAPPER}} .wpcf7 form.wpcf7-form.failed .wpcf7-response-output' => 'color: {{VALUE}}',
 				),
 			),
 			25
@@ -1386,7 +1386,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'label'     => esc_html__( 'Background Color', 'jet-elements' ),
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => array(
-					'{{WRAPPER}} .wpcf7 div.wpcf7-mail-sent-ng' => 'background-color: {{VALUE}}',
+					'{{WRAPPER}} .wpcf7 form.wpcf7-form.failed .wpcf7-response-output' => 'background-color: {{VALUE}}',
 				),
 			),
 			25
@@ -1398,7 +1398,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'name'           => 'error_border',
 				'label'          => esc_html__( 'Border', 'jet-elements' ),
 				'placeholder'    => '1px',
-				'selector'       => '{{WRAPPER}} .wpcf7 div.wpcf7-mail-sent-ng',
+				'selector'       => '{{WRAPPER}} .wpcf7 form.wpcf7-form.failed .wpcf7-response-output',
 			),
 			75
 		);
@@ -1407,7 +1407,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 			Group_Control_Box_Shadow::get_type(),
 			array(
 				'name'     => 'error_box_shadow',
-				'selector' => '{{WRAPPER}} .wpcf7 div.wpcf7-mail-sent-ng',
+				'selector' => '{{WRAPPER}} .wpcf7 form.wpcf7-form.failed .wpcf7-response-output',
 			),
 			100
 		);
@@ -1428,7 +1428,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'label'     => esc_html__( 'Color', 'jet-elements' ),
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => array(
-					'{{WRAPPER}} .wpcf7 div.wpcf7-validation-errors' => 'color: {{VALUE}}',
+					'{{WRAPPER}} .wpcf7 form.wpcf7-form.invalid .wpcf7-response-output' => 'color: {{VALUE}}',
 				),
 			),
 			25
@@ -1440,7 +1440,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'label'     => esc_html__( 'Background Color', 'jet-elements' ),
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => array(
-					'{{WRAPPER}} .wpcf7 div.wpcf7-validation-errors' => 'background-color: {{VALUE}}',
+					'{{WRAPPER}} .wpcf7 form.wpcf7-form.invalid .wpcf7-response-output' => 'background-color: {{VALUE}}',
 				),
 			),
 			25
@@ -1452,7 +1452,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'name'           => 'invalid_alert_border',
 				'label'          => esc_html__( 'Border', 'jet-elements' ),
 				'placeholder'    => '1px',
-				'selector'       => '{{WRAPPER}} .wpcf7 div.wpcf7-validation-errors',
+				'selector'       => '{{WRAPPER}} .wpcf7 form.wpcf7-form.invalid .wpcf7-response-output',
 			),
 			75
 		);
@@ -1461,7 +1461,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 			Group_Control_Box_Shadow::get_type(),
 			array(
 				'name'     => 'invalid_alert_box_shadow',
-				'selector' => '{{WRAPPER}} .wpcf7 div.wpcf7-validation-errors',
+				'selector' => '{{WRAPPER}} .wpcf7 form.wpcf7-form.invalid .wpcf7-response-output',
 			),
 			100
 		);
@@ -1482,7 +1482,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'label'     => esc_html__( 'Color', 'jet-elements' ),
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => array(
-					'{{WRAPPER}} .wpcf7 div.wpcf7-spam-blocked' => 'color: {{VALUE}}',
+					'{{WRAPPER}} .wpcf7 form.wpcf7-form.spam .wpcf7-response-output' => 'color: {{VALUE}}',
 				),
 			),
 			25
@@ -1494,7 +1494,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'label'     => esc_html__( 'Background Color', 'jet-elements' ),
 				'type'      => Controls_Manager::COLOR,
 				'selectors' => array(
-					'{{WRAPPER}} .wpcf7 div.wpcf7-spam-blocked' => 'background-color: {{VALUE}}',
+					'{{WRAPPER}} ..wpcf7 form.wpcf7-form.spam .wpcf7-response-output' => 'background-color: {{VALUE}}',
 				),
 			),
 			25
@@ -1506,7 +1506,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 				'name'           => 'spam_border',
 				'label'          => esc_html__( 'Border', 'jet-elements' ),
 				'placeholder'    => '1px',
-				'selector'       => '{{WRAPPER}} .wpcf7 div.wpcf7-spam-blocked',
+				'selector'       => '{{WRAPPER}} .wpcf7 form.wpcf7-form.spam .wpcf7-response-output',
 			),
 			75
 		);
@@ -1515,7 +1515,7 @@ class Jet_Elements_Contact_Form7 extends Jet_Elements_Base {
 			Group_Control_Box_Shadow::get_type(),
 			array(
 				'name'     => 'spam_box_shadow',
-				'selector' => '{{WRAPPER}} .wpcf7 div.wpcf7-spam-blocked',
+				'selector' => '{{WRAPPER}} .wpcf7 form.wpcf7-form.spam .wpcf7-response-output',
 			),
 			100
 		);

@@ -1,6 +1,8 @@
 <?php
 namespace Jet_Engine\Query_Builder\Queries;
 
+use Jet_Engine\Query_Builder\Manager;
+
 abstract class Base_Query {
 
 	public $id            = false;
@@ -9,18 +11,70 @@ abstract class Base_Query {
 	public $dynamic_query = array();
 	public $final_query   = null;
 	public $query_type    = null;
+	public $query_id      = null;
+	public $preview       = array();
+	public $cache_query   = true;
 
-	public $dynamic_query_changed = false;
+	public $api_settings = [];
+
+	public $parsed_macros = array();
 
 	public function __construct( $args = array() ) {
 
 		$this->id            = ! empty( $args['id'] ) ? $args['id'] : false;
 		$this->name          = ! empty( $args['name'] ) ? $args['name'] : false;
+		$this->query_id      = ! empty( $args['query_id'] ) ? $args['query_id'] : null;
 		$this->query_type    = ! empty( $args['type'] ) ? $args['type'] : false;
 		$this->query         = ! empty( $args['query'] ) ? $args['query'] : false;
 		$this->dynamic_query = ! empty( $args['dynamic_query'] ) ? $args['dynamic_query'] : false;
+		$this->preview       = ! empty( $args['preview'] ) ? $args['preview'] : $this->preview;
+		$this->cache_query   = isset( $args['cache_query'] ) ? filter_var( $args['cache_query'], FILTER_VALIDATE_BOOLEAN ) : true;
+
+		$this->api_settings = [
+			'api_endpoint' => ! empty( $args['api_endpoint'] ) ? $args['api_endpoint'] : false,
+			'api_namespace' => ! empty( $args['api_namespace'] ) ? $args['api_namespace'] : false,
+			'api_path' => ! empty( $args['api_path'] ) ? $args['api_path'] : false,
+			'api_access' => ! empty( $args['api_access'] ) ? $args['api_access'] : false,
+			'api_access_cap' => ! empty( $args['api_access_cap'] ) ? $args['api_access_cap'] : false,
+			'api_access_role' => ! empty( $args['api_access_role'] ) ? $args['api_access_role'] : false,
+			'api_schema' => ! empty( $args['api_schema'] ) ? $args['api_schema'] : false,
+		];
 
 		$this->maybe_add_instance_fields_to_ui();
+
+	}
+
+	/**
+	 * Returns query type for 3rd party integrations. For any internal usage take property directly
+	 * 
+	 * @return string
+	 */
+	public function get_query_type() {
+		return $this->query_type;
+	}
+
+	/**
+	 * Register Rest API endpoint for this query if enbaled.
+	 * 
+	 * @return [type] [description]
+	 */
+	public function maybe_register_rest_api_endpoint() {
+
+		if ( empty( $this->api_settings['api_endpoint'] ) ) {
+			return;
+		}
+
+		if ( empty( $this->api_settings['api_namespace'] ) || empty( $this->api_settings['api_path'] ) ) {
+			return;
+		}
+
+		if ( ! class_exists( '\Jet_Engine\Query_Builder\Rest\Query_Endpoint' ) ) {
+			require_once Manager::instance()->component_path( 'rest-api/query-endpoint.php' );
+		}
+
+		new \Jet_Engine\Query_Builder\Rest\Query_Endpoint( array_merge( $this->api_settings, [
+			'id' => $this->id
+		] ) );
 
 	}
 
@@ -71,7 +125,7 @@ abstract class Base_Query {
 	 * @return [type]      [description]
 	 */
 	public function get_cached_data( $key = null ) {
-		return wp_cache_get( $this->get_query_hash( $key ) );
+		return $this->cache_query ? wp_cache_get( $this->get_query_hash( $key ) ) : false;
 	}
 
 	/**
@@ -82,7 +136,7 @@ abstract class Base_Query {
 	 * @return [type]       [description]
 	 */
 	public function update_query_cache( $data = null, $key = null ) {
-		return wp_cache_set( $this->get_query_hash( $key ), $data );
+		return $this->cache_query ? wp_cache_set( $this->get_query_hash( $key ), $data ) : false;
 	}
 
 	/**
@@ -170,6 +224,10 @@ abstract class Base_Query {
 
 		$this->final_query = $this->query;
 
+		if ( ! $this->final_query ) {
+			$this->final_query = array();
+		}
+
 		foreach ( $this->final_query as $key => $value ) {
 			if ( is_array( $value ) ) {
 				$reset = false;
@@ -204,8 +262,17 @@ abstract class Base_Query {
 				if ( ! in_array( $key, $processed_dynamics ) ) {
 					if ( ! empty( $value ) ) {
 						$this->final_query[ $key ] = $this->apply_macros( $value );
-						$this->dynamic_query_changed = true;
 					}
+				}
+			}
+		}
+
+		$raw_dynamic = $this->get_args_to_dynamic();
+
+		if ( ! empty( $raw_dynamic ) ) {
+			foreach ( $raw_dynamic as $key ) {
+				if ( ! empty( $this->final_query[ $key ] ) ) {
+					$this->final_query[ $key ] = $this->apply_macros( $this->final_query[ $key ] );
 				}
 			}
 		}
@@ -242,11 +309,21 @@ abstract class Base_Query {
 			return;
 		}
 
-		if ( $this->final_query['queried_object_id'] === jet_engine()->listings->data->get_current_object_id() ) {
+		if ( empty( $this->parsed_macros ) ) {
 			return;
 		}
 
-		if ( ! $this->dynamic_query_changed ) {
+		$dynamic_query_changed = false;
+
+		foreach ( $this->parsed_macros as $macro => $value ) {
+
+			if ( $value !== jet_engine()->listings->macros->do_macros( $macro ) ) {
+				$dynamic_query_changed = true;
+				break;
+			}
+		}
+
+		if ( ! $dynamic_query_changed ) {
 			return;
 		}
 
@@ -272,14 +349,17 @@ abstract class Base_Query {
 			foreach ( $val as $key => $value ) {
 				if ( ! empty( $value ) ) {
 					$result[ $key ] = jet_engine()->listings->macros->do_macros( $value );
-					$this->dynamic_query_changed = true;
+					$this->parsed_macros[ $value ] = $result[ $key ];
 				}
 			}
 
 			return $result;
 
 		} else {
-			return jet_engine()->listings->macros->do_macros( $val );
+			$result = jet_engine()->listings->macros->do_macros( $val );
+			$this->parsed_macros[ $val ] = $result;
+
+			return $result;
 		}
 
 	}
@@ -321,7 +401,7 @@ abstract class Base_Query {
 			 */
 			do_action( 'jet-engine/query-builder/query/before-get-items', $this, true );
 
-			return $cached;
+			return apply_filters( 'jet-engine/query-builder/query/items', $cached, $this );
 		}
 
 		$this->setup_query();
@@ -335,7 +415,7 @@ abstract class Base_Query {
 
 		$this->update_query_cache( $items );
 
-		return $items;
+		return apply_filters( 'jet-engine/query-builder/query/items', $items, $this );
 
 	}
 
@@ -349,6 +429,15 @@ abstract class Base_Query {
 	 * @return [type] [description]
 	 */
 	public function get_args_to_explode() {
+		return array();
+	}
+
+	/**
+	 * Array of arguments whose values can contain macros
+	 *
+	 * @return array
+	 */
+	public function get_args_to_dynamic() {
 		return array();
 	}
 
@@ -410,5 +499,62 @@ abstract class Base_Query {
 	 * @param [type] $value [description]
 	 */
 	abstract public function set_filtered_prop( $prop = '', $value = null );
+
+	public function merge_default_props( $prop, $value ) {
+
+		if ( is_array( $value ) ) {
+
+			$replace_array_props = apply_filters( 'jet-engine/query-builder/query/replace-array-props', false, $prop, $value, $this );
+
+			if ( empty( $this->final_query[ $prop ] ) || ! is_array( $this->final_query[ $prop ] ) || $replace_array_props ) {
+				$this->final_query[ $prop ] = $value;
+			} else {
+				$this->final_query[ $prop ] = array_merge( $this->final_query[ $prop ], $value );
+			}
+		} else {
+			$this->final_query[ $prop ] = $value;
+		}
+
+	}
+
+	/**
+	 * Adds date range query arguments to given query parameters.
+	 * Required to allow ech query to ensure compatibility with Dynamic Calendar
+	 * 
+	 * @param array $args [description]
+	 */
+	public function add_date_range_args( $args = array(), $dates_range = array(), $settings = array() ) {
+		$group_by = $settings['group_by'];
+		return $args;
+	}
+
+	public function before_preview_body() {}
+
+	public function get_start_item_index_on_page() {
+
+		$page = $this->get_current_items_page();
+
+		if ( 1 === $page ) {
+			return 1;
+		}
+
+		$per_page = $this->get_items_per_page();
+
+		return ( $page - 1 ) * $per_page + 1;
+	}
+
+	public function get_end_item_index_on_page() {
+
+		$page             = $this->get_current_items_page();
+		$items_page_count = $this->get_items_page_count();
+
+		if ( 1 === $page ) {
+			return $items_page_count;
+		}
+
+		$per_page = $this->get_items_per_page();
+
+		return ( $page - 1 ) * $per_page + $items_page_count;
+	}
 
 }

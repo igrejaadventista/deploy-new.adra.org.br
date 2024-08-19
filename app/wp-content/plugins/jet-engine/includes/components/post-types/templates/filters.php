@@ -67,6 +67,66 @@
 				:value="adminFilters[ index ].show_count"
 				@input="setFieldProp( filter._id, 'show_count', $event, adminFilters )"
 			></cx-vui-switcher>
+			<cx-vui-select
+				label="<?php _e( 'Order By', 'jet-engine' ); ?>"
+				description="<?php _e( 'Field to order terms by', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:options-list="[
+					{
+						value: 'name',
+						label: 'Name',
+					},
+					{
+						value: 'slug',
+						label: 'Slug',
+					},
+					{
+						value: 'term_group',
+						label: 'Term group',
+					},
+					{
+						value: 'term_id',
+						label: 'Term ID',
+					},
+					{
+						value: 'description',
+						label: 'Description',
+					},
+					{
+						value: 'parent',
+						label: 'Parent',
+					},
+					{
+						value: 'term_order',
+						label: 'Term Order',
+					},
+					{
+						value: 'count',
+						label: 'By the number of objects associated with the term',
+					},
+				]"
+				size="fullwidth"
+				:value="adminFilters[ index ].tax_order_by"
+				@input="setFieldProp( filter._id, 'tax_order_by', $event, adminFilters )"
+			></cx-vui-select>
+			<cx-vui-select
+				label="<?php _e( 'Order', 'jet-engine' ); ?>"
+				description="<?php _e( 'Designates the ascending or descending order of the `Order By` parameter', 'jet-engine' ); ?>"
+				:wrapper-css="[ 'equalwidth' ]"
+				:options-list="[
+					{
+						value: 'ASC',
+						label: 'From lowest to highest values (1, 2, 3; a, b, c)',
+					},
+					{
+						value: 'DESC',
+						label: 'From highest to lowest values (3, 2, 1; c, b, a)',
+					},
+				]"
+				size="fullwidth"
+				:value="adminFilters[ index ].tax_order"
+				@input="setFieldProp( filter._id, 'tax_order', $event, adminFilters )"
+			></cx-vui-select>
 		</template>
 		<cx-vui-component-wrapper
 			v-else-if="'taxonomy' === filter.type"
@@ -117,6 +177,29 @@
 				:options-list="glossariesList"
 				:value="adminFilters[ index ].glossary_id"
 				@input="setFieldProp( filter._id, 'glossary_id', $event, adminFilters )"
+			></cx-vui-select>
+			<cx-vui-select
+				label="<?php _e( 'Order', 'jet-engine' ); ?>"
+				description="<?php _e( 'Designates the ascending or descending order', 'jet-engine' ); ?>"
+				v-if="'db' === filter.options_source"
+				:wrapper-css="[ 'equalwidth' ]"
+				:options-list="[
+					{
+						value: '',
+						label: '<?php _e( 'Default', 'jet-engine' ); ?>',
+					},
+					{
+						value: 'ASC',
+						label: 'From lowest to highest values (1, 2, 3; a, b, c)',
+					},
+					{
+						value: 'DESC',
+						label: 'From highest to lowest values (3, 2, 1; c, b, a)',
+					},
+				]"
+				size="fullwidth"
+				:value="adminFilters[ index ].meta_order"
+				@input="setFieldProp( filter._id, 'meta_order', $event, adminFilters )"
 			></cx-vui-select>
 		</template>
 		<?php do_action( 'jet-engine/post-types/admin-filters/custom-controls' ); ?>

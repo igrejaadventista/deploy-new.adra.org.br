@@ -16,9 +16,9 @@ namespace RankMath\OpenGraph;
 use RankMath\Helper;
 use RankMath\Post;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Str;
-use MyThemeShop\Helpers\Url;
-use MyThemeShop\Helpers\Attachment;
+use RankMath\Helpers\Str;
+use RankMath\Helpers\Url;
+use RankMath\Helpers\Attachment;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -111,12 +111,27 @@ class Image {
 	}
 
 	/**
+	 * Generate secret key for safer image URLs.
+	 *
+	 * @param int    $id   The attachment ID.
+	 * @param string $type Overlay type.
+	 */
+	public function generate_secret( $id, $type ) {
+		return md5( $id . $type . wp_salt( 'nonce' ) );
+	}
+
+	/**
 	 * Outputs an image tag based on whether it's https or not.
 	 *
 	 * @param array $image_meta Image metadata.
 	 */
 	private function image_tag( $image_meta ) {
-		$og_image = $this->opengraph->get_overlay_image() && ! empty( $image_meta['id'] ) ? admin_url( "admin-ajax.php?action=rank_math_overlay_thumb&id={$image_meta['id']}&type={$this->opengraph->get_overlay_image()}" ) : $image_meta['url'];
+		$overlay  = $this->opengraph->get_overlay_image();
+		$og_image = $image_meta['url'];
+		if ( $overlay && ! empty( $image_meta['id'] ) ) {
+			$secret   = $this->generate_secret( $image_meta['id'], $overlay );
+			$og_image = admin_url( "admin-ajax.php?action=rank_math_overlay_thumb&id={$image_meta['id']}&type={$overlay}&hash={$secret}" );
+		}
 		$this->opengraph->tag( 'og:image', esc_url_raw( $og_image ) );
 
 		// Add secure URL if detected. Not all services implement this, so the regular one also needs to be rendered.
@@ -165,11 +180,7 @@ class Image {
 	 * @param int $attachment_id The attachment ID to add.
 	 */
 	public function add_image_by_id( $attachment_id ) {
-		if ( ! wp_attachment_is_image( $attachment_id ) ) {
-			return;
-		}
-
-		$variations = $this->get_variations( $attachment_id );
+		$variations = $this->get_image_variations( $attachment_id );
 
 		// If we are left without variations, there is no valid variation for this attachment.
 		if ( empty( $variations ) ) {
@@ -195,34 +206,52 @@ class Image {
 	 *
 	 * @param string $attachment Source URL to the image.
 	 */
-	public function add_image( $attachment ) {
+	public function add_image( $attachment = '' ) {
 		// In the past `add_image` accepted an image url, so leave this for backwards compatibility.
 		if ( Str::is_non_empty( $attachment ) ) {
 			$attachment = [ 'url' => $attachment ];
 		}
 
+		$validate_image = true;
+		/**
+		 * Allow changing the OpenGraph image.
+		 * The dynamic part of the hook name, $this->network, is the network slug (facebook, twitter).
+		 *
+		 * @param string $img The image we are about to add.
+		 */
+		$filter_image_url = trim( $this->do_filter( "opengraph/{$this->network}/image", isset( $attachment['url'] ) ? $attachment['url'] : '' ) );
+		if ( ! empty( $filter_image_url ) && ( empty( $attachment['url'] ) || $filter_image_url !== $attachment['url'] ) ) {
+			$attachment     = [ 'url' => $filter_image_url ];
+			$validate_image = false;
+		}
+
+		/**
+		 * Secondary filter to allow changing the whole array.
+		 * The dynamic part of the hook name, $this->network, is the network slug (facebook, twitter).
+		 * This makes it possible to change the image ID too, to allow for image overlays.
+		 *
+		 * @param array $attachment The image we are about to add.
+		 */
+		$attachment = $this->do_filter( "opengraph/{$this->network}/image_array", $attachment );
+
 		if ( ! is_array( $attachment ) || empty( $attachment['url'] ) ) {
 			return;
 		}
 
-		$attachment_url = explode( '?', $attachment['url'] );
-		if ( ! empty( $attachment_url ) ) {
-			$attachment['url'] = $attachment_url[0];
+		// Validate image only when it is not added using the opengraph filter.
+		if ( $validate_image ) {
+			$attachment_url = explode( '?', $attachment['url'] );
+			if ( ! empty( $attachment_url ) ) {
+				$attachment['url'] = $attachment_url[0];
+			}
+
+			// If the URL ends in `.svg`, we need to return.
+			if ( ! $this->is_valid_image_url( $attachment['url'] ) ) {
+				return;
+			}
 		}
 
-		// If the URL ends in `.svg`, we need to return.
-		if ( ! $this->is_valid_image_url( $attachment['url'] ) ) {
-			return;
-		}
-
-		/**
-		 * Allow changing the OpenGraph image.
-		 *
-		 * The dynamic part of the hook name. $this->network, is the network slug.
-		 *
-		 * @param string $img The image we are about to add.
-		 */
-		$image_url = trim( $this->do_filter( "opengraph/{$this->network}/image", $attachment['url'] ) );
+		$image_url = $attachment['url'];
 		if ( empty( $image_url ) ) {
 			return;
 		}
@@ -321,8 +350,13 @@ class Image {
 
 		// If not, get default image.
 		$image_id = Helper::get_settings( 'titles.open_graph_image_id' );
-		if ( ! $this->has_images() && $image_id > 0 ) {
-			$this->add_image_by_id( $image_id );
+		if ( ! $this->has_images() ) {
+			if ( $image_id > 0 ) {
+				$this->add_image_by_id( $image_id );
+				return;
+			}
+
+			$this->add_image(); // This allows "opengraph/{$this->network}/image" filter to be used even if no image is set.
 		}
 	}
 
@@ -469,11 +503,37 @@ class Image {
 	 * @param object $post The post object.
 	 */
 	private function set_content_image( $post ) {
+		if ( empty( $post ) || ! $post instanceof \WP_Post ) {
+			return;
+		}
+
 		$content = sanitize_post_field( 'post_content', $post->post_content, $post->ID );
 
 		// Early bail!
 		if ( '' === $content || false === Str::contains( '<img', $content ) ) {
 			return;
+		}
+
+		$do_og_content_image_cache = $this->do_filter( 'opengraph/content_image_cache', true );
+		if ( $do_og_content_image_cache ) {
+			$cache_key = 'rank_math_og_content_image';
+			$cache     = get_post_meta( $post->ID, $cache_key, true );
+			$check     = md5( $post->post_content );
+			if ( ! empty( $cache ) && isset( $cache['check'] ) && $check === $cache['check'] ) {
+				foreach ( $cache['images'] as $image ) {
+					if ( is_int( $image ) ) {
+						$this->add_image_by_id( $image );
+					} else {
+						$this->add_image( $image );
+					}
+				}
+				return;
+			}
+
+			$cache = [
+				'check'  => $check,
+				'images' => [],
+			];
 		}
 
 		$images = [];
@@ -493,17 +553,32 @@ class Image {
 		}
 
 		foreach ( $images as $image ) {
-			$attachment_id = Attachment::get_by_url( $image );
-			if ( 0 === $attachment_id ) {
-				$this->add_image( $image );
-			} else {
-				$this->add_image_by_id( $attachment_id );
-			}
 
 			// If an image has been added, we're done.
 			if ( $this->has_images() ) {
-				return;
+				break;
 			}
+
+			if ( Url::is_external( $image ) ) {
+				$this->add_image( $image );
+			} else {
+				$attachment_id = Attachment::get_by_url( $image );
+				if ( 0 === $attachment_id ) {
+					$this->add_image( $image );
+					if ( $do_og_content_image_cache ) {
+						$cache['images'][] = $image;
+					}
+				} else {
+					$this->add_image_by_id( $attachment_id );
+					if ( $do_og_content_image_cache ) {
+						$cache['images'][] = $attachment_id;
+					}
+				}
+			}
+		}
+
+		if ( $do_og_content_image_cache ) {
+			update_post_meta( $post->ID, $cache_key, $cache );
 		}
 	}
 
@@ -528,6 +603,7 @@ class Image {
 	 */
 	private function set_archive_image() {
 		$post_type = get_query_var( 'post_type' );
+		$post_type = is_array( $post_type ) ? reset( $post_type ) : $post_type;
 		$image_id  = Helper::get_settings( "titles.pt_{$post_type}_facebook_image_id" );
 		$this->add_image_by_id( $image_id );
 	}
@@ -549,10 +625,7 @@ class Image {
 			return false;
 		}
 
-		$extensions = [ 'jpeg', 'jpg', 'gif', 'png' ];
-		if ( 'twitter' === $this->network ) {
-			$extensions[] = 'webp';
-		}
+		$extensions = [ 'jpeg', 'jpg', 'gif', 'png', 'webp', 'avif' ];
 
 		return in_array( $check['ext'], $extensions, true );
 	}
@@ -581,6 +654,39 @@ class Image {
 				}
 			}
 		}
+
+		return $variations;
+	}
+
+	/**
+	 * Validate Attachment image and return its variations.
+	 *
+	 * @param int $attachment_id The attachment to return the variations for.
+	 *
+	 * @return array The different variations possible for this attachment ID.
+	 */
+	private function get_image_variations( $attachment_id ) {
+		/**
+		 * Allow plugins to change the blog in a multisite environment. This hook can be used by plugins that uses a global media library from the main site.
+		 */
+		$this->do_action( 'opengraph/pre_attachment_image_check', $attachment_id );
+
+		/**
+		 * Filter to change the attachment ID.
+		 *
+		 * @param int $attachment_id Attachment ID.
+		 */
+		$attachment_id = $this->do_filter( 'opengraph/attachment_id', $attachment_id );
+		if ( ! wp_attachment_is_image( $attachment_id ) ) {
+			return;
+		}
+
+		$variations = $this->get_variations( $attachment_id );
+
+		/**
+		 * Allow plugins to reset the blog in a multisite environment. This hook can be used by plugins that utilize a global media library from the main site.
+		 */
+		$this->do_action( 'opengraph/post_attachment_image_check', $attachment_id );
 
 		return $variations;
 	}

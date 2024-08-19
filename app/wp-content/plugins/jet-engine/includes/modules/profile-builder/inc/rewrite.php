@@ -63,7 +63,7 @@ class Rewrite {
 			}
 		}
 
-		return array_filter( $result );
+		return apply_filters( 'jet-engine/profile-builder/rewrite-rules', array_filter( $result ), $this );
 
 	}
 
@@ -95,7 +95,7 @@ class Rewrite {
 				break;
 
 			default:
-				$regex    = $slug . '/?([^/]+)?';
+				$regex    = $slug . '(?:/([^/]+))?/?$';
 				$redirect = 'pagename=' . $slug . '&' . $this->page_var . '=' . $page . '&' . $this->subpage_var . '=$matches[1]';
 				break;
 		}

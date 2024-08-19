@@ -8,23 +8,22 @@ class Elementor_Integration {
 		add_action( 'jet-engine/listings/dynamic-link/source-controls', array( $this, 'register_dynamic_link_controls' ) );
 
 		add_action( 'jet-engine/listing/after-posts-query-fields', array( $this, 'register_listing_controls' ) );
-		add_action( 'jet-engine/elementor-views/dynamic-tags/register', array( $this, 'register_dynamic_tags' ) );
-
-		add_action( 'elementor/widgets/widgets_registered', array( $this, 'register_widgets' ) );
+		add_action( 'jet-engine/elementor-views/dynamic-tags/register', array( $this, 'register_dynamic_tags' ), 10, 2 );
+		add_action( 'jet-engine/elementor-views/widgets/register', array( $this, 'register_widgets' ), 10, 2 );
 
 		add_filter( 'jet-engine/modules/dynamic-visibility/condition/args', array( $this, 'strip_tags_from_store_count_condition' ) );
 
 	}
 
-	public function register_dynamic_tags( $tags_module ) {
+	public function register_dynamic_tags( $dynamic_tags, $tags_module ) {
 
 		require_once jet_engine()->modules->modules_path( 'data-stores/inc/dynamic-tags/post-count.php' );
 		require_once jet_engine()->modules->modules_path( 'data-stores/inc/dynamic-tags/store-count.php' );
 		require_once jet_engine()->modules->modules_path( 'data-stores/inc/dynamic-tags/get-store.php' );
 
-		$tags_module->register_tag( new Dynamic_Tags\Post_Count() );
-		$tags_module->register_tag( new Dynamic_Tags\Store_Count() );
-		$tags_module->register_tag( new Dynamic_Tags\Get_Store() );
+		$tags_module->register_tag( $dynamic_tags, new Dynamic_Tags\Post_Count() );
+		$tags_module->register_tag( $dynamic_tags, new Dynamic_Tags\Store_Count() );
+		$tags_module->register_tag( $dynamic_tags, new Dynamic_Tags\Get_Store() );
 
 	}
 
@@ -36,9 +35,14 @@ class Elementor_Integration {
 	 * @return void
 	 * @throws \Exception
 	 */
-	public function register_widgets( $widgets_manager ) {
-		require_once jet_engine()->modules->modules_path( 'data-stores/inc/widgets/button.php' );
-		$widgets_manager->register_widget_type( new Widgets\Button() );
+	public function register_widgets( $widgets_manager, $elementor_views ) {
+
+		$elementor_views->register_widget(
+			jet_engine()->modules->modules_path( 'data-stores/inc/widgets/button.php' ),
+			$widgets_manager,
+			__NAMESPACE__ . '\Widgets\Button'
+		);
+
 	}
 
 	/**
@@ -101,9 +105,9 @@ class Elementor_Integration {
 			'dynamic_link_store',
 			array(
 				'label'     => __( 'Select store', 'jet-engine' ),
-				'type'      => \Elementor\Controls_Manager::SELECT,
+				'type'      => 'select',
 				'default'   => '',
-				'groups'    => $this->get_store_options(),
+				'options'   => $this->get_store_options(),
 				'condition' => array(
 					'dynamic_link_source' => array( 'add_to_store', 'remove_from_store' ),
 				),
@@ -114,7 +118,7 @@ class Elementor_Integration {
 			$widget->add_control(
 				'dynamic_link_trigger_popup',
 				array(
-					'type'        => \Elementor\Controls_Manager::SWITCHER,
+					'type'        => 'switcher',
 					'label'       => __( 'Open popup on success', 'jet-engine' ),
 					'description' => __( 'Open selected popup from JetPopup after post successfully added to store. Popup should be selected in the <b>Advanced Tab > JetPopup</b> section, <b>Trigger Type</b> must be set to <b>None</b>', 'jet-engine' ),
 					'condition' => array(
@@ -127,7 +131,7 @@ class Elementor_Integration {
 		$widget->add_control(
 			'dynamic_link_synch_grid',
 			array(
-				'type'        => \Elementor\Controls_Manager::SWITCHER,
+				'type'        => 'switcher',
 				'label'       => __( 'Reload listing grid on success', 'jet-engine' ),
 				'description' => __( 'You can use this option to reload listing grid with current Store posts on success', 'jet-engine' ),
 				'condition' => array(
@@ -140,7 +144,7 @@ class Elementor_Integration {
 			'dynamic_link_synch_grid_id',
 			array(
 				'label'       => __( 'Listing grid ID', 'jet-engine' ),
-				'type'        => \Elementor\Controls_Manager::TEXT,
+				'type'        => 'text',
 				'default'     => '',
 				'label_block' => true,
 				'description' => __( 'Here you need to set listing ID to reload. The same ID must be set in the Advanced settings of selected listing', 'jet-engine' ),
@@ -155,7 +159,7 @@ class Elementor_Integration {
 			'added_to_store_text',
 			array(
 				'label'       => __( 'Added to store text', 'jet-engine' ),
-				'type'        => \Elementor\Controls_Manager::TEXT,
+				'type'        => 'text',
 				'default'     => '',
 				'label_block' => true,
 				'condition'   => array(
@@ -168,7 +172,7 @@ class Elementor_Integration {
 			'added_to_store_url',
 			array(
 				'label'       => __( 'Added to store URL', 'jet-engine' ),
-				'type'        => \Elementor\Controls_Manager::TEXT,
+				'type'        => 'text',
 				'default'     => '',
 				'label_block' => true,
 				'condition'   => array(
@@ -181,7 +185,7 @@ class Elementor_Integration {
 			'added_to_store_icon',
 			array(
 				'label'            => __( 'Added to store icon', 'jet-engine' ),
-				'type'             => \Elementor\Controls_Manager::ICONS,
+				'type'             => 'icons',
 				'label_block'      => true,
 				'condition'   => array(
 					'dynamic_link_source' => array( 'add_to_store' ),
@@ -194,7 +198,7 @@ class Elementor_Integration {
 		$widget->add_control(
 			'remove_post_from_listing',
 			array(
-				'type'        => \Elementor\Controls_Manager::SWITCHER,
+				'type'        => 'switcher',
 				'label'       => __( 'Remove post from current listing', 'jet-engine' ),
 				'description' => __( 'Check this is you want to remove current post from current listing grid after removing post from store', 'jet-engine' ),
 				'default'     => 'yes',
@@ -215,7 +219,8 @@ class Elementor_Integration {
 		}
 
 		if ( false === strpos( $args['condition_settings']['__dynamic__']['jedv_field'], 'name="jet-data-store-store-count"' ) &&
-			false === strpos( $args['condition_settings']['__dynamic__']['jedv_field'], 'name="jet-data-store-post-count"' )
+			false === strpos( $args['condition_settings']['__dynamic__']['jedv_field'], 'name="jet-data-store-post-count"' ) &&
+			false === strpos( $args['condition_settings']['__dynamic__']['jedv_field'], '"macros":"store_count"' )
 		) {
 			return $args;
 		}

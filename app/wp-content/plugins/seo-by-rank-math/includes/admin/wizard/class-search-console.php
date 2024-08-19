@@ -12,7 +12,7 @@ namespace RankMath\Wizard;
 
 use RankMath\KB;
 use RankMath\Helper;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -35,7 +35,7 @@ class Search_Console implements Wizard_Step {
 			<p>
 				<?php
 				/* translators: Link to How to Setup Google Search Console KB article */
-				printf( esc_html__( 'Rank Math automates everything, use below button to connect your site with Google Search Console and Google Analytics. It will verify your site and submit sitemaps automatically. %s', 'rank-math' ), '<a href="' . esc_url( KB::get( 'sw-analytics-kb' ) ) . '" target="_blank">' . esc_html__( 'Read more about it here.', 'rank-math' ) . '</a>' );
+				printf( esc_html__( 'Rank Math automates everything, use below button to connect your site with Google Search Console and Google Analytics. It will verify your site and submit sitemaps automatically. %s', 'rank-math' ), '<a href="' . esc_url( KB::get( 'help-analytics', 'SW Analytics Step Description' ) ) . '" target="_blank">' . esc_html__( 'Read more about it here.', 'rank-math' ) . '</a>' );
 				?>
 			</p>
 		</header>
@@ -80,6 +80,30 @@ class Search_Console implements Wizard_Step {
 		$settings['general']['console_email_reports'] = Param::post( 'console_email_reports' );
 
 		Helper::update_all_settings( $settings['general'], null, null );
+
+		// For Search console.
+		$value = [
+			'country'             => Param::post( 'site-console-country' ),
+			'profile'             => Param::post( 'site-console-profile' ),
+			'enable_index_status' => Param::post( 'enable-index-status' ),
+		];
+		update_option( 'rank_math_google_analytic_profile', $value );
+
+		// For Analytics.
+		$analytic_value = [
+			'adsense_id'       => Param::post( 'site-adsense-account' ),
+			'account_id'       => Param::post( 'site-analytics-account' ),
+			'property_id'      => Param::post( 'site-analytics-property' ),
+			'view_id'          => Param::post( 'site-analytics-view' ),
+			'measurement_id'   => Param::post( 'measurementID' ),
+			'stream_name'      => Param::post( 'streamName' ),
+			'country'          => Param::post( 'site-analytics-country' ),
+			'install_code'     => 'on' === Param::post( 'install-code' ) ? true : false,
+			'anonymize_ip'     => 'on' === Param::post( 'anonymize-ip' ) ? true : false,
+			'local_ga_js'      => 'on' === Param::post( 'local-ga-js' ) ? true : false,
+			'exclude_loggedin' => 'on' === Param::post( 'exclude-loggedin' ) ? true : false,
+		];
+		update_option( 'rank_math_google_analytic_options', $analytic_value );
 
 		return true;
 	}

@@ -145,8 +145,8 @@ abstract class Base {
 
 		switch ( $data_type ) {
 			case 'numeric':
-				$current_value    = intval( $current_value );
-				$value_to_compare = intval( $value_to_compare );
+				$current_value    = floatval( $current_value );
+				$value_to_compare = floatval( $value_to_compare );
 				break;
 
 			case 'datetime':
@@ -156,7 +156,9 @@ abstract class Base {
 					$current_value = strtotime( $current_value );
 				}
 
-				$value_to_compare = strtotime( $value_to_compare );
+				if ( ! \Jet_Engine_Tools::is_valid_timestamp( $value_to_compare ) ) {
+					$value_to_compare = strtotime( $value_to_compare );
+				}
 
 				break;
 
@@ -180,8 +182,12 @@ abstract class Base {
 	 */
 	public function explode_string( $value = null ) {
 
-		if ( empty( $value ) ) {
+		if ( \Jet_Engine_Tools::is_empty( $value ) ) {
 			return array();
+		}
+
+		if ( is_array( $value ) ) {
+			return $value;
 		}
 
 		$value = explode( ',', $value );

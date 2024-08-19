@@ -12,7 +12,7 @@ namespace RankMath\Admin\Metabox;
 
 use RankMath\Helper;
 use RankMath\Traits\Hooker;
-use MyThemeShop\Helpers\Param;
+use RankMath\Helpers\Param;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -149,17 +149,21 @@ class Taxonomy_Screen implements IScreen {
 	}
 
 	/**
-	 * Adds custom category description editor.
+	 * Add the description field to the edit taxonomy screen if the metabox is
+	 * enabled for the current taxonomy.
 	 *
-	 * @return {void}
+	 * @return void
 	 */
 	private function description_field_editor() {
 		$taxonomy = $this->get_taxonomy();
-		if ( ! Helper::get_settings( 'titles.tax_' . $taxonomy . '_add_meta_box' ) ) {
+		if (
+			! Helper::get_settings( 'titles.tax_' . $taxonomy . '_add_meta_box' ) ||
+			$this->do_filter( 'admin/disable_rich_editor', false, $taxonomy )
+		) {
 			return;
 		}
 
-		add_action( "{$taxonomy}_edit_form_fields", [ $this, 'category_description_editor' ], 1 );
+		$this->action( "{$taxonomy}_edit_form_fields", 'category_description_editor', 1 );
 	}
 
 	/**

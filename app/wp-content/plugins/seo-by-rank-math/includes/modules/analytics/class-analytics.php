@@ -12,14 +12,13 @@ namespace RankMath\Analytics;
 
 use RankMath\KB;
 use RankMath\Helper;
+use RankMath\Helpers\Arr;
+use RankMath\Helpers\Param;
 use RankMath\Google\Api;
 use RankMath\Module\Base;
-use MyThemeShop\Admin\Page;
-use MyThemeShop\Helpers\Arr;
+use RankMath\Admin\Page;
 use RankMath\Google\Console;
 use RankMath\Google\Authentication;
-use MyThemeShop\Helpers\Conditional;
-use MyThemeShop\Helpers\Param;
 use RankMath\Analytics\Workflow\Jobs;
 use RankMath\Analytics\Workflow\OAuth;
 use RankMath\Analytics\Workflow\Workflow;
@@ -32,10 +31,38 @@ defined( 'ABSPATH' ) || exit;
 class Analytics extends Base {
 
 	/**
+	 * Module ID.
+	 *
+	 * @var string
+	 */
+	public $id = '';
+
+	/**
+	 * Module directory.
+	 *
+	 * @var string
+	 */
+	public $directory = '';
+
+	/**
+	 * Module help.
+	 *
+	 * @var array
+	 */
+	public $help = [];
+
+	/**
+	 * Module page.
+	 *
+	 * @var object
+	 */
+	public $page;
+
+	/**
 	 * The Constructor
 	 */
 	public function __construct() {
-		if ( Conditional::is_heartbeat() ) {
+		if ( Helper::is_heartbeat() || ! Helper::has_cap( 'analytics' ) ) {
 			return;
 		}
 
@@ -167,7 +194,7 @@ class Analytics extends Base {
 			}
 
 			// phpcs:disable
-			$notification   = new \MyThemeShop\Notification(
+			$notification   = new \RankMath\Admin\Notifications\Notification(
 				/* translators: delete counter */
 				sprintf(
 					'<svg style="vertical-align: middle; margin-right: 5px" viewBox="0 0 462.03 462.03" xmlns="http://www.w3.org/2000/svg" width="20"><g><path d="m462 234.84-76.17 3.43 13.43 21-127 81.18-126-52.93-146.26 60.97 10.14 24.34 136.1-56.71 128.57 54 138.69-88.61 13.43 21z"></path><path d="m54.1 312.78 92.18-38.41 4.49 1.89v-54.58h-96.67zm210.9-223.57v235.05l7.26 3 89.43-57.05v-181zm-105.44 190.79 96.67 40.62v-165.19h-96.67z"></path></g></svg>' .
@@ -304,6 +331,7 @@ class Analytics extends Base {
 			'rank-math-analytics',
 			$uri . '/assets/js/stats.js',
 			[
+				'lodash',
 				'wp-components',
 				'wp-element',
 				'wp-i18n',
@@ -314,6 +342,8 @@ class Analytics extends Base {
 			rank_math()->version,
 			true
 		);
+
+		wp_set_script_translations( 'rank-math-analytics', 'rank-math', plugin_dir_path(__FILE__) . 'languages/' );
 
 		$this->action( 'admin_footer', 'dequeue_cmb2' );
 
@@ -380,7 +410,6 @@ class Analytics extends Base {
 				'indexing' => [
 					'index_verdict'            => true,
 					'indexing_state'           => true,
-					'mobile_usability_verdict' => true,
 					'rich_results_items'       => true,
 					'page_fetch_state'         => false,
 				],
@@ -405,18 +434,15 @@ class Analytics extends Base {
 		Helper::add_json( 'singleImage', rank_math()->plugin_url() . 'includes/modules/analytics/assets/img/single-post-report.jpg' );
 
 		// Index Status tab.
-		$profile = get_option( 'rank_math_google_analytic_profile', [] );
-		$enable_index_status = true;
-		if ( is_array( $profile ) && isset( $profile['enable_index_status'] ) ) {
-			$enable_index_status = $profile['enable_index_status'];
-		}
-
+		$enable_index_status = Helper::can_add_index_status();
 		Helper::add_json( 'enableIndexStatus', $enable_index_status );
 		Helper::add_json( 'viewedIndexStatus', get_option( 'rank_math_viewed_index_status', false ) );
 
 		if ( $enable_index_status ) {
 			update_option( 'rank_math_viewed_index_status', true );
 		}
+
+		Helper::add_json( 'isRtl', is_rtl() );
 	}
 
 	/**
@@ -472,7 +498,7 @@ class Analytics extends Base {
 					'icon'  => 'rm-icon rm-icon-search-console',
 					'title' => esc_html__( 'Analytics', 'rank-math' ),
 					/* translators: Link to kb article */
-					'desc'  => sprintf( esc_html__( 'See your Google Search Console, Analytics and AdSense data without leaving your WP dashboard. %s.', 'rank-math' ), '<a href="' . KB::get( 'analytics-settings' ) . '" target="_blank">' . esc_html__( 'Learn more', 'rank-math' ) . '</a>' ),
+					'desc'  => sprintf( esc_html__( 'See your Google Search Console, Analytics and AdSense data without leaving your WP dashboard. %s.', 'rank-math' ), '<a href="' . KB::get( 'analytics-settings', 'Options Panel Analytics Tab' ) . '" target="_blank">' . esc_html__( 'Learn more', 'rank-math' ) . '</a>' ),
 					'file'  => $this->directory . '/views/options.php',
 				],
 			],
@@ -495,13 +521,11 @@ class Analytics extends Base {
 			[
 				'analytics_clear_caches'  => [
 					'title'       => __( 'Purge Analytics Cache', 'rank-math' ),
-					/* translators: 1. Review Schema documentation link */
 					'description' => __( 'Clear analytics cache to re-calculate all the stats again.', 'rank-math' ),
 					'button_text' => __( 'Clear Cache', 'rank-math' ),
 				],
 				'analytics_reindex_posts' => [
 					'title'       => __( 'Rebuild Index for Analytics', 'rank-math' ),
-					/* translators: 1. Review Schema documentation link */
 					'description' => __( 'Missing some posts/pages in the Analytics data? Clear the index and build a new one for more accurate stats.', 'rank-math' ),
 					'button_text' => __( 'Rebuild Index', 'rank-math' ),
 				],

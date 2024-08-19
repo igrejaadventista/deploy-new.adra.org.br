@@ -74,7 +74,22 @@
 
 				$field.each( function() {
 					let $this = $( this );
-					content += $this.hasClass( 'wp-editor-area' ) ? self.getWysiwygContent( $this ) : '\n' + $this.val();
+
+					if ( $this.hasClass( 'wp-editor-area' ) ) {
+						content += self.getWysiwygContent( $this );
+					} else if ( $this.hasClass( 'cx-upload-input' ) ) {
+						let $images = $this.closest( '.cx-ui-media-wrap' ).find( '.cx-upload-preview img' );
+
+						$images.each( function() {
+							let $image  = $( this ),
+								$holder = $image.closest( '.preview-holder' );
+
+							content += '\n' + '<img src="' + $holder.data( 'url-attr' ) + '" alt="' + $image.attr( 'alt' ) + '">';
+						} );
+
+					} else {
+						content += '\n' + $this.val();
+					}
 				} );
 
 			});

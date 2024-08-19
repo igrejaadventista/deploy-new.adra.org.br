@@ -7,9 +7,11 @@
 			margin: 0;
 			.cx-control {
 				padding-bottom: 0;
+				border-top: none;
 			}
 			.cx-control__content {
 				width: 100%;
+				max-width: 100%;
 				flex: 0 1 100%;
 			}
 		}

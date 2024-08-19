@@ -40,6 +40,10 @@ class User_Role extends Base {
 		$type  = ! empty( $args['type'] ) ? $args['type'] : 'show';
 		$roles = ! empty( $args['user_role'] ) ? $args['user_role'] : array();
 
+		if ( ! is_array( $roles ) ) {
+			$roles = array( $roles );
+		}
+
 		if ( 'hide' === $type ) {
 			if ( ! is_user_logged_in() ) {
 				return true;

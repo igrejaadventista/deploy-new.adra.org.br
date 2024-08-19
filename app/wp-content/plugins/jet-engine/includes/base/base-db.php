@@ -372,10 +372,20 @@ class Jet_Engine_Base_DB {
 
 		}
 
+		$this->maybe_transfer_data( $to_remove, $to_add );
+
 		if ( ! empty( $to_remove ) ) {
 			$this->delete_table_columns( $to_remove );
 		}
 
+	}
+
+	/**
+	 * Check if we can transfer data into new columns before removing
+	 *
+	 * Rewrite this method in the childrent where it supported
+	 */
+	public function maybe_transfer_data( $old_columns = array(), $new_columns = array() ) {
 	}
 
 	/**
@@ -563,7 +573,7 @@ class Jet_Engine_Base_DB {
 				break;
 			case 'date':
 				$value = strtotime( $value );
-				$value = sprintf( "'%s'", date( $value, 'Y-m-d H:i:s' ) );
+				$value = sprintf( "'%s'", date( 'Y-m-d H:i:s', $value ) );
 				break;
 			default:
 				$value = sprintf( "'%s'", esc_sql( $value ) );
@@ -677,6 +687,12 @@ class Jet_Engine_Base_DB {
 
 		}
 
+		if ( 'EXISTS' === $operator ) {
+			$format = '`%1$s` IS NOT NULL';
+		} elseif ( 'NOT EXISTS' === $operator ) {
+			$format = '`%1$s` IS NULL';
+		}
+
 		if ( ! is_array( $value ) && in_array( $operator, $array_operators ) && false !== strpos( $value, ',' ) ) {
 			$value = explode( ',', $value );
 			$value = array_map( 'trim', $value );
@@ -734,8 +750,10 @@ class Jet_Engine_Base_DB {
 				$value = $this->adjust_value_by_type( $value, $type );
 			}
 
-			if ( in_array( $operator, $array_operators ) ) {
+			if ( in_array( $operator, array( 'IN', 'BETWEEN' ) ) ) {
 				$operator = '=';
+			} elseif ( in_array( $operator, array( 'NOT IN', 'NOT BETWEEN' ) ) ) {
+				$operator = '!=';
 			}
 
 		}
@@ -759,23 +777,37 @@ class Jet_Engine_Base_DB {
 		foreach ( $order as $order_clause ) {
 			if ( ! empty( $order_clause['orderby'] ) ) {
 
-				$orderby = $order_clause['orderby'];
-				$order   = ! empty( $order_clause['order'] ) ? $order_clause['order'] : 'desc';
-				$order   = strtoupper( $order );
+				// Sanitize SQL `column name` string to prevent SQL injection.
+				// See: https://github.com/Crocoblock/issues-tracker/issues/5251
+				$orderby = \Jet_Engine_Tools::sanitize_sql_orderby( $order_clause['orderby'] );
+				$order   = ! empty( $order_clause['order'] ) ? strtoupper( $order_clause['order'] ) : 'DESC';
+				$order   = in_array( $order, array( 'ASC', 'DESC' ) ) ? $order : 'DESC';
 				$type    = ! empty( $order_clause['type'] ) ? $order_clause['type'] : false;
+
+				if ( ! $orderby ) {
+					continue;
+				}
 
 				switch ( $type ) {
 					case 'integer':
-						$orderby = sprintf( 'CAST( %s AS DECIMAL )', $orderby );
-						break;
 					case 'float':
-						$orderby = sprintf( 'CAST( %s AS DECIMAL )', $orderby );
-						break;
 					case 'timestamp':
+					case 'NUMERIC':
+					case 'DECIMAL':
+					case 'TIMESTAMP':
 						$orderby = sprintf( 'CAST( %s AS DECIMAL )', $orderby );
 						break;
 					case 'date':
 						$orderby = sprintf( 'CAST( %s AS DATE )', $orderby );
+						break;
+
+					case 'DATE':
+					case 'DATETIME':
+					case 'TIME':
+					case 'BINARY':
+					case 'SIGNED':
+					case 'UNSIGNED':
+						$orderby = sprintf( 'CAST( %1$s AS %2$s )', $orderby, $type );
 						break;
 				}
 

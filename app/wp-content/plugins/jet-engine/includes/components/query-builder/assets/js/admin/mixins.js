@@ -26,7 +26,7 @@ window.JetQueryTabInUseMixin = {
 				let keys = Object.keys( value );
 				return 0 < keys.length;
 			} else {
-				return '' !== value;
+				return '' !== value && undefined !== value;
 			}
 		},
 	}
@@ -131,6 +131,12 @@ window.JetQueryMetaParamsMixin = {
 			} else if ( 'object' !== typeof this.dynamicQuery.meta_query || undefined !== this.dynamicQuery.meta_query.length ) {
 				this.$set( this.dynamicQuery, 'meta_query', {} );
 			}
+
+			for ( var itemID in this.dynamicQuery.meta_query ) {
+				if ( 'object' !== typeof this.dynamicQuery.meta_query[ itemID ] || undefined !== this.dynamicQuery.meta_query[ itemID ].length ) {
+					this.$set( this.dynamicQuery.meta_query, itemID, {} );
+				}
+			}
 		},
 		newDynamicMeta: function( newClause, metaQuery, prevID ) {
 
@@ -178,6 +184,12 @@ window.JetQueryDateParamsMixin = {
 			} else if ( 'object' !== typeof this.dynamicQuery.date_query || undefined !== this.dynamicQuery.date_query.length ) {
 				this.$set( this.dynamicQuery, 'date_query', {} );
 			}
+
+			for ( var itemID in this.dynamicQuery.date_query ) {
+				if ( 'object' !== typeof this.dynamicQuery.date_query[ itemID ] || undefined !== this.dynamicQuery.date_query[ itemID ].length ) {
+					this.$set( this.dynamicQuery.date_query, itemID, {} );
+				}
+			}
 		},
 		newDynamicDate: function( newClause, metaQuery, prevID ) {
 
@@ -206,6 +218,12 @@ window.JetQueryTaxParamsMixin = {
 				this.$set( this.dynamicQuery, 'tax_query', {} );
 			} else if ( 'object' !== typeof this.dynamicQuery.tax_query || undefined !== this.dynamicQuery.tax_query.length ) {
 				this.$set( this.dynamicQuery, 'tax_query', {} );
+			}
+
+			for ( var itemID in this.dynamicQuery.tax_query ) {
+				if ( 'object' !== typeof this.dynamicQuery.tax_query[ itemID ] || undefined !== this.dynamicQuery.tax_query[ itemID ].length ) {
+					this.$set( this.dynamicQuery.tax_query, itemID, {} );
+				}
 			}
 		},
 		newDynamicTax: function( newClause, metaQuery, prevID ) {

@@ -2,7 +2,7 @@
 /**
  * Admin Bar module
  *
- * Version: 1.0.2
+ * Version: 1.0.3
  */
 
 // If this file is called directly, abort.
@@ -38,7 +38,7 @@ if ( ! class_exists( 'Jet_Admin_Bar' ) ) {
 		 *
 		 * @var string
 		 */
-		protected $version = '1.0.2';
+		protected $version = '1.0.3';
 
 		private $items = array();
 
@@ -264,6 +264,7 @@ if ( ! class_exists( 'Jet_Admin_Bar' ) ) {
 					width: 20px;
 					height: 18px;
 					top: 3px;
+					box-sizing: content-box;
 					background-size: contain;
 					background-repeat: no-repeat;
 					background-position: center center;

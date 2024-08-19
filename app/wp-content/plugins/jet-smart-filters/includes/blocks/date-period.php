@@ -9,18 +9,15 @@ if ( ! defined( 'WPINC' ) ) {
 }
 
 if ( ! class_exists( 'Jet_Smart_Filters_Block_Date_Period' ) ) {
-
 	/**
 	 * Define Jet_Smart_Filters_Block_Date_Period class
 	 */
 	class Jet_Smart_Filters_Block_Date_Period extends Jet_Smart_Filters_Block_Base {
-
 		/**
 		 * Returns block name
-		 *
-		 * @return string
 		 */
 		public function get_name() {
+
 			return 'date-period';
 		}
 
@@ -40,7 +37,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Date_Period' ) ) {
 			return array( 'jet-smart-filters', 'air-datepicker' );
 		} */
 
-		public function add_style_manager_options(){
+		public function add_style_manager_options() {
 
 			$css_scheme =  apply_filters(
 				'jet-smart-filters/widgets/date-period/css-scheme',
@@ -367,7 +364,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Date_Period' ) ) {
 			$this->controls_manager->add_responsive_control([
 				'id'           => 'calendar_offset_top',
 				'type'         => 'range',
-				'label'        => esc_html__( 'Offset Top', 'jet-smart-filters' ),
+				'label'        => esc_html__( 'Vertical Offset', 'jet-smart-filters' ),
 				'css_selector' => [
 					'#datepickers-container .datepicker' => 'margin-top: {{VALUE}}{{UNIT}};',
 				],
@@ -382,8 +379,33 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Date_Period' ) ) {
 						'value' => 'px',
 						'intervals' => [
 							'step' => 1,
-							'min'  => 0,
-							'max'  => 40,
+							'min'  => -300,
+							'max'  => 300,
+						]
+					],
+				],
+			]);
+
+			$this->controls_manager->add_responsive_control([
+				'id'           => 'calendar_offset_left',
+				'type'         => 'range',
+				'label'        => esc_html__( 'Horizontal Offset', 'jet-smart-filters' ),
+				'css_selector' => [
+					'#datepickers-container .datepicker' => 'margin-left: {{VALUE}}{{UNIT}};',
+				],
+				'attributes' => [
+					'default' => [
+						'value' => 0,
+						'unit' => 'px'
+					]
+				],
+				'units' => [
+					[
+						'value' => 'px',
+						'intervals' => [
+							'step' => 1,
+							'min'  => -300,
+							'max'  => 300,
 						]
 					],
 				],
@@ -913,6 +935,7 @@ if ( ! class_exists( 'Jet_Smart_Filters_Block_Date_Period' ) ) {
 					'#datepickers-container .datepicker .datepicker--cell' => 'border-radius: {{TOP}} {{RIGHT}} {{BOTTOM}} {{LEFT}};',
 				),
 			]);
+			
 //Days
 			$this->controls_manager->add_control([
 				'id'            => 'calendar_days_heading',
