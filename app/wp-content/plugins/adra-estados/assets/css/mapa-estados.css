@@ -1,0 +1,47 @@
+/* Estado base */
+svg.mapa { position: relative; }
+
+svg.mapa .map__state {
+  transition: fill 0.2s ease, opacity 0.2s ease, transform 0.1s ease;
+  stroke: #f9f9f9;
+  stroke-width: .25;
+  fill: #f3f6f6;
+}
+
+/* Apenas estados com dados (clicáveis) */
+svg.mapa .map__state.is-clickable { cursor: pointer; fill: #3f817a; }
+svg.mapa .map__state.is-clickable:hover { fill: #316962; }
+svg.mapa .map__state.is-clickable:active { transform: translateY(1px); }
+
+svg.mapa .marker-image {
+  opacity: 1;
+  transition: transform .1s ease;
+  pointer-events: none;
+}
+
+svg.mapa g.is-clickable:active .marker-image { transform: translateY(1px); }
+
+svg.mapa .map__state.is-disabled {
+  cursor: not-allowed;
+  fill: #d8d8d8;
+  opacity: .6;
+}
+
+.adra-mapa-container { max-width: 920px; margin: 0 auto; }
+
+/* Modal */
+#adra-estado-modal { position: fixed; inset: 0; display: none; z-index: 9999; }
+#adra-estado-modal.is-open { display: block; }
+#adra-estado-modal .adra-modal__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+#adra-estado-modal .adra-modal__dialog {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(720px, 92vw); background: #fff; border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.2); padding: 20px 24px 26px;
+}
+#adra-estado-modal .adra-modal__close {
+  position: absolute; right: 10px; top: 6px; border: 0; background: transparent;
+  font-size: 28px; line-height: 1; cursor: pointer;
+}
+#adra-estado-modal .adra-modal__title { margin: 0 0 10px; font-size: 20px; font-weight: 700; }
+#adra-estado-modal .adra-modal__body { line-height: 1.55; }
+:root.adra-modal-open, html.adra-modal-open, body.adra-modal-open { overflow: hidden; }
